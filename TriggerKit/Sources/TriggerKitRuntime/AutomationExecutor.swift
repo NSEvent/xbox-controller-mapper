@@ -351,19 +351,18 @@ public final class AutomationExecutor {
 
 			do {
 				try process.run()
+				let data = pipe.fileHandleForReading.readDataToEndOfFile()
+				process.waitUntilExit()
+				let output = String(data: data, encoding: .utf8)?
+					.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+				if process.terminationStatus == 0 {
+					return .success(success)
+				}
+				return .failure(output.isEmpty ? "\(name) exit \(process.terminationStatus)" : output)
 			} catch {
 				return .failure("\(name) launch failed: \(error.localizedDescription)")
 			}
-
-			let data = pipe.fileHandleForReading.readDataToEndOfFile()
-			process.waitUntilExit()
-			let output = String(data: data, encoding: .utf8)?
-				.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-
-			if process.terminationStatus == 0 {
-				return .success(success)
-			}
-			return .failure(output.isEmpty ? "\(name) exit \(process.terminationStatus)" : output)
 		}.value
 	}
 
@@ -731,15 +730,15 @@ private final class ShellCommandRunner: @unchecked Sendable {
 		pgrep.standardError = FileHandle.nullDevice
 		do {
 			try pgrep.run()
+			let data = pipe.fileHandleForReading.readDataToEndOfFile()
+			pgrep.waitUntilExit()
+			let output = String(data: data, encoding: .utf8) ?? ""
+			return output
+				.split(whereSeparator: \.isNewline)
+				.compactMap { pid_t(String($0).trimmingCharacters(in: .whitespacesAndNewlines)) }
 		} catch {
 			return []
 		}
-		let data = pipe.fileHandleForReading.readDataToEndOfFile()
-		pgrep.waitUntilExit()
-		let output = String(data: data, encoding: .utf8) ?? ""
-		return output
-			.split(whereSeparator: \.isNewline)
-			.compactMap { pid_t(String($0).trimmingCharacters(in: .whitespacesAndNewlines)) }
 	}
 }
 

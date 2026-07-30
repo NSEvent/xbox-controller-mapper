@@ -1399,14 +1399,15 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
 
+        let data: Data
         do {
             try process.run()
+            data = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
         } catch {
             NSLog("[UCMouseRelay] Could not run tailscale status: %@", String(describing: error))
             return []
         }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
         guard process.terminationStatus == 0 else { return [] }
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let peers = object["Peer"] as? [String: Any] else {
