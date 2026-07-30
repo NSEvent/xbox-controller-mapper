@@ -65,6 +65,26 @@ struct LayerTabBar: View {
         return Color.purple.opacity(0.8)
     }
 
+	@ViewBuilder
+	private func layerManagementActions(_ layer: Layer) -> some View {
+		Button("Edit Layer...") {
+			editingLayerId = layer.id
+		}
+		Button("Change Color...") {
+			colorEditingColor = layer.dualSenseLEDSettings?.lightBarColor.color ?? .blue
+			colorEditingLayerId = layer.id
+		}
+		Button("Linked Apps...") {
+			appEditingLayer = LayerAppSheetSelection(id: layer.id)
+		}
+		Button("Delete", role: .destructive) {
+			profileManager.deleteLayer(layer)
+			if selectedLayerId == layer.id {
+				selectedLayerId = nil
+			}
+		}
+	}
+
     var body: some View {
 		let presentationState = controllerPresentationState
 
@@ -156,22 +176,7 @@ struct LayerTabBar: View {
 					.accessibilityLabel("Layer \(layer.name), \(layer.activationStyle.displayName) activation")
                     .hoverableButton()
                     .contextMenu {
-						Button("Edit Layer...") {
-                            editingLayerId = layer.id
-                        }
-                        Button("Change Color...") {
-                            colorEditingColor = layer.dualSenseLEDSettings?.lightBarColor.color ?? .blue
-                            colorEditingLayerId = layer.id
-                        }
-						Button("Linked Apps...") {
-							appEditingLayer = LayerAppSheetSelection(id: layer.id)
-						}
-                        Button("Delete", role: .destructive) {
-                            profileManager.deleteLayer(layer)
-                            if selectedLayerId == layer.id {
-                                selectedLayerId = nil
-                            }
-                        }
+						layerManagementActions(layer)
                     }
                     .popover(isPresented: Binding(
                         get: { colorEditingLayerId == layer.id },
@@ -200,6 +205,19 @@ struct LayerTabBar: View {
                         .padding()
                         .frame(width: 280)
                     }
+					Menu {
+						layerManagementActions(layer)
+					} label: {
+						Image(systemName: "ellipsis")
+							.font(.caption)
+							.frame(width: controlHeight, height: controlHeight)
+							.contentShape(Rectangle())
+					}
+					.menuStyle(.borderlessButton)
+					.menuIndicator(.hidden)
+					.fixedSize()
+					.help("Layer options for \(layer.name)")
+					.accessibilityLabel("Layer options for \(layer.name)")
                 }
             }
 

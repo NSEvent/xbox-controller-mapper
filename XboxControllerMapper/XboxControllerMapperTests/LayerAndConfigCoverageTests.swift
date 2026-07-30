@@ -199,6 +199,64 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         XCTAssertEqual(DPadPreset.resolved(from: mappings), .custom)
     }
 
+	func testProfileInitializerDoesNotInferDPadPresetFromMatchingMappings() {
+		var mappings: [ControllerButton: KeyMapping] = [:]
+		DPadPreset.arrows.apply(to: &mappings)
+
+		let profile = Profile(name: "Manual Arrows", buttonMappings: mappings)
+
+		XCTAssertEqual(profile.dpadPreset, .custom)
+	}
+
+	func testProfileDecodeUsesExplicitPresetProvenanceInsteadOfRepeatTiming() throws {
+		var mappings: [ControllerButton: KeyMapping] = [:]
+		DPadPreset.arrows.apply(to: &mappings)
+		for button in DPadPreset.buttons {
+			mappings[button]?.repeatMapping = RepeatMapping(enabled: true, interval: 0.2)
+		}
+		let explicitlySelectedProfile = Profile(
+			name: "Explicit Preset",
+			buttonMappings: mappings,
+			dpadPreset: .arrows
+		)
+
+		let decoded = try JSONDecoder().decode(
+			Profile.self,
+			from: JSONEncoder().encode(explicitlySelectedProfile)
+		)
+
+		XCTAssertEqual(decoded.dpadPreset, .arrows)
+		XCTAssertTrue(decoded.dpadPresetWasExplicitlySelected)
+	}
+
+	func testLegacyProfileWithAmbiguous20HzDPadMappingsMigratesToCustom() throws {
+		var mappings: [ControllerButton: KeyMapping] = [:]
+		DPadPreset.arrows.apply(to: &mappings)
+		let affectedProfile = Profile(
+			name: "Affected 2.6.2 Profile",
+			buttonMappings: mappings,
+			dpadPreset: .arrows
+		)
+		let encoded = try JSONEncoder().encode(affectedProfile)
+		var object = try XCTUnwrap(
+			JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+		)
+		object.removeValue(forKey: "dpadPresetWasExplicitlySelected")
+
+		let decoded = try JSONDecoder().decode(
+			Profile.self,
+			from: JSONSerialization.data(withJSONObject: object)
+		)
+
+		XCTAssertEqual(decoded.dpadPreset, .custom)
+		XCTAssertFalse(decoded.dpadPresetWasExplicitlySelected)
+		XCTAssertTrue(
+			DPadPreset.buttons.allSatisfy {
+				decoded.buttonMappings[$0]?.repeatMapping?.enabled == true
+			}
+		)
+	}
+
     func testStickDirectionPresetAppliesHeldPrimaryActionsWithoutDroppingAlternates() {
         var mappings: [ControllerButton: KeyMapping] = [
             .leftStickUp: KeyMapping(

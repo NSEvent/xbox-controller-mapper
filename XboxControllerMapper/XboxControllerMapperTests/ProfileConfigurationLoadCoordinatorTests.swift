@@ -91,6 +91,36 @@ final class ProfileConfigurationLoadCoordinatorTests: XCTestCase {
         XCTAssertEqual(result.activeProfile?.id, activeId)
     }
 
+	func testLoadMarksLegacyDPadProvenanceMigrationForPersistence() throws {
+		var mappings: [ControllerButton: KeyMapping] = [:]
+		DPadPreset.arrows.apply(to: &mappings)
+		let profile = Profile(
+			name: "Affected 2.6.2 Profile",
+			buttonMappings: mappings,
+			dpadPreset: .arrows
+		)
+		let encoded = try makeConfigData(
+			profiles: [profile],
+			activeProfileId: profile.id,
+			uiScale: nil
+		)
+		var object = try XCTUnwrap(
+			JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+		)
+		object["schemaVersion"] = 4
+		var profiles = try XCTUnwrap(object["profiles"] as? [[String: Any]])
+		profiles[0].removeValue(forKey: "dpadPresetWasExplicitlySelected")
+		object["profiles"] = profiles
+
+		let result = try ProfileConfigurationLoadCoordinator.load(
+			data: JSONSerialization.data(withJSONObject: object)
+		)
+
+		XCTAssertTrue(result.didMigrate)
+		XCTAssertEqual(result.profiles.first?.dpadPreset, .custom)
+		XCTAssertFalse(result.profiles.first?.dpadPresetWasExplicitlySelected ?? true)
+	}
+
     func testLoadReturnsEmptyWhenAllProfilesInvalid() throws {
         var invalid = Profile(id: UUID(), name: "Invalid")
         invalid.name = ""

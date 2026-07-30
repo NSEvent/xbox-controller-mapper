@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Toggleable layers**: Each layer can now use momentary Hold activation or latch on with Toggle activation. Toggle layers stay active after the activator is released, switch directly to another toggle layer, and turn off when their activator is pressed again; held layers still take temporary priority.
 
+### Fixed
+
+- **Custom D-pad repeat mappings**: Individually configured Arrow or WASD directions no longer get mistaken for a preset after the fourth direction is mapped. Ambiguous profiles saved by 2.6.2 migrate conservatively to Custom; selecting Arrows or WASD again records that choice explicitly.
+
 ## [2.6.2] - 2026-07-25
 
 ### Added

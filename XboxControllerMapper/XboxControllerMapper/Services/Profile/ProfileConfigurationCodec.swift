@@ -16,7 +16,9 @@ struct ProfileConfiguration: Codable {
     ///            rewrite) and `ProfileConfigurationMigrationService.migrateTouchpadRegionsToButtons`
     ///            (post-decode, v1 list → v3 buttons + mode flip).
     /// Version 4: Add per-profile controller bindings and input latency mode.
-    static let currentSchemaVersion = 4
+	/// Version 5: Persist whether a D-pad preset was explicitly selected instead
+	///            of inferring provenance from mapping values or repeat timing.
+    static let currentSchemaVersion = 5
 
     var schemaVersion: Int = currentSchemaVersion
     var profiles: [Profile]

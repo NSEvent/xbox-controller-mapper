@@ -136,6 +136,58 @@ final class DPadAndSpecialButtonTests: MappingEngineTestCase {
 		}
 	}
 
+	func testManuallyConfiguredArrowRepeatRemainsRepeatAfterFourthDirection() async throws {
+		await MainActor.run {
+			let profile = Profile(name: "Manual D-pad Repeat")
+			profileManager.setActiveProfile(profile)
+
+			for (button, keyCode) in [
+				(ControllerButton.dpadUp, KeyCodeMapping.upArrow),
+				(.dpadLeft, KeyCodeMapping.leftArrow),
+				(.dpadRight, KeyCodeMapping.rightArrow),
+				(.dpadDown, KeyCodeMapping.downArrow)
+			] {
+				profileManager.setMapping(
+					KeyMapping(
+						keyCode: keyCode,
+						repeatMapping: RepeatMapping(enabled: true, interval: 0.05)
+					),
+					for: button
+				)
+			}
+			XCTAssertEqual(profileManager.activeProfile?.dpadPreset, .custom)
+		}
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		await MainActor.run {
+			controllerService.buttonPressed(.dpadUp)
+		}
+		await waitForTasks(0.2)
+
+		await MainActor.run {
+			controllerService.buttonReleased(.dpadUp)
+		}
+		await waitForTasks()
+
+		await MainActor.run {
+			let repeatCount = mockInputSimulator.events.filter { event in
+				if case .executeMapping(let mapping) = event {
+					return mapping.keyCode == KeyCodeMapping.upArrow
+				}
+				return false
+			}.count
+			let usedPresetHoldPath = mockInputSimulator.events.contains { event in
+				if case .startHoldMapping(let mapping) = event {
+					return mapping.keyCode == KeyCodeMapping.upArrow
+				}
+				return false
+			}
+
+			XCTAssertGreaterThan(repeatCount, 1)
+			XCTAssertFalse(usedPresetHoldPath)
+		}
+	}
+
     // MARK: - Trigger Button Mapping Tests (High Priority)
 
     /// Tests left trigger as a button (digital, not analog)

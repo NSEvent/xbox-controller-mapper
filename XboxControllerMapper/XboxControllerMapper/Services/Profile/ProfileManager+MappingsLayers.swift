@@ -9,7 +9,7 @@ extension ProfileManager {
         guard var targetProfile = profile ?? activeProfile else { return }
 
         targetProfile.buttonMappings[button] = mapping
-        targetProfile.updateDPadPresetIfNeeded(afterChanging: button)
+		targetProfile.markDPadPresetCustomIfNeeded(afterChanging: button)
 		targetProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: button)
         updateProfile(targetProfile)
     }
@@ -18,7 +18,7 @@ extension ProfileManager {
         guard var targetProfile = profile ?? activeProfile else { return }
 
         targetProfile.buttonMappings.removeValue(forKey: button)
-        targetProfile.updateDPadPresetIfNeeded(afterChanging: button)
+		targetProfile.markDPadPresetCustomIfNeeded(afterChanging: button)
 		targetProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: button)
         updateProfile(targetProfile)
     }
@@ -42,10 +42,7 @@ extension ProfileManager {
 	func setDPadPreset(_ preset: DPadPreset, in profile: Profile? = nil) {
 		guard var targetProfile = profile ?? activeProfile else { return }
 
-		if preset != .custom {
-			preset.apply(to: &targetProfile.buttonMappings)
-		}
-		targetProfile.dpadPreset = preset
+		targetProfile.selectDPadPreset(preset)
 		updateProfile(targetProfile)
 	}
 
@@ -102,8 +99,8 @@ extension ProfileManager {
             targetProfile.buttonMappings.removeValue(forKey: button2)
         }
 
-        targetProfile.updateDPadPresetIfNeeded(afterChanging: button1)
-        targetProfile.updateDPadPresetIfNeeded(afterChanging: button2)
+		targetProfile.markDPadPresetCustomIfNeeded(afterChanging: button1)
+		targetProfile.markDPadPresetCustomIfNeeded(afterChanging: button2)
 		targetProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: button1)
 		targetProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: button2)
         updateProfile(targetProfile)

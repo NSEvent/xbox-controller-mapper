@@ -17,7 +17,9 @@ enum ProfileConfigurationLoadCoordinator {
 
     static func load(data: Data) throws -> ProfileConfigurationLoadResult {
         let config = try ProfileConfigurationCodec.decode(from: data)
-        var didMigrate = false
+		// Profile decoding performs the conservative v4 → v5 D-pad migration.
+		// Mark it dirty so the newly explicit provenance is persisted immediately.
+		var didMigrate = config.schemaVersion < 5
 
         let (touchpadSettingsMigrated, migratedTouchpadSettings) = ProfileConfigurationMigrationService
             .migrateTouchpadSettingsIfNeeded(in: config.profiles)

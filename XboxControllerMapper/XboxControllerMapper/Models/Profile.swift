@@ -298,6 +298,10 @@ struct Profile: Codable, Identifiable, Equatable {
     /// Last recognized D-pad quick preset. Individual D-pad edits flip this to `.custom`.
     var dpadPreset: DPadPreset
 
+	/// Explicit provenance for preset behavior. Repeat timing is not provenance:
+	/// users can manually select the same 20 Hz rate as the preset picker.
+	var dpadPresetWasExplicitlySelected: Bool
+
     /// Chord mappings
     var chordMappings: [ChordMapping]
 
@@ -410,7 +414,8 @@ struct Profile: Codable, Identifiable, Equatable {
         self.createdAt = Date()
         self.modifiedAt = Date()
         self.buttonMappings = buttonMappings
-        self.dpadPreset = dpadPreset == .custom ? DPadPreset.resolved(from: buttonMappings) : dpadPreset
+		self.dpadPreset = dpadPreset
+		self.dpadPresetWasExplicitlySelected = dpadPreset != .custom
         self.chordMappings = chordMappings
         self.sequenceMappings = sequenceMappings
         self.joystickSettings = joystickSettings
@@ -634,7 +639,8 @@ extension Profile {
 	enum CodingKeys: String, CodingKey {
 			case id, name, isDefault, icon, createdAt, modifiedAt
 			case controllerPreviewLayout
-			case buttonMappings, dpadPreset, chordMappings, sequenceMappings, joystickSettings
+			case buttonMappings, dpadPreset, dpadPresetWasExplicitlySelected
+			case chordMappings, sequenceMappings, joystickSettings
 		case dualSenseLEDSettings, linkedApps, appLayerBindings, linkedControllers, inputLatencyMode, macros, scripts
 	case inheritedOnScreenKeyboardProfileId
         case onScreenKeyboardSettings, gestureMappings, layers, touchpadRegionMappings, commandWheelActions
@@ -672,9 +678,24 @@ extension Profile {
                 return nil
             }
             return (button, value)
-        })
+		})
 		Self.applyOuraGestureDefaults(to: &buttonMappings)
-        dpadPreset = try container.decode(.dpadPreset, default: DPadPreset.resolved(from: buttonMappings))
+		let storedDPadPreset = try container.decode(
+			.dpadPreset,
+			default: DPadPreset.resolved(from: buttonMappings)
+		)
+		let storedPresetWasExplicitlySelected = try container.decode(
+			.dpadPresetWasExplicitlySelected,
+			default: false
+		)
+		// 2.6.2 inferred presets from matching key values. Its saved data cannot
+		// distinguish a picker selection from a manual 20 Hz mapping, so legacy
+		// profiles conservatively become Custom until the user selects a preset.
+		let hasValidExplicitPreset = storedPresetWasExplicitlySelected
+			&& storedDPadPreset != .custom
+			&& DPadPreset.resolved(from: buttonMappings) == storedDPadPreset
+		dpadPreset = hasValidExplicitPreset ? storedDPadPreset : .custom
+		dpadPresetWasExplicitlySelected = hasValidExplicitPreset
 
         chordMappings = try container.decode(.chordMappings, default: [])
         sequenceMappings = try container.decode(.sequenceMappings, default: [])
@@ -782,6 +803,7 @@ extension Profile {
         let stringKeyedMappings = Dictionary(uniqueKeysWithValues: buttonMappings.map { ($0.key.rawValue, $0.value) })
         try container.encode(stringKeyedMappings, forKey: .buttonMappings)
         try container.encode(dpadPreset, forKey: .dpadPreset)
+		try container.encode(dpadPresetWasExplicitlySelected, forKey: .dpadPresetWasExplicitlySelected)
 
         try container.encode(chordMappings, forKey: .chordMappings)
         try container.encode(sequenceMappings, forKey: .sequenceMappings)
@@ -962,9 +984,18 @@ extension Profile {
         )
     }
 
-    mutating func updateDPadPresetIfNeeded(afterChanging button: ControllerButton) {
+	mutating func selectDPadPreset(_ preset: DPadPreset) {
+		if preset != .custom {
+			preset.apply(to: &buttonMappings)
+		}
+		dpadPreset = preset
+		dpadPresetWasExplicitlySelected = preset != .custom
+	}
+
+    mutating func markDPadPresetCustomIfNeeded(afterChanging button: ControllerButton) {
         guard DPadPreset.buttons.contains(button) else { return }
-        dpadPreset = DPadPreset.resolved(from: buttonMappings)
+		dpadPreset = .custom
+		dpadPresetWasExplicitlySelected = false
     }
 
     /// Display name for a macro reference: profile macros first, then the
@@ -984,7 +1015,8 @@ extension Profile {
 			lhs.icon == rhs.icon &&
 			lhs.controllerPreviewLayout == rhs.controllerPreviewLayout &&
 			lhs.buttonMappings == rhs.buttonMappings &&
-        lhs.dpadPreset == rhs.dpadPreset &&
+		lhs.dpadPreset == rhs.dpadPreset &&
+		lhs.dpadPresetWasExplicitlySelected == rhs.dpadPresetWasExplicitlySelected &&
         lhs.chordMappings == rhs.chordMappings &&
         lhs.sequenceMappings == rhs.sequenceMappings &&
         lhs.joystickSettings == rhs.joystickSettings &&

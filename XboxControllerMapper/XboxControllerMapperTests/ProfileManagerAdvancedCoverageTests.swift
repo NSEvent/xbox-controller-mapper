@@ -1,4 +1,5 @@
 import XCTest
+import CoreGraphics
 @testable import ControllerKeys
 
 @MainActor
@@ -37,6 +38,51 @@ final class ProfileManagerAdvancedCoverageTests: XCTestCase {
         let trailingIds = Array((profileManager.activeProfile?.chordMappings.map(\.id) ?? []).suffix(3))
         XCTAssertEqual(trailingIds, [chordB.id, chordC.id, chordA.id])
     }
+
+	func testEditingFourthDPadArrowMappingKeepsPresetCustom() {
+		let profile = Profile(name: "Manual D-pad")
+		profileManager.profiles = [profile]
+		profileManager.setActiveProfile(profile)
+
+		let arrowMappings: [(ControllerButton, CGKeyCode)] = [
+			(.dpadUp, KeyCodeMapping.upArrow),
+			(.dpadLeft, KeyCodeMapping.leftArrow),
+			(.dpadRight, KeyCodeMapping.rightArrow),
+			(.dpadDown, KeyCodeMapping.downArrow)
+		]
+		for (button, keyCode) in arrowMappings {
+			profileManager.setMapping(
+				KeyMapping(
+					keyCode: keyCode,
+					repeatMapping: RepeatMapping(enabled: true, interval: 0.1)
+				),
+				for: button
+			)
+		}
+
+		XCTAssertEqual(profileManager.activeProfile?.dpadPreset, .custom)
+		XCTAssertFalse(profileManager.activeProfile?.dpadPresetWasExplicitlySelected ?? true)
+		XCTAssertTrue(
+			arrowMappings.allSatisfy { button, _ in
+				profileManager.getMapping(for: button)?.repeatMapping?.enabled == true
+			}
+		)
+	}
+
+	func testDPadPresetPickerRetainsExplicitPreset() {
+		let profile = Profile(name: "Preset D-pad")
+		profileManager.profiles = [profile]
+		profileManager.setActiveProfile(profile)
+
+		profileManager.setDPadPreset(.arrows)
+
+		XCTAssertEqual(profileManager.activeProfile?.dpadPreset, .arrows)
+		XCTAssertTrue(profileManager.activeProfile?.dpadPresetWasExplicitlySelected ?? false)
+		XCTAssertEqual(
+			profileManager.getMapping(for: .dpadDown)?.keyCode,
+			KeyCodeMapping.downArrow
+		)
+	}
 
 	func testControllerPreviewLayoutPersistsPerProfile() {
 		let first = Profile(name: "DS4", controllerPreviewLayout: .dualShock)
