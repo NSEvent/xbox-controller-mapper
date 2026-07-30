@@ -346,6 +346,7 @@ class ProfileManager: ObservableObject {
 
     func updateProfile(_ profile: Profile) {
         var updatedProfile = profile
+		updatedProfile.reconcileDPadPreset()
         updatedProfile.modifiedAt = Date()
         updatedProfile.sharedMacroSnapshots = SharedMacroSnapshotPolicy.syncedSnapshots(
             for: updatedProfile,

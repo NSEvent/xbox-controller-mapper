@@ -435,6 +435,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.touchpadInputMode = touchpadInputMode
         self.commandWheelActions = commandWheelActions
         self.sharedMacroSnapshots = sharedMacroSnapshots
+		reconcileDPadPreset()
     }
 
     /// Validates the profile for sanity
@@ -992,11 +993,18 @@ extension Profile {
 		dpadPresetWasExplicitlySelected = preset != .custom
 	}
 
-    mutating func markDPadPresetCustomIfNeeded(afterChanging button: ControllerButton) {
-        guard DPadPreset.buttons.contains(button) else { return }
-		dpadPreset = .custom
-		dpadPresetWasExplicitlySelected = false
-    }
+	/// Keeps preset provenance only while its four primary actions still match.
+	/// Repeat timing, haptics, and alternate actions do not change which preset
+	/// the user explicitly selected.
+	mutating func reconcileDPadPreset() {
+		guard dpadPresetWasExplicitlySelected,
+			  dpadPreset != .custom,
+			  DPadPreset.resolved(from: buttonMappings) == dpadPreset else {
+			dpadPreset = .custom
+			dpadPresetWasExplicitlySelected = false
+			return
+		}
+	}
 
     /// Display name for a macro reference: profile macros first, then the
     /// embedded shared-library snapshot. Snapshots re-sync on every profile

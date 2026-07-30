@@ -9,7 +9,6 @@ extension ProfileManager {
         guard var targetProfile = profile ?? activeProfile else { return }
 
         targetProfile.buttonMappings[button] = mapping
-		targetProfile.markDPadPresetCustomIfNeeded(afterChanging: button)
 		targetProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: button)
         updateProfile(targetProfile)
     }
@@ -18,7 +17,6 @@ extension ProfileManager {
         guard var targetProfile = profile ?? activeProfile else { return }
 
         targetProfile.buttonMappings.removeValue(forKey: button)
-		targetProfile.markDPadPresetCustomIfNeeded(afterChanging: button)
 		targetProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: button)
         updateProfile(targetProfile)
     }
@@ -99,8 +97,6 @@ extension ProfileManager {
             targetProfile.buttonMappings.removeValue(forKey: button2)
         }
 
-		targetProfile.markDPadPresetCustomIfNeeded(afterChanging: button1)
-		targetProfile.markDPadPresetCustomIfNeeded(afterChanging: button2)
 		targetProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: button1)
 		targetProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: button2)
         updateProfile(targetProfile)

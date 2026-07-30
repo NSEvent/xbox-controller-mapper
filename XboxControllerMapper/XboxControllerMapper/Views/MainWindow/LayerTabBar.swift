@@ -47,7 +47,7 @@ struct LayerTabBar: View {
     /// with layer count since each extra layer tab needs room for its label.
     private var compactThreshold: CGFloat {
         let layerCount = profileManager.activeProfile?.layers.count ?? 0
-        return 470 + CGFloat(layerCount) * 96
+		return 510 + CGFloat(layerCount) * 96
     }
 
     /// True once measured and the bar is too narrow for full text labels.
@@ -205,20 +205,23 @@ struct LayerTabBar: View {
                         .padding()
                         .frame(width: 280)
                     }
-					Menu {
-						layerManagementActions(layer)
-					} label: {
-						Image(systemName: "ellipsis")
-							.font(.caption)
-							.frame(width: controlHeight, height: controlHeight)
-							.contentShape(Rectangle())
+
+					if selectedLayerId == layer.id {
+						Menu {
+							layerManagementActions(layer)
+						} label: {
+							Image(systemName: "ellipsis")
+								.font(.caption)
+								.frame(width: controlHeight, height: controlHeight)
+								.contentShape(Rectangle())
+						}
+						.menuStyle(.borderlessButton)
+						.menuIndicator(.hidden)
+						.fixedSize()
+						.help("Layer options for \(layer.name)")
+						.accessibilityLabel("Layer options for \(layer.name)")
 					}
-					.menuStyle(.borderlessButton)
-					.menuIndicator(.hidden)
-					.fixedSize()
-					.help("Layer options for \(layer.name)")
-					.accessibilityLabel("Layer options for \(layer.name)")
-                }
+				}
             }
 
             // Add Layer button (if under max)

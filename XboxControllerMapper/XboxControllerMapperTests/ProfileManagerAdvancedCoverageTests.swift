@@ -84,6 +84,41 @@ final class ProfileManagerAdvancedCoverageTests: XCTestCase {
 		)
 	}
 
+	func testEditingPresetRepeatRatePreservesExplicitPreset() {
+		let profile = Profile.createDefault()
+		profileManager.profiles = [profile]
+		profileManager.setActiveProfile(profile)
+
+		var mapping = profileManager.getMapping(for: .dpadUp) ?? KeyMapping()
+		mapping.repeatMapping = RepeatMapping(enabled: true, interval: 0.2)
+		profileManager.setMapping(mapping, for: .dpadUp)
+
+		XCTAssertEqual(profileManager.activeProfile?.dpadPreset, .arrows)
+		XCTAssertTrue(profileManager.activeProfile?.dpadPresetWasExplicitlySelected ?? false)
+		XCTAssertEqual(
+			profileManager.getMapping(for: .dpadUp)?.repeatMapping?.interval,
+			0.2
+		)
+	}
+
+	func testRecommendationChangingPresetPrimaryMappingReconcilesToCustom() {
+		let profile = Profile.createDefault()
+		profileManager.profiles = [profile]
+		profileManager.setActiveProfile(profile)
+
+		profileManager.applyRecommendation(
+			BindingRecommendation(
+				type: .swap(button1: .dpadUp, button2: .a),
+				priority: 1,
+				actionDescription1: "Up",
+				actionDescription2: "Click"
+			)
+		)
+
+		XCTAssertEqual(profileManager.activeProfile?.dpadPreset, .custom)
+		XCTAssertFalse(profileManager.activeProfile?.dpadPresetWasExplicitlySelected ?? true)
+	}
+
 	func testControllerPreviewLayoutPersistsPerProfile() {
 		let first = Profile(name: "DS4", controllerPreviewLayout: .dualShock)
 		let second = Profile(name: "Micro", controllerPreviewLayout: .eightBitDoMicro)
