@@ -260,7 +260,12 @@ extension ProfileManager {
 
     /// Creates a new layer with the given name and optional activator button.
     /// Returns nil if max layers reached or activator already used.
-    func createLayer(name: String, activatorButton: ControllerButton? = nil, in profile: Profile? = nil) -> Layer? {
+    func createLayer(
+		name: String,
+		activatorButton: ControllerButton? = nil,
+		activationStyle: LayerActivationStyle = .hold,
+		in profile: Profile? = nil
+    ) -> Layer? {
         guard var targetProfile = profile ?? activeProfile else { return nil }
 
         // Check max layers limit
@@ -278,7 +283,12 @@ extension ProfileManager {
         ledSettings.lightBarColor = LayerColorPalette.nextColor(usedBy: targetProfile.layers)
         ledSettings.lightBarEnabled = true
 
-        let layer = Layer(name: name, activatorButton: activatorButton, dualSenseLEDSettings: ledSettings)
+		let layer = Layer(
+			name: name,
+			activatorButton: activatorButton,
+			activationStyle: activationStyle,
+			dualSenseLEDSettings: ledSettings
+		)
         targetProfile.layers.append(layer)
         updateProfile(targetProfile)
         return layer

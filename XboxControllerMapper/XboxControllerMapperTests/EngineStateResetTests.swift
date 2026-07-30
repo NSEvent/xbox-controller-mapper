@@ -106,6 +106,7 @@ final class EngineStateResetTests: XCTestCase {
         state.dpadNavigationButton = dummyButton
 
         state.activeLayerIds = [UUID()]
+		state.latchedLayerId = UUID()
         state.buttonsActingAsLayerActivators = [dummyButton]
         state.pressConsumedByAction = [dummyButton]
 		state.cancelledPhysicalButtonReleases = [dummyButton]
@@ -206,6 +207,7 @@ final class EngineStateResetTests: XCTestCase {
         XCTAssertNil(state.dpadNavigationButton, "[\(label)] dpadNavigationButton")
 
         XCTAssertTrue(state.activeLayerIds.isEmpty, "[\(label)] activeLayerIds — locked-in layer would persist")
+		XCTAssertNil(state.latchedLayerId, "[\(label)] latchedLayerId — toggled layer would persist")
         XCTAssertTrue(state.buttonsActingAsLayerActivators.isEmpty, "[\(label)] buttonsActingAsLayerActivators")
         XCTAssertTrue(state.pressConsumedByAction.isEmpty, "[\(label)] pressConsumedByAction")
 		XCTAssertTrue(

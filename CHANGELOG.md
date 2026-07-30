@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Toggleable layers**: Each layer can now use momentary Hold activation or latch on with Toggle activation. Toggle layers stay active after the activator is released, switch directly to another toggle layer, and turn off when their activator is pressed again; held layers still take temporary priority.
+
 ## [2.6.2] - 2026-07-25
 
 ### Added

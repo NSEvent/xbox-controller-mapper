@@ -45,7 +45,7 @@ Pair any button with a voice transcription app (mine is the open-source VoiceInk
 **Mapping**
 - Buttons → shortcuts, with long-hold, double-tap, and repeat-while-held variants
 - Chords (multi-button), sequences (ordered combos), and motion gestures (tilt/steer)
-- Layers: alternate mapping sets while holding an activator button, with per-layer stick modes
+- Layers: alternate mapping sets with per-layer Hold or Toggle activation and stick modes
 - Custom stick directions — WASD/arrow presets or bind anything to any of 8 directions
 - Left/right modifier distinction (left ⌘ vs right ⌘)
 - Realtime input mode: low-latency key-down/key-up passthrough for games

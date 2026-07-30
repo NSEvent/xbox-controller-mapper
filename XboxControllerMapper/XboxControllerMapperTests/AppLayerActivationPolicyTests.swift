@@ -58,12 +58,17 @@ final class AppLayerActivationPolicyTests: XCTestCase {
 	func testEffectiveLayerOrderPlacesManualLayerAboveAppLayer() {
 		let state = MappingEngine.EngineState()
 		let appLayerId = UUID()
+		let latchedLayerId = UUID()
 		let manualLayerId = UUID()
 
 		state.appActivatedLayerId = appLayerId
+		state.latchedLayerId = latchedLayerId
 		state.activeLayerIds = [manualLayerId]
 
-		XCTAssertEqual(state.effectiveActiveLayerIds, [appLayerId, manualLayerId])
+		XCTAssertEqual(
+			state.effectiveActiveLayerIds,
+			[appLayerId, latchedLayerId, manualLayerId]
+		)
 	}
 
 	func testEffectiveLayerOrderDeduplicatesSameAppAndManualLayer() {
@@ -71,6 +76,7 @@ final class AppLayerActivationPolicyTests: XCTestCase {
 		let layerId = UUID()
 
 		state.appActivatedLayerId = layerId
+		state.latchedLayerId = layerId
 		state.activeLayerIds = [layerId]
 
 		XCTAssertEqual(state.effectiveActiveLayerIds, [layerId])

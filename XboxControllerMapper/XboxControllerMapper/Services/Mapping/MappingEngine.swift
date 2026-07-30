@@ -599,8 +599,89 @@ class MappingEngine: ObservableObject {
 
     private enum ButtonPressStartState {
         case blocked
+		case controllerLock
         case layerActivated(profile: Profile, layerId: UUID)
+		case layerToggled(
+			profile: Profile,
+			layerId: UUID,
+			isActive: Bool,
+			cleanup: RoutingBoundaryCleanup
+		)
         case ready(profile: Profile, lastTap: CFAbsoluteTime?)
+    }
+
+    private enum LayerActivatorPressResult {
+		case regular
+		case controllerLock
+		case held(layerId: UUID)
+		case toggled(layerId: UUID, isActive: Bool, cleanup: RoutingBoundaryCleanup)
+    }
+
+    /// Applies a layer activator while `state.lock` is held.
+    ///
+    /// Held layers temporarily sit above a latched layer. A different manual
+    /// layer may still claim another activator as an explicit mapping; otherwise
+    /// toggle-style activators switch directly between latched layers.
+    nonisolated private func applyLayerActivatorPress(
+		_ button: ControllerButton,
+		profile: Profile
+    ) -> LayerActivatorPressResult {
+		guard let layerId = state.layerActivatorMap[button],
+			  let layer = state.layersById[layerId] else {
+			return .regular
+		}
+
+		if profile.buttonMappings[button]?.keyCode == KeyCodeMapping.controllerLock {
+			state.pressConsumedByAction.insert(button)
+			return .controllerLock
+		}
+
+		if let heldLayerId = state.activeLayerIds.last, heldLayerId != layerId {
+			return .regular
+		}
+
+		if let latchedLayerId = state.latchedLayerId,
+		   latchedLayerId != layerId,
+		   let latchedLayer = state.layersById[latchedLayerId],
+		   let mapping = latchedLayer.buttonMappings[button],
+		   !mapping.isEmpty {
+			return .regular
+		}
+
+		switch layer.activationStyle {
+		case .hold:
+			state.activeLayerIds.removeAll { $0 == layerId }
+			state.activeLayerIds.append(layerId)
+			state.buttonsActingAsLayerActivators.insert(button)
+			return .held(layerId: layerId)
+
+		case .toggle:
+			let nextLatchedLayerId = state.latchedLayerId == layerId ? nil : layerId
+			let nextEffectiveLayerIds = state.effectiveActiveLayerIds(
+				appActivatedLayerId: state.appActivatedLayerId,
+				latchedLayerId: nextLatchedLayerId
+			)
+			let preservedHeldButtons = unchangedHeldButtons(
+				in: state,
+				nextEffectiveLayerIds: nextEffectiveLayerIds
+			)
+			let cleanup = RoutingBoundaryCleanup(
+				state: state,
+				preservingHeldActionsFor: preservedHeldButtons
+			)
+			state.resetTransientInputState(
+				preservingManualLayers: true,
+				preservingUIOverlays: true,
+				consumingPendingButtonReleases: true,
+				preservingHeldActionsFor: preservedHeldButtons
+			)
+			state.latchedLayerId = nextLatchedLayerId
+			return .toggled(
+				layerId: layerId,
+				isActive: nextLatchedLayerId == layerId,
+				cleanup: cleanup
+			)
+		}
     }
 
     nonisolated private func beginButtonPress(_ button: ControllerButton) -> ButtonPressStartState {
@@ -615,22 +696,21 @@ class MappingEngine: ObservableObject {
             }
 
             let lastTap = state.lastTapTime[button]
-            if let layerId = state.layerActivatorMap[button] {
-                // If a different layer is already active, don't activate this button's
-                // layer. Instead, treat it as a regular button so it can use the active
-                // layer's mapping or its base mapping. This frees up other layer activators
-                // for remapping within the current layer.
-                if let activeLayerId = state.activeLayerIds.last, activeLayerId != layerId {
-                    return .ready(profile: profile, lastTap: lastTap)
-                }
-
-                state.activeLayerIds.removeAll { $0 == layerId }
-                state.activeLayerIds.append(layerId)
-                state.buttonsActingAsLayerActivators.insert(button)
+			switch applyLayerActivatorPress(button, profile: profile) {
+			case .regular:
+				return .ready(profile: profile, lastTap: lastTap)
+			case .controllerLock:
+				return .controllerLock
+			case .held(let layerId):
                 return .layerActivated(profile: profile, layerId: layerId)
+			case .toggled(let layerId, let isActive, let cleanup):
+				return .layerToggled(
+					profile: profile,
+					layerId: layerId,
+					isActive: isActive,
+					cleanup: cleanup
+				)
             }
-
-            return .ready(profile: profile, lastTap: lastTap)
         }
     }
 
@@ -648,7 +728,7 @@ class MappingEngine: ObservableObject {
 		let isDPadPresetDirection = profile.dpadPreset.primaryKeyCode(for: button) == mapping?.keyCode
 		let isOtherLayerActivatorPress = state.lock.withLock { () -> Bool in
 			guard let activatorLayerId = state.layerActivatorMap[button],
-				  let activeLayerId = state.activeLayerIds.last else {
+				  let activeLayerId = state.activeLayerIds.last ?? state.latchedLayerId else {
 				return false
 			}
 			return activeLayerId != activatorLayerId
@@ -699,30 +779,39 @@ class MappingEngine: ObservableObject {
         case .blocked:
             return
 
+		case .controllerLock:
+			_ = performLockToggle()
+			inputLogService?.log(buttons: [button], type: .singlePress, action: "Controller Lock")
+			return
+
         case .layerActivated(let profile, let layerId):
-            // Check if this activator button is also mapped to controller lock in the base layer.
-            // Controller lock must always take precedence over layer activation.
-            if let baseMapping = profile.buttonMappings[button],
-               baseMapping.keyCode == KeyCodeMapping.controllerLock {
-                _ = performLockToggle()
-                inputLogService?.log(buttons: [button], type: .singlePress, action: "Controller Lock")
-                // Undo the layer activation that beginButtonPress() already performed
-                state.lock.withLock {
-                    state.activeLayerIds.removeAll { $0 == layerId }
-                    state.buttonsActingAsLayerActivators.remove(button)
-                }
-                return
-            }
-				if let layer = profile.layers.first(where: { $0.id == layerId }) {
-					#if DEBUG
-					print("🔷 Layer activated: \(layer.name)")
-					#endif
-					inputLogService?.log(buttons: [button], type: .singlePress, action: "Layer: \(layer.name)")
-				}
-				DispatchQueue.main.async { [weak self] in
-					self?.applyEffectiveLayerLED()
-				}
-				return
+			if let layer = profile.layers.first(where: { $0.id == layerId }) {
+				#if DEBUG
+				print("🔷 Layer activated: \(layer.name)")
+				#endif
+				inputLogService?.log(buttons: [button], type: .singlePress, action: "Layer: \(layer.name)")
+			}
+			DispatchQueue.main.async { [weak self] in
+				self?.applyEffectiveLayerLED()
+			}
+			return
+
+		case .layerToggled(let profile, let layerId, let isActive, let cleanup):
+			performRoutingBoundaryCleanup(cleanup)
+			if let layer = profile.layers.first(where: { $0.id == layerId }) {
+				#if DEBUG
+				print("🔷 Layer toggled \(isActive ? "on" : "off"): \(layer.name)")
+				#endif
+				inputLogService?.log(
+					buttons: [button],
+					type: .singlePress,
+					action: isActive ? "Layer: \(layer.name)" : "Layer Off: \(layer.name)"
+				)
+			}
+			DispatchQueue.main.async { [weak self] in
+				self?.applyEffectiveLayerLED()
+			}
+			return
 
         case .ready(let profile, let lastTap):
             if let heldDirectionChord = consumeHeldJoystickDirectionChord(for: button) {
@@ -1494,6 +1583,20 @@ class MappingEngine: ObservableObject {
         }
     }
 
+    private struct ChordLayerChange {
+		let button: ControllerButton
+		let layerId: UUID
+		let isActive: Bool
+		let cleanup: RoutingBoundaryCleanup?
+    }
+
+    private struct ChordStartState {
+		let profile: Profile
+		let chordButtons: Set<ControllerButton>
+		let layerChanges: [ChordLayerChange]
+		let controllerLockButtons: [ControllerButton]
+    }
+
     /// - Precondition: Must be called on inputQueue
     nonisolated private func handleChord(_ buttons: Set<ControllerButton>) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
@@ -1503,7 +1606,7 @@ class MappingEngine: ObservableObject {
         }
 		let buttons = beginPhysicalButtonResolutions(for: buttons)
 
-        guard let (profile, chordButtons) = state.lock.withLock({ () -> (Profile, Set<ControllerButton>)? in
+		guard let startState = state.lock.withLock({ () -> ChordStartState? in
             guard state.isEnabled, let profile = state.activeProfile else {
                 #if DEBUG
                 if state.isEnabled && state.activeProfile == nil {
@@ -1514,22 +1617,43 @@ class MappingEngine: ObservableObject {
             }
 
             var layerActivators: Set<ControllerButton> = []
-            for button in buttons {
-                if let layerId = state.layerActivatorMap[button] {
-                    // Same logic as beginButtonPress: if a different layer is already active,
-                    // don't activate this button's layer — free it up for remapping.
-                    if let activeLayerId = state.activeLayerIds.last, activeLayerId != layerId {
-                        continue  // Skip — treat as regular button in the chord
-                    }
+			var layerChanges: [ChordLayerChange] = []
+			var controllerLockButtons: [ControllerButton] = []
+			var consumedLayerActivator = false
+			for button in buttons.sorted(by: { $0.rawValue < $1.rawValue }) {
+				guard state.layerActivatorMap[button] != nil, !consumedLayerActivator else {
+					continue
+				}
+
+				switch applyLayerActivatorPress(button, profile: profile) {
+				case .regular:
+					continue
+				case .controllerLock:
                     layerActivators.insert(button)
-                    state.activeLayerIds.removeAll { $0 == layerId }
-                    state.activeLayerIds.append(layerId)
-                    state.buttonsActingAsLayerActivators.insert(button)
-                    #if DEBUG
-                    if let layer = profile.layers.first(where: { $0.id == layerId }) {
-                        print("🔷 Layer activated (via chord): \(layer.name)")
-                    }
-                    #endif
+					controllerLockButtons.append(button)
+					consumedLayerActivator = true
+				case .held(let layerId):
+					layerActivators.insert(button)
+					layerChanges.append(
+						ChordLayerChange(
+							button: button,
+							layerId: layerId,
+							isActive: true,
+							cleanup: nil
+						)
+					)
+					consumedLayerActivator = true
+				case .toggled(let layerId, let isActive, let cleanup):
+					layerActivators.insert(button)
+					layerChanges.append(
+						ChordLayerChange(
+							button: button,
+							layerId: layerId,
+							isActive: isActive,
+							cleanup: cleanup
+						)
+					)
+					consumedLayerActivator = true
                 }
             }
 
@@ -1549,11 +1673,44 @@ class MappingEngine: ObservableObject {
 				state.smoothScrollMappings.removeValue(forKey: button)
             }
 
-            return (profile, chordButtons)
+			return ChordStartState(
+				profile: profile,
+				chordButtons: chordButtons,
+				layerChanges: layerChanges,
+				controllerLockButtons: controllerLockButtons
+			)
         }) else {
             return
         }
 
+		for button in startState.controllerLockButtons {
+			_ = performLockToggle()
+			inputLogService?.log(buttons: [button], type: .singlePress, action: "Controller Lock")
+		}
+
+		for change in startState.layerChanges {
+			if let cleanup = change.cleanup {
+				performRoutingBoundaryCleanup(cleanup)
+			}
+			if let layer = startState.profile.layers.first(where: { $0.id == change.layerId }) {
+				#if DEBUG
+				print("🔷 Layer \(change.isActive ? "activated" : "deactivated") via chord: \(layer.name)")
+				#endif
+				inputLogService?.log(
+					buttons: [change.button],
+					type: .singlePress,
+					action: change.isActive ? "Layer: \(layer.name)" : "Layer Off: \(layer.name)"
+				)
+			}
+		}
+		if !startState.layerChanges.isEmpty {
+			DispatchQueue.main.async { [weak self] in
+				self?.applyEffectiveLayerLED()
+			}
+		}
+
+		let profile = startState.profile
+		let chordButtons = startState.chordButtons
         if chordButtons.isEmpty {
             return
         }

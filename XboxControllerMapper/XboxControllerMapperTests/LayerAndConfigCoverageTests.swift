@@ -8,6 +8,7 @@ final class LayerAndConfigCoverageTests: XCTestCase {
 
         XCTAssertEqual(layer.name, "Combat")
         XCTAssertNil(layer.activatorButton)
+		XCTAssertEqual(layer.activationStyle, .hold)
         XCTAssertTrue(layer.buttonMappings.isEmpty)
     }
 
@@ -29,9 +30,37 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         XCTAssertEqual(decoded.id, id)
         XCTAssertEqual(decoded.name, "Navigation")
         XCTAssertEqual(decoded.activatorButton, .leftBumper)
+		XCTAssertEqual(decoded.activationStyle, .hold)
         XCTAssertEqual(decoded.buttonMappings[.a]?.keyCode, 0)
         XCTAssertEqual(decoded.buttonMappings[.b]?.keyCode, 11)
         XCTAssertEqual(decoded.buttonMappings[.b]?.modifiers, .command)
+    }
+
+    func testLayerCodableRoundTripPreservesToggleActivation() throws {
+		let layer = Layer(
+			name: "Editing",
+			activatorButton: .rightTrigger,
+			activationStyle: .toggle
+		)
+
+		let decoded = try JSONDecoder().decode(
+			Layer.self,
+			from: JSONEncoder().encode(layer)
+		)
+
+		XCTAssertEqual(decoded.activationStyle, .toggle)
+    }
+
+    func testLegacyAndUnknownLayerActivationStylesDefaultToHold() throws {
+		let id = UUID()
+		let legacyJSON = #"{"id":"\#(id.uuidString)","name":"Legacy","buttonMappings":{}}"#
+		let unknownJSON = #"{"id":"\#(id.uuidString)","name":"Future","activationStyle":"cycle","buttonMappings":{}}"#
+
+		let legacy = try JSONDecoder().decode(Layer.self, from: Data(legacyJSON.utf8))
+		let unknown = try JSONDecoder().decode(Layer.self, from: Data(unknownJSON.utf8))
+
+		XCTAssertEqual(legacy.activationStyle, .hold)
+		XCTAssertEqual(unknown.activationStyle, .hold)
     }
 
 	func testLayerCodableRoundTripPreservesCommandWheelOverride() throws {

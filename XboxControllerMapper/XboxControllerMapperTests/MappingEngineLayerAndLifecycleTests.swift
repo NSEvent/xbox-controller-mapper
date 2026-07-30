@@ -2,6 +2,7 @@ import XCTest
 import CoreGraphics
 @testable import ControllerKeys
 
+@MainActor
 final class MappingEngineLayerAndLifecycleTests: XCTestCase {
     var controllerService: ControllerService!
     var profileManager: ProfileManager!
@@ -53,6 +54,17 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         await Task.yield()
         try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
         await Task.yield()
+    }
+
+    private func tap(_ button: ControllerButton) async {
+		await MainActor.run {
+			controllerService.buttonPressed(button)
+		}
+		await waitForTasks(0.1)
+		await MainActor.run {
+			controllerService.buttonReleased(button)
+		}
+		await waitForTasks(0.1)
     }
 
     @MainActor
@@ -225,6 +237,207 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         }.count
         XCTAssertEqual(baseCount, 1, "After layer deactivation, base mapping should fire")
         XCTAssertEqual(layerCount, 0, "Layer mapping should not fire after deactivation")
+    }
+
+    func testToggleLayerStaysActiveAfterReleaseAndSecondPressTurnsItOff() async throws {
+		let layer = Layer(
+			name: "Editing",
+			activatorButton: .rightTrigger,
+			activationStyle: .toggle,
+			buttonMappings: [.a: .key(50)]
+		)
+		await MainActor.run {
+			installActiveProfile(
+				Profile(
+					name: "Toggle",
+					buttonMappings: [.a: .key(10)],
+					layers: [layer]
+				)
+			)
+		}
+		await waitForTasks(0.05)
+
+		await tap(.rightTrigger)
+
+		mappingEngine.state.lock.withLock {
+			XCTAssertEqual(mappingEngine.state.latchedLayerId, layer.id)
+			XCTAssertTrue(mappingEngine.state.activeLayerIds.isEmpty)
+		}
+
+		await MainActor.run {
+			mockInputSimulator.clearEvents()
+			controllerService.buttonPressed(.a)
+			controllerService.buttonReleased(.a)
+		}
+		await waitForTasks()
+		XCTAssertTrue(mockInputSimulator.events.contains {
+			if case .pressKey(let keyCode, _) = $0 { return keyCode == 50 }
+			return false
+		})
+
+		await tap(.rightTrigger)
+
+		mappingEngine.state.lock.withLock {
+			XCTAssertNil(mappingEngine.state.latchedLayerId)
+		}
+		await MainActor.run {
+			mockInputSimulator.clearEvents()
+			controllerService.buttonPressed(.a)
+			controllerService.buttonReleased(.a)
+		}
+		await waitForTasks()
+		XCTAssertTrue(mockInputSimulator.events.contains {
+			if case .pressKey(let keyCode, _) = $0 { return keyCode == 10 }
+			return false
+		})
+    }
+
+    func testDifferentToggleActivatorSwitchesLatchedLayer() async throws {
+		let editing = Layer(
+			name: "Editing",
+			activatorButton: .leftTrigger,
+			activationStyle: .toggle,
+			buttonMappings: [.a: .key(61)]
+		)
+		let color = Layer(
+			name: "Color",
+			activatorButton: .rightTrigger,
+			activationStyle: .toggle,
+			buttonMappings: [.a: .key(62)]
+		)
+		await MainActor.run {
+			installActiveProfile(Profile(name: "Toggle Switch", layers: [editing, color]))
+		}
+		await waitForTasks(0.05)
+
+		await tap(.leftTrigger)
+		await tap(.rightTrigger)
+
+		mappingEngine.state.lock.withLock {
+			XCTAssertEqual(mappingEngine.state.latchedLayerId, color.id)
+			XCTAssertEqual(mappingEngine.state.effectiveActiveLayerIds.last, color.id)
+		}
+		await MainActor.run {
+			mockInputSimulator.clearEvents()
+			controllerService.buttonPressed(.a)
+			controllerService.buttonReleased(.a)
+		}
+		await waitForTasks()
+		XCTAssertTrue(mockInputSimulator.events.contains {
+			if case .pressKey(let keyCode, _) = $0 { return keyCode == 62 }
+			return false
+		})
+    }
+
+    func testHeldLayerTemporarilyOverridesLatchedLayer() async throws {
+		let editing = Layer(
+			name: "Editing",
+			activatorButton: .leftTrigger,
+			activationStyle: .toggle,
+			buttonMappings: [.a: .key(61)]
+		)
+		let precision = Layer(
+			name: "Precision",
+			activatorButton: .rightBumper,
+			buttonMappings: [.a: .key(62)]
+		)
+		await MainActor.run {
+			installActiveProfile(Profile(name: "Toggle + Hold", layers: [editing, precision]))
+		}
+		await waitForTasks(0.05)
+
+		await tap(.leftTrigger)
+		await MainActor.run {
+			controllerService.buttonPressed(.rightBumper)
+		}
+		await waitForTasks(0.1)
+
+		mappingEngine.state.lock.withLock {
+			XCTAssertEqual(
+				mappingEngine.state.effectiveActiveLayerIds,
+				[editing.id, precision.id]
+			)
+		}
+		await MainActor.run {
+			controllerService.buttonReleased(.rightBumper)
+		}
+		await waitForTasks(0.1)
+		mappingEngine.state.lock.withLock {
+			XCTAssertEqual(mappingEngine.state.effectiveActiveLayerIds, [editing.id])
+		}
+    }
+
+    func testLatchedLayerCanExplicitlyRemapAnotherToggleActivator() async throws {
+		let editing = Layer(
+			name: "Editing",
+			activatorButton: .leftTrigger,
+			activationStyle: .toggle,
+			buttonMappings: [.rightTrigger: .key(63)]
+		)
+		let color = Layer(
+			name: "Color",
+			activatorButton: .rightTrigger,
+			activationStyle: .toggle
+		)
+		await MainActor.run {
+			installActiveProfile(Profile(name: "Activator Remap", layers: [editing, color]))
+		}
+		await waitForTasks(0.05)
+
+		await tap(.leftTrigger)
+		await MainActor.run {
+			mockInputSimulator.clearEvents()
+		}
+		await tap(.rightTrigger)
+
+		mappingEngine.state.lock.withLock {
+			XCTAssertEqual(mappingEngine.state.latchedLayerId, editing.id)
+		}
+		XCTAssertTrue(mockInputSimulator.events.contains {
+			if case .pressKey(let keyCode, _) = $0 { return keyCode == 63 }
+			return false
+		})
+    }
+
+    func testToggleTransitionReleasesChangedHeldOutput() async throws {
+		let layer = Layer(
+			name: "Editing",
+			activatorButton: .rightTrigger,
+			activationStyle: .toggle,
+			buttonMappings: [.a: .key(50)]
+		)
+		await MainActor.run {
+			installActiveProfile(
+				Profile(
+					name: "Held Cleanup",
+					buttonMappings: [.a: .key(10)],
+					inputLatencyMode: .realtime,
+					layers: [layer]
+				)
+			)
+		}
+		await waitForTasks(0.05)
+
+		await MainActor.run {
+			controllerService.buttonPressed(.a)
+		}
+		await waitForTasks(0.1)
+		await tap(.rightTrigger)
+
+		XCTAssertTrue(mockInputSimulator.events.contains {
+			if case .stopHoldMapping(let mapping) = $0 { return mapping.keyCode == 10 }
+			return false
+		})
+
+		await MainActor.run {
+			mockInputSimulator.clearEvents()
+			controllerService.buttonReleased(.a)
+		}
+		await waitForTasks(0.1)
+		XCTAssertFalse(mockInputSimulator.events.contains {
+			if case .pressKey(let keyCode, _) = $0 { return keyCode == 50 }
+			return false
+		}, "Release from the outgoing layer must not execute the incoming mapping")
     }
 
     /// Test 5: When a layer is active, another layer activator is available for remapping.

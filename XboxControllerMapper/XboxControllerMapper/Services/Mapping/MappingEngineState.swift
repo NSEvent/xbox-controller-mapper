@@ -58,6 +58,8 @@ extension MappingEngine {
         // Layer State
 		// Ordered list of manually activated layer IDs; latest item takes priority.
         var activeLayerIds: [UUID] = []
+		// A toggle-style layer sits above the app layer and below held layers.
+		var latchedLayerId: UUID?
 		// App-activated layer sits below every manually held layer.
 		var appActivatedLayerId: UUID?
 		var effectiveActiveLayerIds: [UUID] {
@@ -65,8 +67,21 @@ extension MappingEngine {
 		}
 
 		func effectiveActiveLayerIds(appActivatedLayerId: UUID?) -> [UUID] {
+			effectiveActiveLayerIds(
+				appActivatedLayerId: appActivatedLayerId,
+				latchedLayerId: latchedLayerId
+			)
+		}
+
+		func effectiveActiveLayerIds(
+			appActivatedLayerId: UUID?,
+			latchedLayerId: UUID?
+		) -> [UUID] {
 			var ids = appActivatedLayerId.map { [$0] } ?? []
-			ids.append(contentsOf: activeLayerIds.filter { $0 != appActivatedLayerId })
+			if let latchedLayerId, !ids.contains(latchedLayerId) {
+				ids.append(latchedLayerId)
+			}
+			ids.append(contentsOf: activeLayerIds.filter { !ids.contains($0) })
 			return ids
 		}
         var layerActivatorMap: [ControllerButton: UUID] = [:]
@@ -175,6 +190,7 @@ extension MappingEngine {
 			preservingHeldActionsFor preservedHeldActionButtons: Set<ControllerButton> = []
 		) {
 			let preservedActiveLayerIds = preservingManualLayers ? activeLayerIds : []
+			let preservedLatchedLayerId = preservingManualLayers ? latchedLayerId : nil
 			let preservedLayerActivatorButtons = preservingManualLayers
 				? buttonsActingAsLayerActivators
 				: []
@@ -292,6 +308,7 @@ extension MappingEngine {
             dpadNavigationButton = nil
 
             activeLayerIds.removeAll()
+			latchedLayerId = nil
             buttonsActingAsLayerActivators.removeAll()
             pressConsumedByAction.removeAll()
 			cancelledPhysicalButtonReleases.removeAll()
@@ -355,6 +372,7 @@ extension MappingEngine {
 
 			if preservingManualLayers {
 				activeLayerIds = preservedActiveLayerIds
+				latchedLayerId = preservedLatchedLayerId
 				buttonsActingAsLayerActivators = preservedLayerActivatorButtons
 			}
 

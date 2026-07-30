@@ -98,9 +98,9 @@ Es gibt andere Controller-Mapping-Apps für macOS, aber keine bot alles, was ich
   - Mappings per Drag-and-drop zwischen Tasten tauschen
   - Verbindungslinien zwischen Tasten und ihren Aktionen beim Hovern
 
-- **Layer**: Erstelle alternative Tasten-Mapping-Sets, die durch Halten einer festgelegten Taste aktiviert werden
+- **Layer**: Erstelle alternative Tasten-Mapping-Sets, die durch Halten oder Umschalten einer festgelegten Taste aktiviert werden
   - Bis zu 12 zusätzliche Layer pro Profil
-  - Momentane Aktivierung, solange die Aktivator-Taste gehalten wird
+  - Pro Layer wahlweise momentane Aktivierung durch Halten oder dauerhaftes Umschalten per Tastendruck
   - Fallthrough-Verhalten für nicht belegte Tasten
   - Benenne deine Layer (z. B. „Kampfmodus", „Navigation")
   - Lightbar-Farbe pro Layer auf DualSense/DualShock 4 (automatisch aus einer 12-Farben-Palette zugewiesen)

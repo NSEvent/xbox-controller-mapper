@@ -115,11 +115,17 @@ struct LayerTabBar: View {
                             }
                             // Activator button badge (or "No Activator" if unassigned)
                             if let activator = layer.activatorButton {
-								Text(activator.shortLabel(
-									forDualSense: presentationState.isPlayStation,
-									forNintendo: presentationState.isNintendo,
-									forAppleTVRemote: presentationState.isAppleTVRemote
-								))
+								HStack(spacing: 3) {
+									Text(activator.shortLabel(
+										forDualSense: presentationState.isPlayStation,
+										forNintendo: presentationState.isNintendo,
+										forAppleTVRemote: presentationState.isAppleTVRemote
+									))
+									if layer.activationStyle == .toggle {
+										Image(systemName: "pin.fill")
+											.font(.system(size: 7, weight: .bold))
+									}
+								}
                                     .font(.system(size: 9, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 5)
@@ -146,11 +152,11 @@ struct LayerTabBar: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(selectedLayerId == layer.id ? .white : .secondary)
-                    .help(layer.name)
-                    .accessibilityLabel("Layer \(layer.name)")
+					.help("\(layer.name) · \(layer.activationStyle.displayName)")
+					.accessibilityLabel("Layer \(layer.name), \(layer.activationStyle.displayName) activation")
                     .hoverableButton()
                     .contextMenu {
-                        Button("Rename...") {
+						Button("Edit Layer...") {
                             editingLayerId = layer.id
                         }
                         Button("Change Color...") {

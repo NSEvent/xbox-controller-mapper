@@ -102,9 +102,9 @@ There are other controller mapping apps for macOS, but none offered everything I
   - Drag-and-drop to swap mappings between buttons
   - Hover connector lines between buttons and their actions
 
-- **Layers**: Create alternate button mapping sets activated by holding a designated button
+- **Layers**: Create alternate button mapping sets activated by holding or toggling a designated button
   - Up to 12 additional layers per profile
-  - Momentary activation while holding the activator button
+  - Choose momentary Hold activation or press-once Toggle activation per layer
   - Fallthrough behavior for unmapped buttons
   - Name your layers (e.g., "Combat Mode", "Navigation")
   - Per-layer lightbar color on DualSense/DualShock 4 (auto-assigned from a 12-color palette)

@@ -1,5 +1,19 @@
 import Foundation
 
+enum LayerActivationStyle: String, Codable, CaseIterable, Identifiable {
+    case hold
+    case toggle
+
+    var id: Self { self }
+
+    var displayName: String {
+		switch self {
+		case .hold: return "Hold"
+		case .toggle: return "Toggle"
+		}
+    }
+}
+
 /// Distinct, visually-different colors auto-assigned to layers in order of creation.
 /// Hand-picked for high mutual contrast on a DualSense/DS4 lightbar.
 enum LayerColorPalette {
@@ -32,8 +46,8 @@ enum LayerColorPalette {
     }
 }
 
-/// Represents a mapping layer that can be activated by holding a button.
-/// When the activator button is held, the layer's buttonMappings override the base layer.
+/// Represents a mapping layer activated by holding or toggling a button.
+/// While active, the layer's buttonMappings override the base layer.
 /// Buttons not mapped in the layer fall through to the base layer mapping.
 struct Layer: Codable, Identifiable, Equatable {
     var id: UUID
@@ -41,8 +55,11 @@ struct Layer: Codable, Identifiable, Equatable {
     /// User-defined name for the layer (e.g., "Combat Mode", "Navigation")
     var name: String
 
-    /// The button that activates this layer when held (nil = layer exists but has no activator assigned)
+    /// The button that activates this layer (nil = layer exists but has no activator assigned)
     var activatorButton: ControllerButton?
+
+    /// Whether the activator is momentary or latches the layer on each press.
+    var activationStyle: LayerActivationStyle
 
     /// Layer-specific button mappings (overrides base layer when active)
     var buttonMappings: [ControllerButton: KeyMapping]
@@ -66,6 +83,7 @@ struct Layer: Codable, Identifiable, Equatable {
         id: UUID = UUID(),
         name: String,
         activatorButton: ControllerButton? = nil,
+		activationStyle: LayerActivationStyle = .hold,
         buttonMappings: [ControllerButton: KeyMapping] = [:],
         dualSenseLEDSettings: DualSenseLEDSettings? = nil,
         leftStickTuning: StickTuningOverride? = nil,
@@ -75,6 +93,7 @@ struct Layer: Codable, Identifiable, Equatable {
         self.id = id
         self.name = name
         self.activatorButton = activatorButton
+		self.activationStyle = activationStyle
         self.buttonMappings = buttonMappings
         self.dualSenseLEDSettings = dualSenseLEDSettings
         self.leftStickTuning = leftStickTuning
@@ -85,7 +104,7 @@ struct Layer: Codable, Identifiable, Equatable {
     // MARK: - Custom Codable
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, activatorButton, buttonMappings, dualSenseLEDSettings
+		case id, name, activatorButton, activationStyle, buttonMappings, dualSenseLEDSettings
 		case leftStickTuning, rightStickTuning, commandWheelActions
         // Legacy mode-only overrides (pre per-stick tuning) — migrated on decode,
         // re-encoded for downgrade safety.
@@ -99,6 +118,7 @@ struct Layer: Codable, Identifiable, Equatable {
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decode(.name, default: "Layer")
         activatorButton = try container.decodeIfPresent(ControllerButton.self, forKey: .activatorButton)
+		activationStyle = try container.decodeLenient(.activationStyle, default: .hold)
 
         // Decode button mappings from string-keyed dictionary (same pattern as Profile)
         let stringKeyedMappings: [String: KeyMapping] = try container.decode(.buttonMappings, default: [:])
@@ -133,6 +153,7 @@ struct Layer: Codable, Identifiable, Equatable {
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
         try container.encodeIfPresent(activatorButton, forKey: .activatorButton)
+		try container.encode(activationStyle, forKey: .activationStyle)
 
         // Encode button mappings as string-keyed dictionary
         let stringKeyedMappings = Dictionary(uniqueKeysWithValues: buttonMappings.map { ($0.key.rawValue, $0.value) })

@@ -65,6 +65,15 @@ Configure chords in the "Chords" tab.
 
 Each stick can instead be disabled or configured for mouse, scroll, custom direction mappings, or D-pad behavior. Stick behavior can vary by profile and layer.
 
+### Layer activation
+
+Each layer can use **Hold** or **Toggle** activation:
+
+- **Hold** keeps the layer active only while its activator button is held.
+- **Toggle** latches the layer on after one press. Press the same activator again to turn it off, or press another toggle layer's activator to switch layers.
+
+Held layers temporarily take priority over a toggled layer. Releasing the held activator returns to the toggled layer.
+
 Adjustable settings include:
 
 | Setting | Description |

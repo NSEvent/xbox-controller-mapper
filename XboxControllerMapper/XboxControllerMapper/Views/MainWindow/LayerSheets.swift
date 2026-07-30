@@ -9,6 +9,7 @@ struct AddLayerSheet: View {
 
     @State private var layerName: String = ""
     @State private var selectedActivator: ControllerButton? = .leftBumper
+    @State private var activationStyle: LayerActivationStyle = .hold
     @State private var ledColor: Color = .blue
 
     private var controllerPresentationState: ControllerPresentationState {
@@ -59,9 +60,6 @@ struct AddLayerSheet: View {
                     Text("Activator Button (Optional)")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
-                    Text("Hold this button to activate the layer's mappings")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
 
                     Picker("Activator", selection: $selectedActivator) {
 						Text("None (assign later)").tag(nil as ControllerButton?)
@@ -77,6 +75,27 @@ struct AddLayerSheet: View {
                     }
                     .pickerStyle(.menu)
                 }
+
+				VStack(alignment: .leading, spacing: 4) {
+					Text("Activation Style")
+						.font(.subheadline)
+						.foregroundColor(.secondary)
+
+					Picker("Activation Style", selection: $activationStyle) {
+						ForEach(LayerActivationStyle.allCases) { style in
+							Text(style.displayName).tag(style)
+						}
+					}
+					.pickerStyle(.segmented)
+
+					Text(
+						activationStyle == .hold
+							? "Active only while the activator is held."
+							: "Press once to activate; press again to turn it off."
+					)
+					.font(.caption)
+					.foregroundColor(.secondary)
+				}
 
 				if presentationState.isPlayStation {
                     VStack(alignment: .leading, spacing: 4) {
@@ -102,7 +121,11 @@ struct AddLayerSheet: View {
 
                 Button("Add Layer") {
                     guard !layerName.isEmpty else { return }
-                    if let layer = profileManager.createLayer(name: layerName, activatorButton: selectedActivator) {
+					if let layer = profileManager.createLayer(
+						name: layerName,
+						activatorButton: selectedActivator,
+						activationStyle: activationStyle
+					) {
                         // Override the auto-assigned color with the user's pick
                         var updated = layer
                         var led = updated.dualSenseLEDSettings ?? DualSenseLEDSettings()
@@ -144,6 +167,7 @@ struct EditLayerSheet: View {
 
     @State private var layerName: String = ""
     @State private var selectedActivator: ControllerButton? = .leftBumper
+    @State private var activationStyle: LayerActivationStyle = .hold
     @State private var enableCustomLED: Bool = false
     @State private var ledColor: Color = .blue
 
@@ -212,6 +236,27 @@ struct EditLayerSheet: View {
                     .pickerStyle(.menu)
                 }
 
+				VStack(alignment: .leading, spacing: 4) {
+					Text("Activation Style")
+						.font(.subheadline)
+						.foregroundColor(.secondary)
+
+					Picker("Activation Style", selection: $activationStyle) {
+						ForEach(LayerActivationStyle.allCases) { style in
+							Text(style.displayName).tag(style)
+						}
+					}
+					.pickerStyle(.segmented)
+
+					Text(
+						activationStyle == .hold
+							? "Active only while the activator is held."
+							: "Press once to activate; press again to turn it off."
+					)
+					.font(.caption)
+					.foregroundColor(.secondary)
+				}
+
 				if presentationState.isPlayStation {
                     VStack(alignment: .leading, spacing: 4) {
                         Toggle("Custom Light Bar Color", isOn: $enableCustomLED)
@@ -242,6 +287,7 @@ struct EditLayerSheet: View {
                     var updatedLayer = layer
                     updatedLayer.name = layerName
                     updatedLayer.activatorButton = selectedActivator
+					updatedLayer.activationStyle = activationStyle
                     if enableCustomLED {
                         var ledSettings = DualSenseLEDSettings()
                         ledSettings.lightBarEnabled = true
@@ -263,6 +309,7 @@ struct EditLayerSheet: View {
         .onAppear {
             layerName = layer.name
             selectedActivator = layer.activatorButton
+			activationStyle = layer.activationStyle
             if let ledSettings = layer.dualSenseLEDSettings {
                 enableCustomLED = true
                 ledColor = ledSettings.lightBarColor.color
