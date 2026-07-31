@@ -95,7 +95,11 @@ struct MacroEditorSheet: View {
             ScrollView {
                 LazyVStack(spacing: 4) {
                     ForEach(Array(identifiedSteps.enumerated()), id: \.element.id) { index, identifiedStep in
-                        MacroStepRow(
+                        Button(action: {
+                            editingStepIndex = index
+                            showingStepEditor = true
+                        }) {
+                            MacroStepRow(
                             step: identifiedStep.step,
                             index: index,
                             onDuplicate: { duplicateStep(at: index) },
@@ -106,10 +110,6 @@ struct MacroEditorSheet: View {
                         .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
                         .cornerRadius(6)
                         .contentShape(Rectangle())
-                        .onTapGesture {
-                            editingStepIndex = index
-                            showingStepEditor = true
-                        }
                         .onDrag {
                             draggedStep = identifiedStep
                             return NSItemProvider(object: identifiedStep.id.uuidString as NSString)
@@ -119,6 +119,10 @@ struct MacroEditorSheet: View {
                             items: $identifiedSteps,
                             draggedItem: $draggedStep
                         ))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Edit Step \(index + 1)")
+                        .accessibilityLabel("Edit Step \(index + 1)")
                     }
 
                     // Add Step row as last item in list
@@ -223,7 +227,8 @@ struct AddStepRow: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        Button(action: onTap) {
+            HStack(spacing: 8) {
             Image(systemName: "plus.circle.fill")
                 .font(.system(size: 16))
                 .foregroundColor(.accentColor)
@@ -243,9 +248,10 @@ struct AddStepRow: View {
                 NSCursor.pop()
             }
         }
-        .onTapGesture {
-            onTap()
         }
+        .buttonStyle(.plain)
+        .help("Add new macro step")
+        .accessibilityLabel("Add new macro step")
     }
 }
 
