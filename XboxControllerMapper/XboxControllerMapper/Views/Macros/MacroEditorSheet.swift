@@ -95,13 +95,13 @@ struct MacroEditorSheet: View {
             ScrollView {
                 LazyVStack(spacing: 4) {
                     ForEach(Array(identifiedSteps.enumerated()), id: \.element.id) { index, identifiedStep in
-                        Button(action: {
-                            editingStepIndex = index
-                            showingStepEditor = true
-                        }) {
-                            MacroStepRow(
+                        MacroStepRow(
                             step: identifiedStep.step,
                             index: index,
+                            onEdit: {
+                                editingStepIndex = index
+                                showingStepEditor = true
+                            },
                             onDuplicate: { duplicateStep(at: index) },
                             onDelete: { deleteStep(at: index) }
                         )
@@ -119,10 +119,6 @@ struct MacroEditorSheet: View {
                             items: $identifiedSteps,
                             draggedItem: $draggedStep
                         ))
-                        }
-                        .buttonStyle(.plain)
-                        .help("Edit Step \(index + 1)")
-                        .accessibilityLabel("Edit Step \(index + 1)")
                     }
 
                     // Add Step row as last item in list
@@ -229,25 +225,25 @@ struct AddStepRow: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 8) {
-            Image(systemName: "plus.circle.fill")
-                .font(.system(size: 16))
-                .foregroundColor(.accentColor)
-            Text("Add Step")
-                .font(.system(size: 13))
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.vertical, 8)
-        .background(isHovered ? Color.accentColor.opacity(0.15) : Color(nsColor: .controlBackgroundColor).opacity(0.3))
-        .cornerRadius(6)
-        .contentShape(Rectangle())
-        .onHover { hovering in
-            isHovered = hovering
-            if hovering {
-                NSCursor.pointingHand.push()
-            } else {
-                NSCursor.pop()
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(.accentColor)
+                Text("Add Step")
+                    .font(.system(size: 13))
             }
-        }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, 8)
+            .background(isHovered ? Color.accentColor.opacity(0.15) : Color(nsColor: .controlBackgroundColor).opacity(0.3))
+            .cornerRadius(6)
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                isHovered = hovering
+                if hovering {
+                    NSCursor.pointingHand.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
         }
         .buttonStyle(.plain)
         .help("Add new macro step")
@@ -258,6 +254,7 @@ struct AddStepRow: View {
 struct MacroStepRow: View {
     let step: MacroStep
     let index: Int
+    var onEdit: () -> Void
     var onDuplicate: () -> Void
     var onDelete: () -> Void
 
@@ -269,19 +266,27 @@ struct MacroStepRow: View {
                 .font(.caption)
                 .foregroundColor(.secondary.opacity(0.6))
 
-            Text("\(index + 1).")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .frame(width: 20, alignment: .leading)
+            Button(action: onEdit) {
+                HStack(spacing: 8) {
+                    Text("\(index + 1).")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .frame(width: 20, alignment: .leading)
 
-            icon
-                .frame(width: 20)
+                    icon
+                        .frame(width: 20)
 
-            Text(step.displayString)
-                .font(.system(size: 13))
-                .lineLimit(1)
+                    Text(step.displayString)
+                        .font(.system(size: 13))
+                        .lineLimit(1)
 
-            Spacer()
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Edit Step \(index + 1)")
+            .accessibilityLabel("Edit Step \(index + 1)")
 
             Button {
                 onDuplicate()
