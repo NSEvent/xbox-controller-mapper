@@ -263,6 +263,11 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
 			XCTAssertEqual(mappingEngine.state.latchedLayerId, layer.id)
 			XCTAssertTrue(mappingEngine.state.activeLayerIds.isEmpty)
 		}
+		XCTAssertEqual(
+			mappingEngine.activeManualLayerId,
+			layer.id,
+			"The editor should keep showing a toggled layer after its activator is released"
+		)
 
 		await MainActor.run {
 			mockInputSimulator.clearEvents()
@@ -280,6 +285,10 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
 		mappingEngine.state.lock.withLock {
 			XCTAssertNil(mappingEngine.state.latchedLayerId)
 		}
+		XCTAssertNil(
+			mappingEngine.activeManualLayerId,
+			"The editor should return to Base when the toggle layer is switched off"
+		)
 		await MainActor.run {
 			mockInputSimulator.clearEvents()
 			controllerService.buttonPressed(.a)
@@ -358,6 +367,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
 				[editing.id, precision.id]
 			)
 		}
+		XCTAssertEqual(mappingEngine.activeManualLayerId, precision.id)
 		await MainActor.run {
 			controllerService.buttonReleased(.rightBumper)
 		}
@@ -365,6 +375,11 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
 		mappingEngine.state.lock.withLock {
 			XCTAssertEqual(mappingEngine.state.effectiveActiveLayerIds, [editing.id])
 		}
+		XCTAssertEqual(
+			mappingEngine.activeManualLayerId,
+			editing.id,
+			"The editor should return to the latched layer after a held override is released"
+		)
     }
 
     func testLatchedLayerCanExplicitlyRemapAnotherToggleActivator() async throws {

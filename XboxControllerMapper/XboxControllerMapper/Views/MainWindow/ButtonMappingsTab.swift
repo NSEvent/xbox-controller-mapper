@@ -364,21 +364,6 @@ struct ButtonMappingsTab: View {
                 EditLayerSheet(layer: layer)
             }
         }
-        .onChange(of: controllerService.activeButtons) { _, activeButtons in
-            guard let profile = profileManager.activeProfile else { return }
-
-            // Check if any layer activator is being held
-            for layer in profile.layers {
-				if let activator = layer.activatorButton,
-				   activeButtonsContain(activator, in: activeButtons) {
-                    selectedLayerId = layer.id
-                    return
-                }
-            }
-
-            // No layer activator held - return to base layer
-            selectedLayerId = nil
-        }
         }
     }
 

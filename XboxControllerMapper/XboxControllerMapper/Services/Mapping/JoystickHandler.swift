@@ -36,6 +36,7 @@ extension MappingEngine {
 			return cleanup
         }
 		performRoutingBoundaryCleanup(cleanup)
+		syncActiveManualLayerId()
     }
 
     // MARK: - Joystick Processing (called at 120Hz from pollingQueue)

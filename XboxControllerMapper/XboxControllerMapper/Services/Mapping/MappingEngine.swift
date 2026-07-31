@@ -37,6 +37,9 @@ import CoreGraphics
 class MappingEngine: ObservableObject {
     @Published var isEnabled = true
     @Published var isLocked = false
+	/// Highest-priority manually activated layer, for UI presentation.
+	/// App-activated layers are intentionally excluded from editor selection.
+	@Published private(set) var activeManualLayerId: UUID?
 
     let controllerService: ControllerService
     let profileManager: ProfileManager
@@ -321,7 +324,7 @@ class MappingEngine: ObservableObject {
                 self.syncMotionActivation(for: profile)
                 self.syncLatencySettings(for: profile)
                 self.scriptEngine.clearState()
-				self.applyEffectiveLayerLED()
+				self.refreshLayerPresentation()
             }
             .store(in: &cancellables)
 
@@ -359,7 +362,7 @@ class MappingEngine: ObservableObject {
                 guard let self = self else { return }
 				if self.controllerService.threadSafeIsPlayStation {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-						self?.applyEffectiveLayerLED()
+						self?.refreshLayerPresentation()
                     }
                 }
             }
@@ -392,6 +395,7 @@ class MappingEngine: ObservableObject {
                 }
                 if let cleanup {
 					self.performRoutingBoundaryCleanup(cleanup)
+					self.syncActiveManualLayerId()
                 }
             }
             .store(in: &cancellables)
@@ -430,7 +434,7 @@ class MappingEngine: ObservableObject {
 
 		guard let cleanup else { return }
 		performRoutingBoundaryCleanup(cleanup)
-		applyEffectiveLayerLED()
+		refreshLayerPresentation()
     }
 
 	nonisolated private func unchangedHeldButtons(
@@ -468,11 +472,21 @@ class MappingEngine: ObservableObject {
 		}
     }
 
-    private func applyEffectiveLayerLED() {
-		guard !controllerService.partyModeEnabled else { return }
+	func syncActiveManualLayerId() {
+		let layerId = state.lock.withLock {
+			state.activeLayerIds.last ?? state.latchedLayerId
+		}
+		if activeManualLayerId != layerId {
+			activeManualLayerId = layerId
+		}
+	}
+
+    private func refreshLayerPresentation() {
+		syncActiveManualLayerId()
 		let (isLocked, activeLayerIds, profile) = state.lock.withLock {
 			(state.isLocked, state.effectiveActiveLayerIds, state.activeProfile)
 		}
+		guard !controllerService.partyModeEnabled else { return }
 		guard !isLocked else { return }
 		if let activeLayerId = activeLayerIds.last,
 		   let activeLayer = profile?.layers.first(where: { $0.id == activeLayerId }),
@@ -792,7 +806,7 @@ class MappingEngine: ObservableObject {
 				inputLogService?.log(buttons: [button], type: .singlePress, action: "Layer: \(layer.name)")
 			}
 			DispatchQueue.main.async { [weak self] in
-				self?.applyEffectiveLayerLED()
+				self?.refreshLayerPresentation()
 			}
 			return
 
@@ -809,7 +823,7 @@ class MappingEngine: ObservableObject {
 				)
 			}
 			DispatchQueue.main.async { [weak self] in
-				self?.applyEffectiveLayerLED()
+				self?.refreshLayerPresentation()
 			}
 			return
 
@@ -1351,21 +1365,9 @@ class MappingEngine: ObservableObject {
             // Revert LED settings: apply next active layer's LED, or fall back to profile default.
             // After applying, also kick the battery monitor so battery-light-bar mode resumes
             // if the profile uses it (otherwise its periodic updates would override our color).
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self,
-                      !self.controllerService.partyModeEnabled else { return }
-                let (remainingLayerIds, profile) = self.state.lock.withLock {
-					(self.state.effectiveActiveLayerIds, self.state.activeProfile)
-                }
-                if let activeLayerId = remainingLayerIds.last,
-                   let activeLayer = profile?.layers.first(where: { $0.id == activeLayerId }),
-                   let ledSettings = activeLayer.dualSenseLEDSettings {
-                    self.controllerService.applyLEDSettings(ledSettings)
-                } else if let profileLED = profile?.dualSenseLEDSettings {
-                    self.controllerService.applyLEDSettings(profileLED)
-                }
-                self.controllerService.updateBatteryLightBar()
-            }
+			DispatchQueue.main.async { [weak self] in
+				self?.refreshLayerPresentation()
+			}
             return
         }
 
@@ -1705,7 +1707,7 @@ class MappingEngine: ObservableObject {
 		}
 		if !startState.layerChanges.isEmpty {
 			DispatchQueue.main.async { [weak self] in
-				self?.applyEffectiveLayerLED()
+				self?.refreshLayerPresentation()
 			}
 		}
 
@@ -1884,6 +1886,9 @@ class MappingEngine: ObservableObject {
         }
 
 		performRoutingBoundaryCleanup(cleanup)
+		DispatchQueue.main.async { [weak self] in
+			self?.syncActiveManualLayerId()
+		}
     }
 
     nonisolated func stopHeldAction(_ mapping: KeyMapping) {

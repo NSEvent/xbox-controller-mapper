@@ -1,6 +1,23 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+private struct RuntimeLayerSelectionModifier: ViewModifier {
+	@ObservedObject var mappingEngine: MappingEngine
+	@Binding var selectedLayerId: UUID?
+
+	func body(content: Content) -> some View {
+		content
+			.onAppear {
+				if let activeManualLayerId = mappingEngine.activeManualLayerId {
+					selectedLayerId = activeManualLayerId
+				}
+			}
+			.onChange(of: mappingEngine.activeManualLayerId) { _, layerId in
+				selectedLayerId = layerId
+			}
+	}
+}
+
 /// Main window content view
 struct ContentView: View {
     @EnvironmentObject var controllerService: ControllerService
@@ -166,6 +183,12 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 900, minHeight: 650)
+		.modifier(
+			RuntimeLayerSelectionModifier(
+				mappingEngine: mappingEngine,
+				selectedLayerId: $selectedLayerId
+			)
+		)
         // Global Glass Background
         //
         // NSVisualEffectView with `.behindWindow` blending samples desktop/app
