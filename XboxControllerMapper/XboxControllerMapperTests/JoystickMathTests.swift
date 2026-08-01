@@ -201,18 +201,26 @@ final class JoystickMathTests: XCTestCase {
                         "Horizontal should pass through when sufficiently large")
     }
 
-    func testScrollYInversion() {
-        // invertScrollY = false: dy = dy (natural)
-        // invertScrollY = true: dy = -dy (inverted)
-        let stickY: CGFloat = 0.5
-        let scale: CGFloat = 10.0
-        let rawDy = stickY * scale
+    func testScrollDirectionSupportsEveryIndependentAxisCombination() {
+		let cases: [(invertX: Bool, invertY: Bool, expectedX: CGFloat, expectedY: CGFloat)] = [
+			(false, false, -5.0, 2.5),
+			(true, false, 5.0, 2.5),
+			(false, true, -5.0, -2.5),
+			(true, true, 5.0, -2.5),
+		]
 
-        let dyNatural = rawDy // invertScrollY = false
-        let dyInverted = -rawDy // invertScrollY = true
+		for testCase in cases {
+			let delta = JoystickMath.scrollDelta(
+				effectiveX: 0.5,
+				stickY: 0.25,
+				scale: 10.0,
+				invertX: testCase.invertX,
+				invertY: testCase.invertY
+			)
 
-        XCTAssertGreaterThan(Double(dyNatural), 0.0, "Natural scroll: stick up -> positive dy")
-        XCTAssertLessThan(Double(dyInverted), 0.0, "Inverted scroll: stick up -> negative dy")
+			XCTAssertEqual(delta.x, testCase.expectedX, accuracy: 0.0001)
+			XCTAssertEqual(delta.y, testCase.expectedY, accuracy: 0.0001)
+		}
     }
 
     // MARK: - Smooth Deadzone (Gyro Aiming) Tests

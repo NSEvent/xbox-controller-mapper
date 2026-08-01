@@ -60,4 +60,18 @@ enum JoystickMath {
         }
         return stickX
     }
+
+    /// Converts stick axes into scroll-event deltas, preserving the historical
+    /// defaults while allowing each axis to be reversed independently.
+    static func scrollDelta(
+		effectiveX: Double,
+		stickY: Double,
+		scale: Double,
+		invertX: Bool,
+		invertY: Bool
+    ) -> CGPoint {
+		let dx = (invertX ? effectiveX : -effectiveX) * scale
+		let dy = (invertY ? -stickY : stickY) * scale
+		return CGPoint(x: CGFloat(dx), y: CGFloat(dy))
+    }
 }

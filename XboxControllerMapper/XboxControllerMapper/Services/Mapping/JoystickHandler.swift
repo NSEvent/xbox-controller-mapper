@@ -568,27 +568,30 @@ extension MappingEngine {
             thresholdRatio: Config.scrollHorizontalThresholdRatio
         )
 
-        let dx = -effectiveX * scale
-        var dy = stick.y * scale
-
-        dy = tuning.invertScrollY ? -dy : dy
+		var delta = JoystickMath.scrollDelta(
+			effectiveX: Double(effectiveX),
+			stickY: Double(stick.y),
+			scale: Double(scale),
+			invertX: tuning.invertScrollX,
+			invertY: tuning.invertScrollY
+		)
 
         if state.scrollBoostDirection != 0,
            (rawStick.y >= 0 ? 1 : -1) == state.scrollBoostDirection {
-            dy *= settings.scrollBoostMultiplier
+			delta.y *= settings.scrollBoostMultiplier
         }
 
         inputSimulator.scroll(
             event: ScrollEvent(
-                dx: dx,
-                dy: dy,
+				dx: delta.x,
+				dy: delta.y,
                 phase: nil,
                 momentumPhase: nil,
                 isContinuous: false,
                 flags: inputSimulator.getHeldModifiers()
             )
         )
-        usageStatsService?.recordScrollDistance(dx: Double(dx), dy: Double(dy))
+		usageStatsService?.recordScrollDistance(dx: Double(delta.x), dy: Double(delta.y))
     }
 
     // MARK: - Direction Keys (WASD / Arrow)

@@ -95,6 +95,20 @@ final class LayerStickModeOverrideTests: XCTestCase {
         XCTAssertNil(cleared.leftStickTuning, "Clearing the only overridden field drops the whole override.")
     }
 
+	/// `false` is an explicit direction override, not the same as nil/inherit.
+	func testScrollDirectionOverrideStoresNormalAndClearsBackToInheritance() throws {
+		let layer = try XCTUnwrap(profileManager.createLayer(name: "L1", activatorButton: .leftBumper))
+
+		profileManager.setLayerStickOverride(\.invertScrollX, false, side: .right, layerId: layer.id)
+		let stored = try XCTUnwrap(profileManager.activeProfile?.layers.first(where: { $0.id == layer.id }))
+		XCTAssertEqual(stored.rightStickTuning?.invertScrollX, false)
+		XCTAssertNotNil(stored.rightStickTuning, "Explicit normal direction must not collapse into inheritance.")
+
+		profileManager.setLayerStickOverride(\.invertScrollX, nil, side: .right, layerId: layer.id)
+		let cleared = try XCTUnwrap(profileManager.activeProfile?.layers.first(where: { $0.id == layer.id }))
+		XCTAssertNil(cleared.rightStickTuning, "Clearing direction should restore full inheritance.")
+	}
+
     /// `clearLayerStickOverride` drops the entire side override regardless of how many fields are set.
     func testClearLayerStickOverride_dropsEntireOverride() throws {
         let layer = try XCTUnwrap(profileManager.createLayer(name: "L1", activatorButton: .leftBumper))
@@ -117,10 +131,13 @@ final class LayerStickModeOverrideTests: XCTestCase {
 		)
 		var override = StickTuningOverride()
 		override.mouseSensitivity = 0.9
+		override.invertScrollX = true
 		override.customDirectionLayout = .eightWay
 
 		let resolved = override.applied(to: base)
 		XCTAssertEqual(resolved.mouseSensitivity, 0.9, "Set field is overridden.")
+		XCTAssertTrue(resolved.invertScrollX, "Horizontal scroll direction is overridden.")
+		XCTAssertFalse(resolved.invertScrollY, "Unset vertical direction inherits base.")
 		XCTAssertEqual(resolved.customDirectionLayout, .eightWay, "Direction layout is overridden.")
         XCTAssertEqual(resolved.mode, .mouse, "Unset mode inherits base.")
         XCTAssertEqual(resolved.mouseDeadzone, 0.15, "Unset deadzone inherits base.")
@@ -134,17 +151,21 @@ final class LayerStickModeOverrideTests: XCTestCase {
 		layer.leftStickTuning = StickTuningOverride(
 			mode: .scroll,
 			mouseSensitivity: 0.9,
+			invertScrollX: true,
 			customDirectionLayout: .eightWay
 		)
-        layer.rightStickTuning = StickTuningOverride(mode: .mouse)
+		layer.rightStickTuning = StickTuningOverride(mode: .scroll, invertScrollY: true)
 
         let data = try JSONEncoder().encode(layer)
         let decoded = try JSONDecoder().decode(Layer.self, from: data)
 
         XCTAssertEqual(decoded.leftStickTuning?.mode, .scroll)
 		XCTAssertEqual(decoded.leftStickTuning?.mouseSensitivity, 0.9)
+		XCTAssertEqual(decoded.leftStickTuning?.invertScrollX, true)
+		XCTAssertNil(decoded.leftStickTuning?.invertScrollY)
 		XCTAssertEqual(decoded.leftStickTuning?.customDirectionLayout, .eightWay)
-        XCTAssertEqual(decoded.rightStickTuning?.mode, .mouse)
+		XCTAssertEqual(decoded.rightStickTuning?.mode, .scroll)
+		XCTAssertEqual(decoded.rightStickTuning?.invertScrollY, true)
     }
 
     /// Existing configs without the override fields decode with nil overrides (no migration needed).

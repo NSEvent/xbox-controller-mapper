@@ -115,16 +115,14 @@ struct JoystickSettingsView: View {
                         description: "Ignore small movements"
                     )
 
-                    Toggle("Invert Y Axis", isOn: Binding(
-                        get: { settings.leftStick.mode == .scroll ? settings.leftStick.invertScrollY : settings.leftStick.invertMouseY },
-                        set: {
-                            if settings.leftStick.mode == .scroll {
-                                updateSettings(\.leftStick.invertScrollY, $0)
-                            } else {
-                                updateSettings(\.leftStick.invertMouseY, $0)
-                            }
-                        }
-                    ))
+					if settings.leftStick.mode == .scroll {
+						scrollDirectionControls(side: .left)
+					} else {
+						Toggle("Invert Y Axis", isOn: Binding(
+							get: { settings.leftStick.invertMouseY },
+							set: { updateSettings(\.leftStick.invertMouseY, $0) }
+						))
+					}
                 }
             }
 
@@ -372,16 +370,24 @@ struct JoystickSettingsView: View {
                         description: "Ignore small movements"
                     )
 
-                    Toggle("Invert Y Axis", isOn: Binding(
-                        get: { settings.rightStick.mode == .mouse ? settings.rightStick.invertMouseY : settings.rightStick.invertScrollY },
-                        set: {
-                            if settings.rightStick.mode == .mouse {
-                                updateSettings(\.rightStick.invertMouseY, $0)
-                            } else {
-                                updateSettings(\.rightStick.invertScrollY, $0)
+					if settings.rightStick.mode == .scroll {
+						scrollDirectionControls(side: .right)
+					} else {
+						Toggle("Invert Y Axis", isOn: Binding(
+							get: {
+								settings.rightStick.mode == .mouse
+									? settings.rightStick.invertMouseY
+									: settings.rightStick.invertScrollY
+							},
+							set: {
+								if settings.rightStick.mode == .mouse {
+									updateSettings(\.rightStick.invertMouseY, $0)
+								} else {
+									updateSettings(\.rightStick.invertScrollY, $0)
+								}
                             }
-                        }
-                    ))
+						))
+					}
                 }
             }
 
@@ -500,6 +506,20 @@ struct JoystickSettingsView: View {
                 layerOverrideSlider("Sensitivity", side: side, layer: layer, keyPath: \.scrollSensitivity, base: base.scrollSensitivity, range: 0...1)
                 layerOverrideSlider("Acceleration", side: side, layer: layer, keyPath: \.scrollAcceleration, base: base.scrollAcceleration, range: 0...1)
                 layerOverrideSlider("Deadzone", side: side, layer: layer, keyPath: \.scrollDeadzone, base: base.scrollDeadzone, range: 0...0.5)
+				layerOverrideDirectionPicker(
+					"Horizontal Scroll Direction",
+					side: side,
+					layer: layer,
+					keyPath: \.invertScrollX,
+					base: base.invertScrollX
+				)
+				layerOverrideDirectionPicker(
+					"Vertical Scroll Direction",
+					side: side,
+					layer: layer,
+					keyPath: \.invertScrollY,
+					base: base.invertScrollY
+				)
 			case .custom:
 				layerOverrideDirectionLayoutPicker(side: side, layer: layer, base: base.customDirectionLayout)
 			case .none, .dpad, .wasdKeys, .arrowKeys:
@@ -585,6 +605,61 @@ struct JoystickSettingsView: View {
                 in: range
             )
         }
+    }
+
+    @ViewBuilder
+    private func scrollDirectionControls(side: JoystickSide) -> some View {
+		let tuning = settings.stick(side)
+
+		VStack(alignment: .leading, spacing: 6) {
+			Toggle("Reverse Horizontal Scroll", isOn: Binding(
+				get: { tuning.invertScrollX },
+				set: {
+					switch side {
+					case .left:
+						updateSettings(\.leftStick.invertScrollX, $0)
+					case .right:
+						updateSettings(\.rightStick.invertScrollX, $0)
+					}
+				}
+			))
+
+			Toggle("Reverse Vertical Scroll", isOn: Binding(
+				get: { tuning.invertScrollY },
+				set: {
+					switch side {
+					case .left:
+						updateSettings(\.leftStick.invertScrollY, $0)
+					case .right:
+						updateSettings(\.rightStick.invertScrollY, $0)
+					}
+				}
+			))
+
+			Text("Reverse either axis to match natural scrolling or your preferred content direction.")
+				.font(.caption)
+				.foregroundStyle(.secondary)
+		}
+    }
+
+    @ViewBuilder
+    private func layerOverrideDirectionPicker(
+		_ label: String,
+		side: JoystickSide,
+		layer: Layer,
+		keyPath: WritableKeyPath<StickTuningOverride, Bool?>,
+		base: Bool
+    ) -> some View {
+		let override = side == .left ? layer.leftStickTuning : layer.rightStickTuning
+
+		Picker(LocalizedStringKey(label), selection: Binding(
+			get: { override?[keyPath: keyPath] },
+			set: { profileManager.setLayerStickOverride(keyPath, $0, side: side, layerId: layer.id) }
+		)) {
+			Text(LocalizedStringKey(base ? "Inherit (Reversed)" : "Inherit (Normal)")).tag(Bool?.none)
+			Text("Normal").tag(false as Bool?)
+			Text("Reversed").tag(true as Bool?)
+		}
     }
 
 }

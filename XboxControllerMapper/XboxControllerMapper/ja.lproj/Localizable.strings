@@ -255,6 +255,15 @@
 "Activation threshold for keys" = "キーの発動しきい値";
 "Ignore small movements" = "わずかな動きを無視";
 "Invert Y Axis" = "Y軸を反転";
+"Reverse Horizontal Scroll" = "横スクロールを反転";
+"Reverse Vertical Scroll" = "縦スクロールを反転";
+"Reverse either axis to match natural scrolling or your preferred content direction." = "各軸を反転して、ナチュラルスクロールや好みのコンテンツ移動方向に合わせます。";
+"Horizontal Scroll Direction" = "横スクロール方向";
+"Vertical Scroll Direction" = "縦スクロール方向";
+"Inherit (Normal)" = "継承（標準）";
+"Inherit (Reversed)" = "継承（反転）";
+"Normal" = "標準";
+"Reversed" = "反転";
 "Focus Mode (Precision)" = "フォーカスモード（精密）";
 "Focus Speed" = "フォーカスモード速度";
 "Sensitivity when holding modifier" = "修飾キーを押している間の感度";

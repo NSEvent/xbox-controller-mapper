@@ -255,6 +255,15 @@
 "Activation threshold for keys" = "Aktivierungsschwelle für Tasten";
 "Ignore small movements" = "Kleine Bewegungen ignorieren";
 "Invert Y Axis" = "Y-Achse umkehren";
+"Reverse Horizontal Scroll" = "Horizontales Scrollen umkehren";
+"Reverse Vertical Scroll" = "Vertikales Scrollen umkehren";
+"Reverse either axis to match natural scrolling or your preferred content direction." = "Kehren Sie eine Achse um, um natürliches Scrollen oder die bevorzugte Inhaltsrichtung zu verwenden.";
+"Horizontal Scroll Direction" = "Horizontale Scrollrichtung";
+"Vertical Scroll Direction" = "Vertikale Scrollrichtung";
+"Inherit (Normal)" = "Erben (Normal)";
+"Inherit (Reversed)" = "Erben (Umgekehrt)";
+"Normal" = "Normal";
+"Reversed" = "Umgekehrt";
 "Focus Mode (Precision)" = "Präzisionsmodus";
 "Focus Speed" = "Präzisionsgeschwindigkeit";
 "Sensitivity when holding modifier" = "Empfindlichkeit beim Halten der Sondertaste";

@@ -170,6 +170,42 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
         }
     }
 
+    /// Exercises the live scroll path—not a reimplementation of its sign math.
+    /// Both direction toggles must compose independently.
+    func testAnalogScrollHonorsIndependentAxisDirectionSettings() async throws {
+		let cases: [(invertX: Bool, invertY: Bool, expectPositiveX: Bool, expectPositiveY: Bool)] = [
+			(false, false, false, true),
+			(true, false, true, true),
+			(false, true, false, false),
+			(true, true, true, false),
+		]
+
+		for testCase in cases {
+			var tuning = StickTuning(mode: .scroll)
+			tuning.scrollSensitivity = 0
+			tuning.scrollAcceleration = 0
+			tuning.scrollDeadzone = 0
+			tuning.invertScrollX = testCase.invertX
+			tuning.invertScrollY = testCase.invertY
+
+			mockInputSimulator.clearEvents()
+			mappingEngine.processScrolling(
+				CGPoint(x: 0.8, y: 0.6),
+				rawStick: CGPoint(x: 0.8, y: 0.6),
+				tuning: tuning,
+				settings: JoystickSettings(),
+				now: 0
+			)
+
+			guard case .scroll(let dx, let dy)? = mockInputSimulator.events.last else {
+				XCTFail("Expected a scroll event")
+				continue
+			}
+			XCTAssertEqual(dx > 0, testCase.expectPositiveX)
+			XCTAssertEqual(dy > 0, testCase.expectPositiveY)
+		}
+    }
+
     func testScrollButtonWithoutPerActionSettingsRemainsOneShot() async throws {
 		await MainActor.run {
 			let mapping = KeyMapping(keyCode: KeyCodeMapping.scrollUp)

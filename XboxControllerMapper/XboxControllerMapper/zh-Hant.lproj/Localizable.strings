@@ -255,6 +255,15 @@
 "Activation threshold for keys" = "按鍵啟動閾值";
 "Ignore small movements" = "忽略細微移動";
 "Invert Y Axis" = "反轉 Y 軸";
+"Reverse Horizontal Scroll" = "反轉水平捲動";
+"Reverse Vertical Scroll" = "反轉垂直捲動";
+"Reverse either axis to match natural scrolling or your preferred content direction." = "可分別反轉兩個軸，以符合自然捲動或您偏好的內容移動方向。";
+"Horizontal Scroll Direction" = "水平捲動方向";
+"Vertical Scroll Direction" = "垂直捲動方向";
+"Inherit (Normal)" = "繼承（正常）";
+"Inherit (Reversed)" = "繼承（反轉）";
+"Normal" = "正常";
+"Reversed" = "反轉";
 "Focus Mode (Precision)" = "精確模式";
 "Focus Speed" = "精確模式速度";
 "Sensitivity when holding modifier" = "按住修飾鍵時的靈敏度";

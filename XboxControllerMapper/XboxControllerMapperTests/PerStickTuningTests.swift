@@ -46,6 +46,8 @@ final class PerStickTuningTests: XCTestCase {
         XCTAssertEqual(decoded.rightStick.scrollSensitivity, 0.7, accuracy: 1e-9)
         XCTAssertEqual(decoded.leftStick.mouseDeadzone, 0.2, accuracy: 1e-9)
         XCTAssertEqual(decoded.rightStick.scrollDeadzone, 0.25, accuracy: 1e-9)
+		XCTAssertFalse(decoded.leftStick.invertScrollX)
+		XCTAssertFalse(decoded.rightStick.invertScrollX)
         // ...but keep their own modes.
         XCTAssertEqual(decoded.leftStick.mode, .mouse)
         XCTAssertEqual(decoded.rightStick.mode, .scroll)
@@ -57,6 +59,8 @@ final class PerStickTuningTests: XCTestCase {
         settings.leftStick.mouseSensitivity = 0.15
         settings.rightStick.mouseSensitivity = 0.85
         settings.rightStick.mode = .mouse
+		settings.leftStick.invertScrollX = true
+		settings.rightStick.invertScrollY = true
 
         let data = try JSONEncoder().encode(settings)
         let decoded = try JSONDecoder().decode(JoystickSettings.self, from: data)
@@ -64,6 +68,30 @@ final class PerStickTuningTests: XCTestCase {
         XCTAssertEqual(decoded.leftStick.mouseSensitivity, 0.15, accuracy: 1e-9)
         XCTAssertEqual(decoded.rightStick.mouseSensitivity, 0.85, accuracy: 1e-9)
         XCTAssertEqual(decoded.rightStick.mode, .mouse)
+		XCTAssertTrue(decoded.leftStick.invertScrollX)
+		XCTAssertFalse(decoded.rightStick.invertScrollX)
+		XCTAssertTrue(decoded.rightStick.invertScrollY)
+    }
+
+    /// New profiles preserve current scroll behavior, while each stick can persist
+    /// an independent horizontal and vertical reversal preference.
+    func testScrollDirectionDefaultsAndRoundTripAreIndependentPerStick() throws {
+		var settings = JoystickSettings()
+		XCTAssertFalse(settings.leftStick.invertScrollX)
+		XCTAssertFalse(settings.leftStick.invertScrollY)
+		XCTAssertFalse(settings.rightStick.invertScrollX)
+		XCTAssertFalse(settings.rightStick.invertScrollY)
+
+		settings.leftStick.invertScrollX = true
+		settings.rightStick.invertScrollY = true
+
+		let data = try JSONEncoder().encode(settings)
+		let decoded = try JSONDecoder().decode(JoystickSettings.self, from: data)
+
+		XCTAssertTrue(decoded.leftStick.invertScrollX)
+		XCTAssertFalse(decoded.leftStick.invertScrollY)
+		XCTAssertFalse(decoded.rightStick.invertScrollX)
+		XCTAssertTrue(decoded.rightStick.invertScrollY)
     }
 
     /// Encoding writes the legacy flat keys too (downgrade safety): an older build reads
