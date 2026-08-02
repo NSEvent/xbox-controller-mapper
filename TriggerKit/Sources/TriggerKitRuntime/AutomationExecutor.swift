@@ -354,10 +354,28 @@ public final class AutomationExecutor {
 			} catch {
 				return .failure("\(name) launch failed: \(error.localizedDescription)")
 			}
-			// Security (Sentinel): Prevent Denial of Service (deadlock) by completely draining the
-			// standard output pipe buffer before waiting for the process to exit.
-			let data = pipe.fileHandleForReading.readDataToEndOfFile()
+			let outputBuffer = LockedDataBuffer(maxBytes: 10_000_000)
+			pipe.fileHandleForReading.readabilityHandler = { handle in
+				let available = handle.availableData
+				if available.isEmpty {
+					pipe.fileHandleForReading.readabilityHandler = nil
+				} else {
+					outputBuffer.append(available)
+				}
+			}
 			process.waitUntilExit()
+			pipe.fileHandleForReading.readabilityHandler = nil
+
+			// Read safely without hanging on daemons by setting O_NONBLOCK
+			let fd = pipe.fileHandleForReading.fileDescriptor
+			let flags = fcntl(fd, F_GETFL)
+			_ = fcntl(fd, F_SETFL, flags | O_NONBLOCK)
+
+			if let remaining = try? pipe.fileHandleForReading.readToEnd(), !remaining.isEmpty {
+				outputBuffer.append(remaining)
+			}
+
+			let data = outputBuffer.data
 			let output = String(data: data, encoding: .utf8)?
 				.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
@@ -616,7 +634,9 @@ private final class ShellCommandRunner: @unchecked Sendable {
 		let outputBuffer = LockedDataBuffer(maxBytes: maximumOutputBytes)
 		pipe.fileHandleForReading.readabilityHandler = { handle in
 			let data = handle.availableData
-			if !data.isEmpty {
+			if data.isEmpty {
+				pipe.fileHandleForReading.readabilityHandler = nil
+			} else {
 				outputBuffer.append(data)
 			}
 		}
@@ -655,8 +675,12 @@ private final class ShellCommandRunner: @unchecked Sendable {
 
 		clearStoredProcess()
 		pipe.fileHandleForReading.readabilityHandler = nil
-		let remainingData = pipe.fileHandleForReading.readDataToEndOfFile()
-		if !remainingData.isEmpty {
+
+		let fd = pipe.fileHandleForReading.fileDescriptor
+		let flags = fcntl(fd, F_GETFL)
+		_ = fcntl(fd, F_SETFL, flags | O_NONBLOCK)
+
+		if let remainingData = try? pipe.fileHandleForReading.readToEnd(), !remainingData.isEmpty {
 			outputBuffer.append(remainingData)
 		}
 		let output = String(data: outputBuffer.data, encoding: .utf8)?
@@ -735,10 +759,26 @@ private final class ShellCommandRunner: @unchecked Sendable {
 		} catch {
 			return []
 		}
-		// Security (Sentinel): Prevent Denial of Service (deadlock) by completely draining the
-		// standard output pipe buffer before waiting for the process to exit.
-		let data = pipe.fileHandleForReading.readDataToEndOfFile()
+		let outputBuffer = LockedDataBuffer(maxBytes: 1_000_000)
+		pipe.fileHandleForReading.readabilityHandler = { handle in
+			let available = handle.availableData
+			if available.isEmpty {
+				pipe.fileHandleForReading.readabilityHandler = nil
+			} else {
+				outputBuffer.append(available)
+			}
+		}
 		pgrep.waitUntilExit()
+		pipe.fileHandleForReading.readabilityHandler = nil
+
+		let fd = pipe.fileHandleForReading.fileDescriptor
+		let flags = fcntl(fd, F_GETFL)
+		_ = fcntl(fd, F_SETFL, flags | O_NONBLOCK)
+
+		if let remainingData = try? pipe.fileHandleForReading.readToEnd(), !remainingData.isEmpty {
+			outputBuffer.append(remainingData)
+		}
+		let data = outputBuffer.data
 		let output = String(data: data, encoding: .utf8) ?? ""
 		return output
 			.split(whereSeparator: \.isNewline)
