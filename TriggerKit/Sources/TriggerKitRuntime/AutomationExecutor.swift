@@ -354,6 +354,8 @@ public final class AutomationExecutor {
 			} catch {
 				return .failure("\(name) launch failed: \(error.localizedDescription)")
 			}
+			// Security (Sentinel): Prevent Denial of Service (deadlock) by completely draining the
+			// standard output pipe buffer before waiting for the process to exit.
 			let data = pipe.fileHandleForReading.readDataToEndOfFile()
 			process.waitUntilExit()
 			let output = String(data: data, encoding: .utf8)?
@@ -730,11 +732,13 @@ private final class ShellCommandRunner: @unchecked Sendable {
 		pgrep.standardError = FileHandle.nullDevice
 		do {
 			try pgrep.run()
-			pgrep.waitUntilExit()
 		} catch {
 			return []
 		}
+		// Security (Sentinel): Prevent Denial of Service (deadlock) by completely draining the
+		// standard output pipe buffer before waiting for the process to exit.
 		let data = pipe.fileHandleForReading.readDataToEndOfFile()
+		pgrep.waitUntilExit()
 		let output = String(data: data, encoding: .utf8) ?? ""
 		return output
 			.split(whereSeparator: \.isNewline)
