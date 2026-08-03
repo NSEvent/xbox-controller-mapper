@@ -166,16 +166,17 @@ private enum OBSMediaMTXManager {
         let outPipe = Pipe()
         which.standardOutput = outPipe
         which.standardError = FileHandle.nullDevice
+
         do {
             try which.run()
             let data = outPipe.fileHandleForReading.readDataToEndOfFile()
             which.waitUntilExit()
             if which.terminationStatus == 0 {
                 if let path = String(data: data, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines),
-               !path.isEmpty,
-               FileManager.default.isExecutableFile(atPath: path) {
-                return path
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                   !path.isEmpty,
+                   FileManager.default.isExecutableFile(atPath: path) {
+                    return path
                 }
             }
         } catch {
