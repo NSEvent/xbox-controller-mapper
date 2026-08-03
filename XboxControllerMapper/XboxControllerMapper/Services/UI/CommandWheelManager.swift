@@ -565,7 +565,12 @@ class CommandWheelManager: ObservableObject {
             let appleScript = Process()
             appleScript.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
             appleScript.arguments = ["-e", script]
-            try? appleScript.run()
+            do {
+                try appleScript.run()
+                appleScript.waitUntilExit()
+            } catch {
+                NSLog("[CommandWheel] Safari private window AppleScript failed: %@", error.localizedDescription)
+            }
             return
         default:
             // Fallback: just open normally if browser is unknown
