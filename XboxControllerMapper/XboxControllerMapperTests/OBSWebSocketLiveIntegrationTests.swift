@@ -169,7 +169,7 @@ private enum OBSMediaMTXManager {
         do {
             try which.run()
         } catch {
-            throw error
+            throw XCTSkip("Failed to run which command: \(error)")
         }
         let data = outPipe.fileHandleForReading.readDataToEndOfFile()
         which.waitUntilExit()
