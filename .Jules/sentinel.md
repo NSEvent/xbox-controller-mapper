@@ -22,3 +22,8 @@
 **Vulnerability:** The application executed `Foundation.Process` shell commands and waited for them to exit (`process.waitUntilExit()`) before attempting to read the standard output and error pipes.
 **Learning:** If a child process writes more data than the operating system's pipe buffer can hold (typically ~64KB), the child process will block waiting for the parent to read the data. If the parent is blocked on `waitUntilExit()`, a deadlock occurs, resulting in a Denial of Service.
 **Prevention:** Always read data from process pipes (e.g., using `fileHandleForReading.readDataToEndOfFile()`) *before* calling `process.waitUntilExit()` to ensure the pipe buffer is drained and the child process can finish executing. However, ensure that this fix does not introduce deadlocks when used with handlers like `readabilityHandler` or processes that don't close their streams until parent exit.
+
+## 2026-08-03 - [Denial of Service via Unhandled Process Launch Exception]
+**Vulnerability:** Calling `waitUntilExit()` on a `Foundation.Process` that failed to launch (e.g., when `try? process.run()` is used) throws an uncatchable Objective-C exception that crashes the application.
+**Learning:** Swallowing process launch errors with `try?` before calling `waitUntilExit()` is a critical vulnerability because it leads to uncatchable exceptions if the executable is missing or permissions are incorrect, causing a denial of service.
+**Prevention:** Always use a `do-catch` block to handle `process.run()` explicitly. Never call `waitUntilExit()` if `run()` throws an error.
