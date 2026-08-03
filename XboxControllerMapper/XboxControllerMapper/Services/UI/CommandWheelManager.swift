@@ -567,7 +567,6 @@ class CommandWheelManager: ObservableObject {
             appleScript.arguments = ["-e", script]
             do {
                 try appleScript.run()
-                appleScript.waitUntilExit()
             } catch {
                 NSLog("[CommandWheel] Safari private window AppleScript failed: %@", error.localizedDescription)
             }
