@@ -267,6 +267,8 @@
 "Focus Mode (Precision)" = "精確模式";
 "Focus Speed" = "精確模式速度";
 "Sensitivity when holding modifier" = "按住修飾鍵時的靈敏度";
+"Focus Mode Haptics" = "精確模式觸覺回饋";
+"Vibrate when entering or leaving Focus Mode" = "進入或退出精確模式時震動";
 "Activation Modifier" = "啟動修飾鍵";
 "Command modifier" = "Command 鍵";
 "Option modifier" = "Option 鍵";

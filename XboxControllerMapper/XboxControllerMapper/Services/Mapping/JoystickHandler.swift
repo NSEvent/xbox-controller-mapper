@@ -409,16 +409,20 @@ extension MappingEngine {
         if isFocusActive != wasFocusActive {
             state.wasFocusActive = isFocusActive
 			if isFocusActive && settings.gyroAimingEnabled {
-				let calibrationDelay = controllerService.threadSafeIsSteamController
-					? Config.focusEntryHapticDuration + 0.08
-					: 0
+				let calibrationDelay = Self.focusModeGyroCalibrationDelay(
+					isSteamController: controllerService.threadSafeIsSteamController,
+					hapticsEnabled: settings.focusModeHapticsEnabled
+				)
 				controllerService.prepareForGyroAimingActivation(calibrationDelay: calibrationDelay)
 				state.gyroFilterX.reset()
 				state.gyroFilterY.reset()
 				state.lastGyroTime = 0
 			}
             deferredIO.append { [self] in
-                performFocusModeHaptic(entering: isFocusActive)
+				performFocusModeHaptic(
+					entering: isFocusActive,
+					enabled: settings.focusModeHapticsEnabled
+				)
 
                 if !UniversalControlMouseRelay.shared.sendFocusMode(active: isFocusActive) {
                     Task { @MainActor in
@@ -852,7 +856,16 @@ extension MappingEngine {
 
     // MARK: - Focus Mode Haptics
 
-    nonisolated func performFocusModeHaptic(entering: Bool) {
+	nonisolated static func focusModeGyroCalibrationDelay(
+		isSteamController: Bool,
+		hapticsEnabled: Bool
+	) -> TimeInterval {
+		guard isSteamController, hapticsEnabled else { return 0 }
+		return Config.focusEntryHapticDuration + 0.08
+	}
+
+	nonisolated func performFocusModeHaptic(entering: Bool, enabled: Bool) {
+		guard enabled else { return }
         let intensity: Float = entering ? Config.focusEntryHapticIntensity : Config.focusExitHapticIntensity
         let sharpness: Float = entering ? Config.focusEntryHapticSharpness : Config.focusExitHapticSharpness
         let duration: TimeInterval = entering ? Config.focusEntryHapticDuration : Config.focusExitHapticDuration

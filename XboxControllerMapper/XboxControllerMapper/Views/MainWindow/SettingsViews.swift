@@ -137,6 +137,12 @@ struct JoystickSettingsView: View {
                     description: "Sensitivity when holding modifier"
                 )
 
+				Toggle("Focus Mode Haptics", isOn: Binding(
+					get: { settings.focusModeHapticsEnabled },
+					set: { updateSettings(\.focusModeHapticsEnabled, $0) }
+				))
+				.help("Vibrate when entering or leaving Focus Mode")
+
                 VStack(alignment: .leading) {
                     Text("Activation Modifier")
                     HStack(spacing: 12) {

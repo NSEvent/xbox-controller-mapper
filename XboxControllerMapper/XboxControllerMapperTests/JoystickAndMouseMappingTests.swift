@@ -369,6 +369,92 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
 
     // MARK: - Focus Mode Tests (Medium Priority)
 
+	@MainActor
+	func testFocusModeHapticsPlayOnEntryAndExitWhenEnabled() async {
+		let accepted = expectation(description: "focus haptics accepted")
+		accepted.expectedFulfillmentCount = 2
+		controllerService.hapticSessionAcceptedForTesting = { _ in
+			accepted.fulfill()
+		}
+
+		mappingEngine.performFocusModeHaptic(entering: true, enabled: true)
+		mappingEngine.performFocusModeHaptic(entering: false, enabled: true)
+
+		await fulfillment(of: [accepted], timeout: 1.0)
+		controllerService.hapticSessionAcceptedForTesting = nil
+	}
+
+	@MainActor
+	func testDisabledFocusModeHapticsDoNotBlockStateTransitions() async {
+		let countLock = NSLock()
+		var acceptedHapticCount = 0
+		controllerService.hapticSessionAcceptedForTesting = { _ in
+			countLock.withLock {
+				acceptedHapticCount += 1
+			}
+		}
+
+		var settings = JoystickSettings()
+		settings.focusModeHapticsEnabled = false
+		var deferredIO: [() -> Void] = []
+
+		mappingEngine.state.lock.withLock {
+			mappingEngine.updateFocusModeState(
+				isFocusActive: true,
+				settings: settings,
+				now: 100,
+				deferring: &deferredIO
+			)
+			mappingEngine.updateFocusModeState(
+				isFocusActive: false,
+				settings: settings,
+				now: 101,
+				deferring: &deferredIO
+			)
+		}
+		deferredIO.forEach { $0() }
+
+		let hapticQueueDrained = expectation(description: "haptic queue drained")
+		controllerService.hapticQueue.async {
+			hapticQueueDrained.fulfill()
+		}
+		await fulfillment(of: [hapticQueueDrained], timeout: 1.0)
+
+		let focusState = mappingEngine.state.lock.withLock {
+			(mappingEngine.state.wasFocusActive, mappingEngine.state.focusExitTime)
+		}
+		XCTAssertFalse(focusState.0)
+		XCTAssertEqual(focusState.1, 101, accuracy: 0.0001)
+		XCTAssertEqual(countLock.withLock { acceptedHapticCount }, 0)
+		controllerService.hapticSessionAcceptedForTesting = nil
+	}
+
+	@MainActor
+	func testFocusModeGyroCalibrationDelayOnlyCoversActualSteamHaptics() {
+		XCTAssertEqual(
+			MappingEngine.focusModeGyroCalibrationDelay(
+				isSteamController: true,
+				hapticsEnabled: true
+			),
+			Config.focusEntryHapticDuration + 0.08,
+			accuracy: 0.0001
+		)
+		XCTAssertEqual(
+			MappingEngine.focusModeGyroCalibrationDelay(
+				isSteamController: true,
+				hapticsEnabled: false
+			),
+			0
+		)
+		XCTAssertEqual(
+			MappingEngine.focusModeGyroCalibrationDelay(
+				isSteamController: false,
+				hapticsEnabled: true
+			),
+			0
+		)
+	}
+
     /// Tests that focus mode reduces sensitivity when modifier is held
     func testFocusModeActivation() async throws {
         await MainActor.run {

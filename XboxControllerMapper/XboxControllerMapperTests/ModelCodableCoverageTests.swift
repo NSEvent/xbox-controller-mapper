@@ -298,6 +298,27 @@ final class ModelCodableCoverageTests: XCTestCase {
         XCTAssertEqual(doubleTap.threshold, 0.3, accuracy: 0.0001)
     }
 
+	func testJoystickSettingsDecoding_DefaultsFocusModeHapticsOnForLegacyProfiles() throws {
+		let decoded = try JSONDecoder().decode(
+			JoystickSettings.self,
+			from: Data("{}".utf8)
+		)
+
+		XCTAssertTrue(decoded.focusModeHapticsEnabled)
+	}
+
+	func testJoystickSettingsCodable_PreservesDisabledFocusModeHaptics() throws {
+		var settings = JoystickSettings()
+		settings.focusModeHapticsEnabled = false
+
+		let data = try JSONEncoder().encode(settings)
+		let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+		let decoded = try JSONDecoder().decode(JoystickSettings.self, from: data)
+
+		XCTAssertEqual(object["focusModeHapticsEnabled"] as? Bool, false)
+		XCTAssertFalse(decoded.focusModeHapticsEnabled)
+	}
+
     func testJoystickSettingsDecoding_ClampsOutOfRangeValues() throws {
         let json = """
         {

@@ -267,6 +267,8 @@
 "Focus Mode (Precision)" = "フォーカスモード（精密）";
 "Focus Speed" = "フォーカスモード速度";
 "Sensitivity when holding modifier" = "修飾キーを押している間の感度";
+"Focus Mode Haptics" = "フォーカスモードの触覚フィードバック";
+"Vibrate when entering or leaving Focus Mode" = "フォーカスモードの開始時と終了時に振動します";
 "Activation Modifier" = "起動用修飾キー";
 "Command modifier" = "Commandキー";
 "Option modifier" = "Optionキー";

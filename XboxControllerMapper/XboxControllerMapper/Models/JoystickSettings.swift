@@ -302,6 +302,9 @@ struct JoystickSettings: Codable, Equatable {
     /// Modifier that triggers focus mode (slower mouse speed)
     var focusModeModifier: ModifierFlags = .command
 
+	/// Whether entering and leaving focus mode produces controller haptics.
+	var focusModeHapticsEnabled: Bool = true
+
     /// Analog trigger that proportionally slows mouse/touchpad cursor movement.
     var analogPrecisionTriggerMode: AnalogPrecisionTriggerMode = .off
 
@@ -574,6 +577,7 @@ extension JoystickSettings {
         case scrollBoostMultiplier
         case focusModeSensitivity
         case focusModeModifier
+		case focusModeHapticsEnabled
 		case analogPrecisionTriggerMode
 		case analogPrecisionMinimumSpeed
 		case analogPrecisionDeadzone
@@ -643,6 +647,7 @@ extension JoystickSettings {
         scrollBoostMultiplier = try container.decode(.scrollBoostMultiplier, default: 2.0, clampedTo: 1.0...4.0)
         focusModeSensitivity = try container.decode(.focusModeSensitivity, default: 0.2, clampedTo: unit)
         focusModeModifier = try container.decode(.focusModeModifier, default: .command)
+		focusModeHapticsEnabled = try container.decode(.focusModeHapticsEnabled, default: true)
 		analogPrecisionTriggerMode = try container.decodeLenient(
 			.analogPrecisionTriggerMode,
 			default: AnalogPrecisionTriggerMode.off
@@ -697,6 +702,7 @@ extension JoystickSettings {
         try container.encode(scrollBoostMultiplier, forKey: .scrollBoostMultiplier)
         try container.encode(focusModeSensitivity, forKey: .focusModeSensitivity)
         try container.encode(focusModeModifier, forKey: .focusModeModifier)
+		try container.encode(focusModeHapticsEnabled, forKey: .focusModeHapticsEnabled)
 		try container.encode(analogPrecisionTriggerMode, forKey: .analogPrecisionTriggerMode)
 		try container.encode(analogPrecisionMinimumSpeed, forKey: .analogPrecisionMinimumSpeed)
 		try container.encode(analogPrecisionDeadzone, forKey: .analogPrecisionDeadzone)

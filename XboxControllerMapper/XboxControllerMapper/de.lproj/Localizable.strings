@@ -267,6 +267,8 @@
 "Focus Mode (Precision)" = "Präzisionsmodus";
 "Focus Speed" = "Präzisionsgeschwindigkeit";
 "Sensitivity when holding modifier" = "Empfindlichkeit beim Halten der Sondertaste";
+"Focus Mode Haptics" = "Haptik im Präzisionsmodus";
+"Vibrate when entering or leaving Focus Mode" = "Beim Aktivieren oder Beenden des Präzisionsmodus vibrieren";
 "Activation Modifier" = "Aktivierungs-Sondertaste";
 "Command modifier" = "Command";
 "Option modifier" = "Option";
