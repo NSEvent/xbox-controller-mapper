@@ -278,26 +278,40 @@ final class AppLayerRuntimeTransitionTests: MappingEngineTestCase {
 			profileManager.setActiveProfile(profile)
 			appMonitor.frontmostBundleId = targetBundleId
 		}
-		await waitForTasks(0.15)
-		await MainActor.run {
-			XCTAssertEqual(controllerService.threadSafeLEDSettings, appLED)
-			controllerService.buttonPressed(.leftBumper)
+		let appLayerActivated = await waitForCondition {
+			self.mappingEngine.state.lock.withLock {
+				self.mappingEngine.state.activeProfile?.id == profile.id
+					&& self.mappingEngine.state.appActivatedLayerId == appLayer.id
+			}
+				&& self.controllerService.threadSafeLEDSettings == appLED
 		}
-		await waitForTasks(0.15)
+		XCTAssertTrue(appLayerActivated, "App-layer LED did not settle")
 
 		await MainActor.run {
-			XCTAssertEqual(
-				controllerService.threadSafeLEDSettings,
-				profileLED,
+			controllerService.buttonPressed(.leftBumper)
+		}
+		let manualLayerActivated = await waitForCondition {
+			self.mappingEngine.state.lock.withLock {
+				self.mappingEngine.state.activeLayerIds == [manualLayer.id]
+			}
+				&& self.controllerService.threadSafeLEDSettings == profileLED
+		}
+
+		await MainActor.run {
+			XCTAssertTrue(
+				manualLayerActivated,
 				"A top manual layer with no LED override must inherit the profile LED, not the app-layer LED"
 			)
 			controllerService.buttonReleased(.leftBumper)
 		}
-		await waitForTasks(0.15)
-
-		await MainActor.run {
-			XCTAssertEqual(controllerService.threadSafeLEDSettings, appLED)
+		let manualLayerReleased = await waitForCondition {
+			self.mappingEngine.state.lock.withLock {
+				self.mappingEngine.state.activeLayerIds.isEmpty
+			}
+				&& self.controllerService.threadSafeLEDSettings == appLED
 		}
+
+		XCTAssertTrue(manualLayerReleased, "App-layer LED did not return after releasing the manual layer")
 	}
 
 	func testAppLayerChangePreservesHeldManualLayerAndOpenWheelState() async {
