@@ -7,13 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.3] - 2026-08-05
+
 ### Added
 
 - **Toggleable layers**: Each layer can now use momentary Hold activation or latch on with Toggle activation. Toggle layers stay active after the activator is released, switch directly to another toggle layer, and turn off when their activator is pressed again; held layers still take temporary priority.
 
+- **Natural analog scrolling**: Each stick in Scroll mode now has independent horizontal and vertical direction controls, with matching per-layer overrides. Reverse either axis to follow macOS natural scrolling or any preferred content direction without changing mouse-axis settings.
+
+- **Optional Focus Mode haptics**: A new Focus Mode Haptics setting disables the vibration when entering or leaving Focus Mode while preserving its speed and gyro behavior. Haptics remain enabled by default.
+
+### Changed
+
+- **Layer editing is easier to find and follows the active layer**: The selected layer now exposes a visible options menu for editing, color, linked apps, and deletion instead of requiring a right-click. The Buttons editor follows the highest-priority manually active layer—including toggled and temporarily held layers—and returns to Base when no manual layer is active, while app-layer and profile transitions keep the selection synchronized.
+
+- **Localized layer controls**: Activation Style, Hold/Toggle help text, and Edit Layer now use German, Japanese, Simplified Chinese, and Traditional Chinese translations.
+
+- **Controller-free release verification**: Expanded regression coverage synthesizes controller input to verify layer routing and persistence, profile and app-layer transitions, scroll direction and boost behavior, Focus Mode haptic preferences, and localization without requiring connected hardware.
+
 ### Fixed
 
-- **Custom D-pad repeat mappings**: Individually configured Arrow or WASD directions no longer get mistaken for a preset after the fourth direction is mapped. Ambiguous profiles saved by 2.6.2 migrate conservatively to Custom; selecting Arrows or WASD again records that choice explicitly.
+- **Custom D-pad preset detection**: Individually configured Arrow or WASD directions no longer get mistaken for a preset after the fourth direction is mapped. Explicit Arrow/WASD selections remain selected when only repeat timing, haptics, or alternate actions change, while changing a primary direction switches the picker to Custom. Ambiguous profiles saved by 2.6.2 migrate conservatively to Custom; selecting Arrows or WASD again records that choice explicitly.
 
 ## [2.6.2] - 2026-07-25
 
