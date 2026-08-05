@@ -206,6 +206,50 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
 		}
     }
 
+	@MainActor
+	func testReversedVerticalScrollKeepsDoubleTapBoostMagnitude() {
+		var tuning = StickTuning(mode: .scroll)
+		tuning.scrollSensitivity = 0
+		tuning.scrollAcceleration = 0
+		tuning.scrollDeadzone = 0
+		tuning.invertScrollY = true
+		var settings = JoystickSettings()
+		settings.scrollBoostMultiplier = 3
+
+		mappingEngine.state.lock.withLock {
+			mappingEngine.state.scrollBoostDirection = 0
+		}
+		mappingEngine.processScrolling(
+			CGPoint(x: 0.4, y: 0.6),
+			rawStick: CGPoint(x: 0.4, y: 0.6),
+			tuning: tuning,
+			settings: settings,
+			now: 0
+		)
+		guard case .scroll(let baseX, let baseY)? = mockInputSimulator.events.last else {
+			return XCTFail("Expected baseline scroll event")
+		}
+
+		mockInputSimulator.clearEvents()
+		mappingEngine.state.lock.withLock {
+			mappingEngine.state.scrollBoostDirection = 1
+		}
+		mappingEngine.processScrolling(
+			CGPoint(x: 0.4, y: 0.6),
+			rawStick: CGPoint(x: 0.4, y: 0.6),
+			tuning: tuning,
+			settings: settings,
+			now: 1
+		)
+		guard case .scroll(let boostedX, let boostedY)? = mockInputSimulator.events.last else {
+			return XCTFail("Expected boosted scroll event")
+		}
+
+		XCTAssertEqual(boostedX, baseX, accuracy: 0.0001)
+		XCTAssertLessThan(boostedY, 0, "Reversing vertical scroll must preserve its sign during boost.")
+		XCTAssertEqual(abs(boostedY), abs(baseY) * 3, accuracy: 0.0001)
+	}
+
     func testScrollButtonWithoutPerActionSettingsRemainsOneShot() async throws {
 		await MainActor.run {
 			let mapping = KeyMapping(keyCode: KeyCodeMapping.scrollUp)

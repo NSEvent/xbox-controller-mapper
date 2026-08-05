@@ -255,6 +255,12 @@
 "Activation threshold for keys" = "按键激活阈值";
 "Ignore small movements" = "忽略细微移动";
 "Invert Y Axis" = "反转 Y 轴";
+"Activation Style" = "激活方式";
+"Hold" = "按住";
+"Toggle" = "切换";
+"Active only while the activator is held." = "仅在按住激活按钮时启用。";
+"Press once to activate; press again to turn it off." = "按一次启用；再按一次关闭。";
+"Edit Layer..." = "编辑层...";
 "Reverse Horizontal Scroll" = "反转水平滚动";
 "Reverse Vertical Scroll" = "反转垂直滚动";
 "Reverse either axis to match natural scrolling or your preferred content direction." = "可分别反转两个轴，以匹配自然滚动或您偏好的内容移动方向。";

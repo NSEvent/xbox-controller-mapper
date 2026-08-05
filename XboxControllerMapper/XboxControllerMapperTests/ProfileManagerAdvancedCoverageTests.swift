@@ -189,6 +189,80 @@ final class ProfileManagerAdvancedCoverageTests: XCTestCase {
         XCTAssertEqual(Set(profileManager.unassignedLayers().map(\.id)), Set([currentSecond.id]))
     }
 
+	func testLayerActivationStyleCreateEditAndReload() throws {
+		let created = try XCTUnwrap(
+			profileManager.createLayer(
+				name: "Editing",
+				activatorButton: .leftBumper,
+				activationStyle: .toggle
+			)
+		)
+		XCTAssertEqual(
+			profileManager.activeProfile?.layers.first(where: { $0.id == created.id })?.activationStyle,
+			.toggle,
+			"The Add Layer flow must store the selected activation style immediately."
+		)
+
+		profileManager.flushPendingSaves()
+		let reloadedManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
+		var reloadedLayer = try XCTUnwrap(
+			reloadedManager.activeProfile?.layers.first(where: { $0.id == created.id })
+		)
+		XCTAssertEqual(reloadedLayer.activationStyle, .toggle)
+
+		reloadedLayer.name = "Editing (Hold)"
+		reloadedLayer.activationStyle = .hold
+		reloadedManager.updateLayer(reloadedLayer)
+		reloadedManager.flushPendingSaves()
+
+		let editedManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
+		let editedLayer = try XCTUnwrap(
+			editedManager.activeProfile?.layers.first(where: { $0.id == created.id })
+		)
+		XCTAssertEqual(editedLayer.name, "Editing (Hold)")
+		XCTAssertEqual(
+			editedLayer.activationStyle,
+			.hold,
+			"The Edit Layer flow must persist activation-style changes across relaunch."
+		)
+	}
+
+	func testNewJoystickPreferencesAndLayerDirectionsPersistAfterReload() throws {
+		let layer = try XCTUnwrap(profileManager.createLayer(name: "Scroll Layer"))
+		var settings = try XCTUnwrap(profileManager.activeProfile?.joystickSettings)
+		settings.leftStick.mode = .scroll
+		settings.leftStick.invertScrollX = true
+		settings.leftStick.invertScrollY = false
+		settings.rightStick.mode = .scroll
+		settings.rightStick.invertScrollX = false
+		settings.rightStick.invertScrollY = true
+		settings.focusModeHapticsEnabled = false
+		profileManager.updateJoystickSettings(settings)
+		profileManager.setStickMode(.scroll, side: .left, layerId: layer.id)
+		profileManager.setLayerStickOverride(\.invertScrollX, false, side: .left, layerId: layer.id)
+		profileManager.setLayerStickOverride(\.invertScrollY, true, side: .left, layerId: layer.id)
+
+		profileManager.flushPendingSaves()
+		let reloadedManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
+		let reloadedProfile = try XCTUnwrap(reloadedManager.activeProfile)
+		let reloadedLayer = try XCTUnwrap(
+			reloadedProfile.layers.first(where: { $0.id == layer.id })
+		)
+
+		XCTAssertTrue(reloadedProfile.joystickSettings.leftStick.invertScrollX)
+		XCTAssertFalse(reloadedProfile.joystickSettings.leftStick.invertScrollY)
+		XCTAssertFalse(reloadedProfile.joystickSettings.rightStick.invertScrollX)
+		XCTAssertTrue(reloadedProfile.joystickSettings.rightStick.invertScrollY)
+		XCTAssertFalse(reloadedProfile.joystickSettings.focusModeHapticsEnabled)
+		XCTAssertEqual(reloadedLayer.leftStickTuning?.mode, .scroll)
+		XCTAssertEqual(
+			reloadedLayer.leftStickTuning?.invertScrollX,
+			false,
+			"An explicit Normal override must remain distinct from Inherit."
+		)
+		XCTAssertEqual(reloadedLayer.leftStickTuning?.invertScrollY, true)
+	}
+
     func testLayerMappingUpdateAndDelete() {
         guard let layer = profileManager.createLayer(name: "Mappings") else {
             return XCTFail("Expected layer")

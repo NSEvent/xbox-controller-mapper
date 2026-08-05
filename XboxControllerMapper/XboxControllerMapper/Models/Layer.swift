@@ -8,10 +8,19 @@ enum LayerActivationStyle: String, Codable, CaseIterable, Identifiable {
 
     var displayName: String {
 		switch self {
-		case .hold: return "Hold"
-		case .toggle: return "Toggle"
+		case .hold: return String(localized: "Hold")
+		case .toggle: return String(localized: "Toggle")
 		}
     }
+
+	var helpText: String {
+		switch self {
+		case .hold:
+			return String(localized: "Active only while the activator is held.")
+		case .toggle:
+			return String(localized: "Press once to activate; press again to turn it off.")
+		}
+	}
 }
 
 /// Distinct, visually-different colors auto-assigned to layers in order of creation.

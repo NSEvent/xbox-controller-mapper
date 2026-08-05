@@ -36,7 +36,7 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         XCTAssertEqual(decoded.buttonMappings[.b]?.modifiers, .command)
     }
 
-    func testLayerCodableRoundTripPreservesToggleActivation() throws {
+	func testLayerCodableRoundTripPreservesToggleActivation() throws {
 		let layer = Layer(
 			name: "Editing",
 			activatorButton: .rightTrigger,
@@ -50,6 +50,41 @@ final class LayerAndConfigCoverageTests: XCTestCase {
 
 		XCTAssertEqual(decoded.activationStyle, .toggle)
     }
+
+	func testLayerActivationStringsExistInEverySupportedLocalization() throws {
+		let keys = [
+			"Activation Style",
+			"Hold",
+			"Toggle",
+			"Active only while the activator is held.",
+			"Press once to activate; press again to turn it off.",
+			"Edit Layer...",
+		]
+		let testBundle = Bundle(for: Self.self)
+		let appBundleURL = testBundle.bundleURL
+			.deletingLastPathComponent()
+			.deletingLastPathComponent()
+			.deletingLastPathComponent()
+		let appBundle = try XCTUnwrap(
+			Bundle(url: appBundleURL),
+			"Missing host app bundle at \(appBundleURL.path)"
+		)
+
+		for localization in ["de", "ja", "zh-Hans", "zh-Hant"] {
+			let path = try XCTUnwrap(
+				appBundle.path(forResource: localization, ofType: "lproj"),
+				"Missing \(localization) localization bundle"
+			)
+			let bundle = try XCTUnwrap(Bundle(path: path))
+			for key in keys {
+				XCTAssertNotEqual(
+					bundle.localizedString(forKey: key, value: nil, table: nil),
+					key,
+					"\(localization) must translate \"\(key)\""
+				)
+			}
+		}
+	}
 
     func testLegacyAndUnknownLayerActivationStylesDefaultToHold() throws {
 		let id = UUID()

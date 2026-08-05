@@ -88,11 +88,7 @@ struct AddLayerSheet: View {
 					}
 					.pickerStyle(.segmented)
 
-					Text(
-						activationStyle == .hold
-							? "Active only while the activator is held."
-							: "Press once to activate; press again to turn it off."
-					)
+					Text(activationStyle.helpText)
 					.font(.caption)
 					.foregroundColor(.secondary)
 				}
@@ -248,11 +244,7 @@ struct EditLayerSheet: View {
 					}
 					.pickerStyle(.segmented)
 
-					Text(
-						activationStyle == .hold
-							? "Active only while the activator is held."
-							: "Press once to activate; press again to turn it off."
-					)
+					Text(activationStyle.helpText)
 					.font(.caption)
 					.foregroundColor(.secondary)
 				}

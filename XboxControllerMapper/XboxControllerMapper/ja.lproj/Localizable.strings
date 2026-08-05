@@ -255,6 +255,12 @@
 "Activation threshold for keys" = "キーの発動しきい値";
 "Ignore small movements" = "わずかな動きを無視";
 "Invert Y Axis" = "Y軸を反転";
+"Activation Style" = "有効化方式";
+"Hold" = "長押し";
+"Toggle" = "切り替え";
+"Active only while the activator is held." = "アクティベーターボタンを押している間だけ有効になります。";
+"Press once to activate; press again to turn it off." = "1回押すと有効になり、もう一度押すと無効になります。";
+"Edit Layer..." = "レイヤーを編集...";
 "Reverse Horizontal Scroll" = "横スクロールを反転";
 "Reverse Vertical Scroll" = "縦スクロールを反転";
 "Reverse either axis to match natural scrolling or your preferred content direction." = "各軸を反転して、ナチュラルスクロールや好みのコンテンツ移動方向に合わせます。";
