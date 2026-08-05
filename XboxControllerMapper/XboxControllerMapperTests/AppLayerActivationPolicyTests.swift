@@ -324,9 +324,24 @@ final class AppLayerRuntimeTransitionTests: MappingEngineTestCase {
 		await MainActor.run {
 			profileManager.setActiveProfile(profile)
 			appMonitor.frontmostBundleId = firstBundleId
+		}
+		let initialRouteReady = await waitForCondition {
+			self.mappingEngine.state.lock.withLock {
+				self.mappingEngine.state.activeProfile?.id == profile.id
+					&& self.mappingEngine.state.appActivatedLayerId == firstAppLayer.id
+			}
+		}
+		XCTAssertTrue(initialRouteReady, "Initial app-layer route did not settle")
+
+		await MainActor.run {
 			controllerService.buttonPressed(.leftBumper)
 		}
-		await waitForTasks(0.15)
+		let manualLayerActivated = await waitForCondition {
+			self.mappingEngine.state.lock.withLock {
+				self.mappingEngine.state.activeLayerIds == [manualLayer.id]
+			}
+		}
+		XCTAssertTrue(manualLayerActivated, "Manual layer did not activate")
 
 		await MainActor.run {
 			mappingEngine.state.lock.withLock {
@@ -341,6 +356,13 @@ final class AppLayerRuntimeTransitionTests: MappingEngineTestCase {
 		await MainActor.run {
 			appMonitor.frontmostBundleId = secondBundleId
 		}
+		let transitionCompleted = await waitForCondition {
+			self.mappingEngine.state.lock.withLock {
+				self.mappingEngine.state.appActivatedLayerId == secondAppLayer.id
+					&& self.mappingEngine.state.activeLayerIds == [manualLayer.id]
+			}
+		}
+		XCTAssertTrue(transitionCompleted, "Destination app-layer route did not settle")
 
 		await MainActor.run {
 			mappingEngine.state.lock.withLock {
@@ -359,7 +381,13 @@ final class AppLayerRuntimeTransitionTests: MappingEngineTestCase {
 		await MainActor.run {
 			controllerService.buttonReleased(.leftBumper)
 		}
-		await waitForTasks(0.15)
+		let releaseCompleted = await waitForCondition {
+			self.mappingEngine.state.lock.withLock {
+				self.mappingEngine.state.activeLayerIds.isEmpty
+					&& self.mappingEngine.state.effectiveActiveLayerIds == [secondAppLayer.id]
+			}
+		}
+		XCTAssertTrue(releaseCompleted, "Manual-layer release did not settle")
 
 		await MainActor.run {
 			mappingEngine.state.lock.withLock {

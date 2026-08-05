@@ -6,6 +6,20 @@ import SwiftUI
 import AppKit
 @testable import ControllerKeys
 
+/// Waits for an observable asynchronous effect instead of assuming a fixed
+/// dispatch delay. Clean CI runners can take longer while under build load.
+func waitForCondition(
+	timeout: TimeInterval = 3.0,
+	_ condition: @escaping () -> Bool
+) async -> Bool {
+	let deadline = Date().addingTimeInterval(timeout)
+	while Date() < deadline {
+		if condition() { return true }
+		try? await Task.sleep(nanoseconds: 10_000_000)
+	}
+	return condition()
+}
+
 /// Shared fixture for MappingEngine integration tests.
 /// Split out of the original monolithic XboxControllerMapperTests.swift; the
 /// concrete test classes (MappingEngineCoreTests, LayerTests, etc.) inherit

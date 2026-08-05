@@ -359,7 +359,13 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
 		await MainActor.run {
 			controllerService.buttonPressed(.rightBumper)
 		}
-		await waitForTasks(0.1)
+		let heldOverrideActivated = await waitForCondition {
+			let layersReady = self.mappingEngine.state.lock.withLock {
+				self.mappingEngine.state.effectiveActiveLayerIds == [editing.id, precision.id]
+			}
+			return layersReady && self.mappingEngine.activeManualLayerId == precision.id
+		}
+		XCTAssertTrue(heldOverrideActivated, "Held layer override did not settle")
 
 		mappingEngine.state.lock.withLock {
 			XCTAssertEqual(
@@ -371,7 +377,13 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
 		await MainActor.run {
 			controllerService.buttonReleased(.rightBumper)
 		}
-		await waitForTasks(0.1)
+		let heldOverrideReleased = await waitForCondition {
+			let layersReady = self.mappingEngine.state.lock.withLock {
+				self.mappingEngine.state.effectiveActiveLayerIds == [editing.id]
+			}
+			return layersReady && self.mappingEngine.activeManualLayerId == editing.id
+		}
+		XCTAssertTrue(heldOverrideReleased, "Held layer release did not settle")
 		mappingEngine.state.lock.withLock {
 			XCTAssertEqual(mappingEngine.state.effectiveActiveLayerIds, [editing.id])
 		}

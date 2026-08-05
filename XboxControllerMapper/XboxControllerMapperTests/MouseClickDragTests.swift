@@ -256,42 +256,52 @@ final class MouseClickDragTests: XCTestCase {
 
     // MARK: - Multiple Buttons Mapped to Left Click
 
+	@MainActor
     func testMultipleButtonsCanIndependentlyHoldMouseClick() async throws {
         // Both X and touchpad mapped to left click — pressing one, then the other,
         // then releasing first should still show held
+		let mapping = KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick)
+		let profile = Profile(name: "MultiMouse", buttonMappings: [
+			.x: mapping,
+			.touchpadButton: mapping
+		])
         await MainActor.run {
-            let mapping = KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick)
-            let profile = Profile(name: "MultiMouse", buttonMappings: [
-                .x: mapping,
-                .touchpadButton: mapping
-            ])
             profileManager.setActiveProfile(profile)
-        }
-        try? await Task.sleep(nanoseconds: 10_000_000)
+		}
+		let profileReady = await waitForCondition {
+			self.mappingEngine.state.lock.withLock {
+				self.mappingEngine.state.activeProfile?.id == profile.id
+			}
+		}
+		XCTAssertTrue(profileReady, "Mouse profile did not settle")
 
         await MainActor.run {
             controllerService.buttonPressed(.x)
         }
-        await waitForTasks(0.1)
+		let firstPressStarted = await waitForCondition { self.mockInputSimulator.isLeftMouseButtonHeld }
+		XCTAssertTrue(firstPressStarted, "First button should hold left mouse")
         XCTAssertTrue(mockInputSimulator.isLeftMouseButtonHeld)
 
         await MainActor.run {
             controllerService.buttonReleased(.x)
         }
-        await waitForTasks(0.1)
+		let firstReleaseFinished = await waitForCondition { !self.mockInputSimulator.isLeftMouseButtonHeld }
+		XCTAssertTrue(firstReleaseFinished, "First button release did not settle")
         XCTAssertFalse(mockInputSimulator.isLeftMouseButtonHeld)
 
         // Now press touchpad
         await MainActor.run {
             controllerService.buttonPressed(.touchpadButton)
         }
-        await waitForTasks(0.1)
+		let touchpadPressStarted = await waitForCondition { self.mockInputSimulator.isLeftMouseButtonHeld }
+		XCTAssertTrue(touchpadPressStarted, "Touchpad press did not settle")
         XCTAssertTrue(mockInputSimulator.isLeftMouseButtonHeld, "Touchpad button should also hold left mouse")
 
         await MainActor.run {
             controllerService.buttonReleased(.touchpadButton)
         }
-        await waitForTasks(0.1)
+		let touchpadReleaseFinished = await waitForCondition { !self.mockInputSimulator.isLeftMouseButtonHeld }
+		XCTAssertTrue(touchpadReleaseFinished, "Touchpad release did not settle")
         XCTAssertFalse(mockInputSimulator.isLeftMouseButtonHeld)
     }
     // MARK: - Quick Click (Release Within Chord Window)
