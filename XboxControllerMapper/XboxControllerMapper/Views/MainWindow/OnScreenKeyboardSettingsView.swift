@@ -115,16 +115,16 @@ struct QuickTextRowView<SuggestionsView: View>: View {
                         Image(systemName: "pencil")
                     }
                     .buttonStyle(.borderless)
-                    .help("Edit quick text")
-                    .accessibilityLabel("Edit quick text")
+                    .help("Edit \(quickText.text.isEmpty ? "Unnamed Text" : quickText.text)")
+                    .accessibilityLabel("Edit \(quickText.text.isEmpty ? "Unnamed Text" : quickText.text)")
 
                     Button(action: onDelete) {
                         Image(systemName: "trash")
                             .foregroundColor(.red)
                     }
                     .buttonStyle(.borderless)
-                    .help("Delete quick text")
-                    .accessibilityLabel("Delete quick text")
+                    .help("Delete \(quickText.text.isEmpty ? "Unnamed Text" : quickText.text)")
+                    .accessibilityLabel("Delete \(quickText.text.isEmpty ? "Unnamed Text" : quickText.text)")
                 }
             }
 
@@ -194,16 +194,16 @@ struct AppBarItemRowView: View {
                 Image(systemName: "pencil")
             }
             .buttonStyle(.borderless)
-            .help("Edit app")
-            .accessibilityLabel("Edit app")
+            .help("Edit \(item.displayName.isEmpty ? "Unnamed App" : item.displayName)")
+            .accessibilityLabel("Edit \(item.displayName.isEmpty ? "Unnamed App" : item.displayName)")
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
                     .foregroundColor(.red)
             }
             .buttonStyle(.borderless)
-            .help("Delete app")
-            .accessibilityLabel("Delete app")
+            .help("Delete \(item.displayName.isEmpty ? "Unnamed App" : item.displayName)")
+            .accessibilityLabel("Delete \(item.displayName.isEmpty ? "Unnamed App" : item.displayName)")
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
@@ -273,16 +273,16 @@ struct WebsiteLinkRowView: View {
                 Image(systemName: "pencil")
             }
             .buttonStyle(.borderless)
-            .help("Edit link")
-            .accessibilityLabel("Edit link")
+            .help("Edit \(link.url.isEmpty ? "Unnamed Link" : link.url)")
+            .accessibilityLabel("Edit \(link.url.isEmpty ? "Unnamed Link" : link.url)")
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
                     .foregroundColor(.red)
             }
             .buttonStyle(.borderless)
-            .help("Delete link")
-            .accessibilityLabel("Delete link")
+            .help("Delete \(link.url.isEmpty ? "Unnamed Link" : link.url)")
+            .accessibilityLabel("Delete \(link.url.isEmpty ? "Unnamed Link" : link.url)")
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
