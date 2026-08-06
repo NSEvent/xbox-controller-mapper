@@ -165,18 +165,20 @@ private enum OBSMediaMTXManager {
         which.arguments = ["mediamtx"]
         let outPipe = Pipe()
         which.standardOutput = outPipe
-        which.standardError = Pipe()
-        try? which.run()
-        which.waitUntilExit()
-        if which.terminationStatus == 0 {
+        which.standardError = FileHandle.nullDevice
+        do {
+            try which.run()
             let data = outPipe.fileHandleForReading.readDataToEndOfFile()
-            if let path = String(data: data, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines),
-               !path.isEmpty,
-               FileManager.default.isExecutableFile(atPath: path) {
-                return path
+            which.waitUntilExit()
+            if which.terminationStatus == 0 {
+                if let path = String(data: data, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                   !path.isEmpty,
+                   FileManager.default.isExecutableFile(atPath: path) {
+                    return path
+                }
             }
-        }
+        } catch {}
 
         throw XCTSkip("mediamtx not found. Install with `brew install mediamtx` or set MEDIAMTX_BIN")
     }
@@ -239,15 +241,15 @@ private enum OBSMediaMTXManager {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/nc")
         p.arguments = ["-z", host, "\(port)"]
-        p.standardOutput = Pipe()
-        p.standardError = Pipe()
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
         do {
             try p.run()
+            p.waitUntilExit()
+            return p.terminationStatus == 0
         } catch {
             return false
         }
-        p.waitUntilExit()
-        return p.terminationStatus == 0
     }
 }
 
