@@ -179,6 +179,7 @@ public struct AutomationProgramEditor: View {
 	private func stepRow(_ step: AutomationStep, at index: Int) -> some View {
 		let allowed = capabilities.allows(step.kind)
 		let expanded = allowed && expandedStepIndexes.contains(index)
+		let itemName = step.displaySummary.isEmpty ? "Unnamed Step" : step.displaySummary
 
 		return VStack(alignment: .leading, spacing: 6) {
 			HStack(spacing: 8) {
@@ -191,25 +192,29 @@ public struct AutomationProgramEditor: View {
 						.frame(width: 16)
 				}
 				.disabled(!allowed)
-				.help(allowed ? (expanded ? "Collapse" : "Expand") : "Unavailable in this host")
-				.accessibilityLabel(allowed ? (expanded ? "Collapse" : "Expand") : "Unavailable in this host")
+				.help(allowed ? (expanded ? "Collapse \(itemName)" : "Expand \(itemName)") : "Unavailable in this host")
+				.accessibilityLabel(allowed ? (expanded ? "Collapse \(itemName)" : "Expand \(itemName)") : "Unavailable in this host")
 
-				HStack(spacing: 8) {
-					Image(systemName: iconName(for: step))
-						.frame(width: 18)
-						.foregroundStyle(allowed ? Color.accentColor : Color.secondary)
-
-					Text(step.displaySummary)
-						.font(.callout.weight(.semibold))
-						.lineLimit(1)
-						.frame(maxWidth: .infinity, alignment: .leading)
-				}
-				.contentShape(Rectangle())
-				.onTapGesture {
+				Button {
 					if allowed {
 						toggleExpanded(index)
 					}
+				} label: {
+					HStack(spacing: 8) {
+						Image(systemName: iconName(for: step))
+							.frame(width: 18)
+							.foregroundStyle(allowed ? Color.accentColor : Color.secondary)
+
+						Text(step.displaySummary)
+							.font(.callout.weight(.semibold))
+							.lineLimit(1)
+							.frame(maxWidth: .infinity, alignment: .leading)
+					}
+					.contentShape(Rectangle())
 				}
+				.buttonStyle(.plain)
+				.help(allowed ? (expanded ? "Collapse \(itemName)" : "Expand \(itemName)") : "Unavailable step")
+				.accessibilityLabel(allowed ? (expanded ? "Collapse \(itemName)" : "Expand \(itemName)") : "Unavailable step")
 
 				Button {
 					moveStep(from: index, by: -1)
@@ -217,8 +222,8 @@ public struct AutomationProgramEditor: View {
 					Image(systemName: "chevron.up")
 				}
 				.disabled(index == 0)
-				.help("Move up")
-				.accessibilityLabel("Move up")
+				.help("Move up \(itemName)")
+				.accessibilityLabel("Move up \(itemName)")
 
 				Button {
 					moveStep(from: index, by: 1)
@@ -226,16 +231,16 @@ public struct AutomationProgramEditor: View {
 					Image(systemName: "chevron.down")
 				}
 				.disabled(index == program.steps.count - 1)
-				.help("Move down")
-				.accessibilityLabel("Move down")
+				.help("Move down \(itemName)")
+				.accessibilityLabel("Move down \(itemName)")
 
 				Button(role: .destructive) {
 					deleteStep(at: index)
 				} label: {
 					Image(systemName: "trash")
 				}
-				.help("Delete")
-				.accessibilityLabel("Delete")
+				.help("Delete \(itemName)")
+				.accessibilityLabel("Delete \(itemName)")
 			}
 			.buttonStyle(.plain)
 
