@@ -22,3 +22,7 @@
 **Vulnerability:** The application executed `Foundation.Process` shell commands and waited for them to exit (`process.waitUntilExit()`) before attempting to read the standard output and error pipes.
 **Learning:** If a child process writes more data than the operating system's pipe buffer can hold (typically ~64KB), the child process will block waiting for the parent to read the data. If the parent is blocked on `waitUntilExit()`, a deadlock occurs, resulting in a Denial of Service.
 **Prevention:** Always read data from process pipes (e.g., using `fileHandleForReading.readDataToEndOfFile()`) *before* calling `process.waitUntilExit()` to ensure the pipe buffer is drained and the child process can finish executing. However, ensure that this fix does not introduce deadlocks when used with handlers like `readabilityHandler` or processes that don't close their streams until parent exit.
+## 2026-06-27 - [Crash on Uncaught Process Exception]
+**Vulnerability:** The application swallowed `Process.run()` errors using `try?` and subsequently called `process.waitUntilExit()`.
+**Learning:** If a `Foundation.Process` fails to launch, calling `waitUntilExit()` on it throws an uncatchable Objective-C exception, which bypasses Swift's `do-catch` blocks and immediately crashes the application (Denial of Service).
+**Prevention:** Never use `try?` with `Process.run()` if you intend to call `waitUntilExit()` afterward. Always use an explicit `do-catch` block to handle launch failures, and ensure `waitUntilExit()` is only called if the process was successfully launched.
