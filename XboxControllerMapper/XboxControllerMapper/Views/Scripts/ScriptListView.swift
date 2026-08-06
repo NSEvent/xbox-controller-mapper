@@ -188,33 +188,37 @@ struct ScriptRow: View {
                 .accessibilityHidden(true)
 
             // Tappable content area
-            HStack {
-                Image(systemName: "applescript.fill")
-                    .foregroundColor(.orange.opacity(0.6))
-                    .font(.caption)
-                    .frame(width: 20)
+            Button(action: onEdit) {
+                HStack {
+                    Image(systemName: "applescript.fill")
+                        .foregroundColor(.orange.opacity(0.6))
+                        .font(.caption)
+                        .frame(width: 20)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(script.name.isEmpty ? "Untitled Script" : script.name)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white.opacity(0.9))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(script.name.isEmpty ? "Untitled Script" : script.name)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white.opacity(0.9))
 
-                    if let description = script.description, !description.isEmpty {
-                        Text(description)
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.5))
-                            .lineLimit(1)
-                    } else {
-                        Text("\(script.source.count) chars")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.5))
+                        if let description = script.description, !description.isEmpty {
+                            Text(description)
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.5))
+                                .lineLimit(1)
+                        } else {
+                            Text("\(script.source.count) chars")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.5))
+                        }
                     }
-                }
 
-                Spacer()
+                    Spacer()
+                }
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
-            .onTapGesture { onEdit() }
+            .buttonStyle(.plain)
+            .help(script.name.isEmpty ? "Edit Untitled Script" : "Edit \(script.name)")
+            .accessibilityLabel(script.name.isEmpty ? "Edit Untitled Script" : "Edit \(script.name)")
 
             HStack(spacing: 12) {
                 Button(action: onEdit) {
