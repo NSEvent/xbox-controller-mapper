@@ -163,7 +163,11 @@ enum StreamDeckProfileParser {
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
 
-        try process.run()
+        do {
+            try process.run()
+        } catch {
+            throw StreamDeckParseError.extractionFailed("unzip launch failed: \(error.localizedDescription)")
+        }
         process.waitUntilExit()
 
         guard process.terminationStatus == 0 else {
