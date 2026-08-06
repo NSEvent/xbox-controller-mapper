@@ -139,6 +139,8 @@ private final class SteamControllerTrackpadCompatibilityOverride: @unchecked Sen
         let process = Process()
         process.executableURL = URL(fileURLWithPath: Self.activateSettingsPath)
         process.arguments = ["-u"]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
         do {
             try process.run()
             process.waitUntilExit()

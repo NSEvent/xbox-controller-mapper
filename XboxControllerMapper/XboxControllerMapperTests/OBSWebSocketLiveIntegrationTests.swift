@@ -165,11 +165,11 @@ private enum OBSMediaMTXManager {
         which.arguments = ["mediamtx"]
         let outPipe = Pipe()
         which.standardOutput = outPipe
-        which.standardError = Pipe()
+        which.standardError = outPipe
         try? which.run()
+        let data = outPipe.fileHandleForReading.readDataToEndOfFile()
         which.waitUntilExit()
         if which.terminationStatus == 0 {
-            let data = outPipe.fileHandleForReading.readDataToEndOfFile()
             if let path = String(data: data, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
                !path.isEmpty,
@@ -239,8 +239,8 @@ private enum OBSMediaMTXManager {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/nc")
         p.arguments = ["-z", host, "\(port)"]
-        p.standardOutput = Pipe()
-        p.standardError = Pipe()
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
         do {
             try p.run()
         } catch {
