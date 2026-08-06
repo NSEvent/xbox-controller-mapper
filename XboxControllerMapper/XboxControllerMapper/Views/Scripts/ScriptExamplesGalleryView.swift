@@ -26,11 +26,14 @@ struct ScriptExamplesGalleryView: View {
             ScrollView {
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(ScriptExamplesData.all) { example in
-                        ExampleCard(example: example)
-                            .onTapGesture {
-                                onSelect(example)
-                                dismiss()
-                            }
+                        Button(action: {
+                            onSelect(example)
+                            dismiss()
+                        }) {
+                            ExampleCard(example: example)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Use example \(example.name)")
                     }
                 }
                 .padding()

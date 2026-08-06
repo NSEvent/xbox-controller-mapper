@@ -29,3 +29,7 @@
 ## 2024-07-12 - [Dynamic Accessibility Labels for List Item Actions]
 **Learning:** Icon-only buttons (like Edit/Delete) inside lists pose a major accessibility challenge for VoiceOver users when identical labels ("Edit") are repeated without context, making it impossible to know which row is being acted on.
 **Action:** Always interpolate the dynamic item context (e.g., `item.name`) into both `.help()` tooltips and `.accessibilityLabel()` modifiers in repeated SwiftUI lists. Include fallback text for empty states (e.g., `"Unnamed Item"`).
+
+## 2026-08-02 - [Apply Symmetry in Accessibility to MacroListView and ScriptExamplesGalleryView]
+**Learning:** Found additional instances of `onTapGesture` being used for interactive list and gallery elements in `MacroListView.swift` and `ScriptExamplesGalleryView.swift`.
+**Action:** Applied the same learning to wrap these interactive elements in semantic `Button` components with `.buttonStyle(.plain)` and applied dynamic context via `.accessibilityLabel` to ensure full keyboard navigation and screen reader support.
