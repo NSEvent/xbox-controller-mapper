@@ -22,3 +22,7 @@
 **Vulnerability:** The application executed `Foundation.Process` shell commands and waited for them to exit (`process.waitUntilExit()`) before attempting to read the standard output and error pipes.
 **Learning:** If a child process writes more data than the operating system's pipe buffer can hold (typically ~64KB), the child process will block waiting for the parent to read the data. If the parent is blocked on `waitUntilExit()`, a deadlock occurs, resulting in a Denial of Service.
 **Prevention:** Always read data from process pipes (e.g., using `fileHandleForReading.readDataToEndOfFile()`) *before* calling `process.waitUntilExit()` to ensure the pipe buffer is drained and the child process can finish executing. However, ensure that this fix does not introduce deadlocks when used with handlers like `readabilityHandler` or processes that don't close their streams until parent exit.
+## 2026-06-27 - [Denial of Service via Pipe Deadlock TriggerKit]
+**Vulnerability:** AutomationExecutor within TriggerKit executed shell commands/pgrep and waited for them to exit (`waitUntilExit()`) before reading the pipe.
+**Learning:** This is a recurring anti-pattern across different modules handling Foundation.Process. Similar to the issue found on 2026-06-26, it blocks the parent process and deadlocks if child output exceeds ~64KB.
+**Prevention:** Consistently audit all uses of Foundation.Process and Pipe across all Swift packages/modules (including TriggerKit, not just the main app), ensuring `readDataToEndOfFile()` precedes `waitUntilExit()`.
