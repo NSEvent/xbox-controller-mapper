@@ -22,3 +22,8 @@
 **Vulnerability:** The application executed `Foundation.Process` shell commands and waited for them to exit (`process.waitUntilExit()`) before attempting to read the standard output and error pipes.
 **Learning:** If a child process writes more data than the operating system's pipe buffer can hold (typically ~64KB), the child process will block waiting for the parent to read the data. If the parent is blocked on `waitUntilExit()`, a deadlock occurs, resulting in a Denial of Service.
 **Prevention:** Always read data from process pipes (e.g., using `fileHandleForReading.readDataToEndOfFile()`) *before* calling `process.waitUntilExit()` to ensure the pipe buffer is drained and the child process can finish executing. However, ensure that this fix does not introduce deadlocks when used with handlers like `readabilityHandler` or processes that don't close their streams until parent exit.
+
+## 2025-02-13 - [CRITICAL] Fix Process deadlocks during standard output pipe reads
+**Vulnerability:** Foundation.Process can deadlock if `process.waitUntilExit()` is called before fully reading standard output/error pipes (`pipe.fileHandleForReading.readDataToEndOfFile()`). If the child process output exceeds the OS pipe buffer (~64KB), the child blocks writing to the pipe, but the parent process is blocked waiting for it to exit, causing a permanent deadlock / DoS.
+**Learning:** In Swift, `waitUntilExit()` must never precede reading output when standard output or error are routed to a `Pipe()`.
+**Prevention:** Always read data from the pipe (e.g. `readDataToEndOfFile()`) *before* or *concurrently* (using `readabilityHandler`) with calling `process.waitUntilExit()`.
