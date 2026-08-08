@@ -354,8 +354,29 @@ public final class AutomationExecutor {
 			} catch {
 				return .failure("\(name) launch failed: \(error.localizedDescription)")
 			}
-			let data = pipe.fileHandleForReading.readDataToEndOfFile()
+			// To avoid pipe deadlocks (where child writes >64KB and blocks), we must
+			// drain the pipe concurrently with waitUntilExit. When stdout and stderr
+			// share the same Pipe, readDataToEndOfFile() before waitUntilExit() can
+			// hang if the process spawns background jobs that keep the stream open.
+			var outputData = Data()
+			let lock = NSLock()
+			pipe.fileHandleForReading.readabilityHandler = { handle in
+				let chunk = handle.availableData
+				if !chunk.isEmpty {
+					lock.lock()
+					outputData.append(chunk)
+					lock.unlock()
+				}
+			}
+
 			process.waitUntilExit()
+			pipe.fileHandleForReading.readabilityHandler = nil
+
+			let remaining = pipe.fileHandleForReading.readDataToEndOfFile()
+			lock.lock()
+			outputData.append(remaining)
+			let data = outputData
+			lock.unlock()
 			let output = String(data: data, encoding: .utf8)?
 				.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
