@@ -354,9 +354,40 @@ public final class AutomationExecutor {
 			} catch {
 				return .failure("\(name) launch failed: \(error.localizedDescription)")
 			}
-			process.waitUntilExit()
+			// To avoid pipe deadlocks (where child writes >64KB and blocks), we must
+			// drain the pipe concurrently with waitUntilExit. When stdout and stderr
+			// share the same Pipe, readDataToEndOfFile() before waitUntilExit() can
+			// hang if the process spawns background jobs that keep the stream open.
+			final class ThreadSafeData: @unchecked Sendable {
+				private let lock = NSLock()
+				private var _data = Data()
+				func append(_ new: Data) {
+					lock.lock()
+					_data.append(new)
+					lock.unlock()
+				}
+				func get() -> Data {
+					lock.lock()
+					defer { lock.unlock() }
+					return _data
+				}
+			}
+			let outputBuffer = ThreadSafeData()
+			pipe.fileHandleForReading.readabilityHandler = { handle in
+				let chunk = handle.availableData
+				if !chunk.isEmpty {
+					outputBuffer.append(chunk)
+				}
+			}
 
-			let data = pipe.fileHandleForReading.readDataToEndOfFile()
+			process.waitUntilExit()
+			pipe.fileHandleForReading.readabilityHandler = nil
+
+			let remaining = pipe.fileHandleForReading.readDataToEndOfFile()
+			if !remaining.isEmpty {
+				outputBuffer.append(remaining)
+			}
+			let data = outputBuffer.get()
 			let output = String(data: data, encoding: .utf8)?
 				.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
@@ -731,11 +762,11 @@ private final class ShellCommandRunner: @unchecked Sendable {
 		pgrep.standardError = FileHandle.nullDevice
 		do {
 			try pgrep.run()
-			pgrep.waitUntilExit()
 		} catch {
 			return []
 		}
 		let data = pipe.fileHandleForReading.readDataToEndOfFile()
+		pgrep.waitUntilExit()
 		let output = String(data: data, encoding: .utf8) ?? ""
 		return output
 			.split(whereSeparator: \.isNewline)
