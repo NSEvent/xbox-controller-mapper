@@ -358,14 +358,20 @@ public final class AutomationExecutor {
 			// drain the pipe concurrently with waitUntilExit. When stdout and stderr
 			// share the same Pipe, readDataToEndOfFile() before waitUntilExit() can
 			// hang if the process spawns background jobs that keep the stream open.
-			var outputData = Data()
-			let lock = NSLock()
+			final class ThreadSafeData: @unchecked Sendable {
+				private let lock = NSLock()
+				var data = Data()
+				func append(_ new: Data) {
+					lock.lock()
+					data.append(new)
+					lock.unlock()
+				}
+			}
+			let outputBuffer = ThreadSafeData()
 			pipe.fileHandleForReading.readabilityHandler = { handle in
 				let chunk = handle.availableData
 				if !chunk.isEmpty {
-					lock.lock()
-					outputData.append(chunk)
-					lock.unlock()
+					outputBuffer.append(chunk)
 				}
 			}
 
@@ -373,10 +379,10 @@ public final class AutomationExecutor {
 			pipe.fileHandleForReading.readabilityHandler = nil
 
 			let remaining = pipe.fileHandleForReading.readDataToEndOfFile()
-			lock.lock()
-			outputData.append(remaining)
-			let data = outputData
-			lock.unlock()
+			if !remaining.isEmpty {
+				outputBuffer.append(remaining)
+			}
+			let data = outputBuffer.data
 			let output = String(data: data, encoding: .utf8)?
 				.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
@@ -751,11 +757,11 @@ private final class ShellCommandRunner: @unchecked Sendable {
 		pgrep.standardError = FileHandle.nullDevice
 		do {
 			try pgrep.run()
-			pgrep.waitUntilExit()
 		} catch {
 			return []
 		}
 		let data = pipe.fileHandleForReading.readDataToEndOfFile()
+		pgrep.waitUntilExit()
 		let output = String(data: data, encoding: .utf8) ?? ""
 		return output
 			.split(whereSeparator: \.isNewline)
