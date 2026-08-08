@@ -360,11 +360,16 @@ public final class AutomationExecutor {
 			// hang if the process spawns background jobs that keep the stream open.
 			final class ThreadSafeData: @unchecked Sendable {
 				private let lock = NSLock()
-				var data = Data()
+				private var _data = Data()
 				func append(_ new: Data) {
 					lock.lock()
-					data.append(new)
+					_data.append(new)
 					lock.unlock()
+				}
+				func get() -> Data {
+					lock.lock()
+					defer { lock.unlock() }
+					return _data
 				}
 			}
 			let outputBuffer = ThreadSafeData()
@@ -382,7 +387,7 @@ public final class AutomationExecutor {
 			if !remaining.isEmpty {
 				outputBuffer.append(remaining)
 			}
-			let data = outputBuffer.data
+			let data = outputBuffer.get()
 			let output = String(data: data, encoding: .utf8)?
 				.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
