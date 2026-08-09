@@ -354,8 +354,19 @@ public final class AutomationExecutor {
 			} catch {
 				return .failure("\(name) launch failed: \(error.localizedDescription)")
 			}
-			let data = pipe.fileHandleForReading.readDataToEndOfFile()
+			// Read output concurrently to avoid deadlocks from large output
+			// without blocking on readDataToEndOfFile() before the process exits.
+			var outputData = Data()
+			let outputQueue = DispatchQueue(label: "com.triggerkit.runProcess.output")
+			let readGroup = DispatchGroup()
+			readGroup.enter()
+			outputQueue.async {
+				outputData = pipe.fileHandleForReading.readDataToEndOfFile()
+				readGroup.leave()
+			}
 			process.waitUntilExit()
+			readGroup.wait()
+			let data = outputData
 			let output = String(data: data, encoding: .utf8)?
 				.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
