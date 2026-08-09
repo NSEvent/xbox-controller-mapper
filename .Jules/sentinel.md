@@ -22,3 +22,8 @@
 **Vulnerability:** The application executed `Foundation.Process` shell commands and waited for them to exit (`process.waitUntilExit()`) before attempting to read the standard output and error pipes.
 **Learning:** If a child process writes more data than the operating system's pipe buffer can hold (typically ~64KB), the child process will block waiting for the parent to read the data. If the parent is blocked on `waitUntilExit()`, a deadlock occurs, resulting in a Denial of Service.
 **Prevention:** Always read data from process pipes (e.g., using `fileHandleForReading.readDataToEndOfFile()`) *before* calling `process.waitUntilExit()` to ensure the pipe buffer is drained and the child process can finish executing. However, ensure that this fix does not introduce deadlocks when used with handlers like `readabilityHandler` or processes that don't close their streams until parent exit.
+
+## 2024-05-24 - [Process Deadlock DoS] Foundation.Process Pipe Buffer Deadlock
+**Vulnerability:** A deadlock vulnerability exists when using `Foundation.Process` with output pipes if `process.waitUntilExit()` is called before `pipe.fileHandleForReading.readDataToEndOfFile()`. If the child process outputs more data than the OS pipe buffer (~64KB) can hold, it will block indefinitely waiting for the buffer to be drained, while the main process blocks indefinitely on `waitUntilExit()`, leading to a Denial of Service.
+**Learning:** `Foundation.Process` does not automatically drain its output pipes. The OS has a limited buffer size for pipes.
+**Prevention:** Always ensure data is read from pipes *before* or *concurrently* (e.g. via `readabilityHandler` or background queues) with calling `process.waitUntilExit()`.

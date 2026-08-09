@@ -354,9 +354,8 @@ public final class AutomationExecutor {
 			} catch {
 				return .failure("\(name) launch failed: \(error.localizedDescription)")
 			}
-			process.waitUntilExit()
-
 			let data = pipe.fileHandleForReading.readDataToEndOfFile()
+			process.waitUntilExit()
 			let output = String(data: data, encoding: .utf8)?
 				.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
