@@ -189,8 +189,8 @@ private struct LayerAppPickerSheet: View {
 						}
 						.buttonStyle(.bordered)
 						.controlSize(.small)
-						.help("Add \(app.name.isEmpty ? \"Unnamed App\" : app.name)")
-						.accessibilityLabel("Add \(app.name.isEmpty ? \"Unnamed App\" : app.name)")
+						.help("Add \(app.name.isEmpty ? "Unnamed App" : app.name)")
+						.accessibilityLabel("Add \(app.name.isEmpty ? "Unnamed App" : app.name)")
 					}
 				}
 				.padding(.vertical, 4)
