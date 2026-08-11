@@ -29,3 +29,6 @@
 ## 2024-07-12 - [Dynamic Accessibility Labels for List Item Actions]
 **Learning:** Icon-only buttons (like Edit/Delete) inside lists pose a major accessibility challenge for VoiceOver users when identical labels ("Edit") are repeated without context, making it impossible to know which row is being acted on.
 **Action:** Always interpolate the dynamic item context (e.g., `item.name`) into both `.help()` tooltips and `.accessibilityLabel()` modifiers in repeated SwiftUI lists. Include fallback text for empty states (e.g., `"Unnamed Item"`).
+## 2024-11-20 - Ensure Symmetry in Accessibility and Tooltips for SwiftUI Icon Buttons
+**Learning:** In macOS SwiftUI applications, icon-only buttons often have either `.help()` (for hover tooltips) or `.accessibilityLabel()` (for VoiceOver), but frequently lack both. Both are necessary because they serve different user interaction models—`.help` for visual hover feedback and `.accessibilityLabel` for screen readers.
+**Action:** When adding or reviewing icon-only buttons in SwiftUI, always ensure symmetry by defining both `.help("Description")` and `.accessibilityLabel("Description")` to cover all accessibility and usability vectors.
