@@ -256,8 +256,15 @@ enum SteamControllerButtonMask {
 
 struct SteamControllerHIDParser {
     static let wiredProductID = 0x1302
-    static let puckProductID = 0x1304
-    static let productIDs = [wiredProductID, puckProductID]
+	static let bluetoothProductID = 0x1303
+	static let proteusDongleProductID = 0x1304
+	static let nereidDongleProductID = 0x1305
+	static let productIDs = [
+		wiredProductID,
+		bluetoothProductID,
+		proteusDongleProductID,
+		nereidDongleProductID,
+	]
     static let valveVendorID = 0x28DE
     static let genericDesktopUsagePage = 0x01
     static let mouseUsage = 0x02
@@ -265,7 +272,7 @@ struct SteamControllerHIDParser {
     static let vendorDataUsage = 0x0001
     static let vendorCommandUsage = 0x0002
     static let acceptedVendorUsages: Set<Int> = [vendorDataUsage, vendorCommandUsage]
-    static let acceptedInputReportIDs: Set<UInt8> = [0x42, 0x45]
+	static let acceptedInputReportIDs: Set<UInt8> = [0x42, 0x45, 0x47]
     static let batteryReportID: UInt8 = 0x43
 
     static func matchingDictionaries() -> [CFDictionary] {
@@ -296,7 +303,9 @@ struct SteamControllerHIDParser {
 
         let offset = length > 0 && report[0] == id ? 1 : 0
         let payloadLength = length - offset
-        guard payloadLength >= 29 else { return nil }
+		let hasTouchpadTimestamp = id == 0x47
+		let touchpadFieldOffset = hasTouchpadTimestamp ? 2 : 0
+		guard payloadLength >= 29 + touchpadFieldOffset else { return nil }
 
         let sequence = report[offset]
         let buttons = Self.uint32LE(report, offset + 1)
@@ -306,16 +315,19 @@ struct SteamControllerHIDParser {
         let leftStickY = Self.axisValue(Self.int16LE(report, offset + 11))
         let rightStickX = Self.axisValue(Self.int16LE(report, offset + 13))
         let rightStickY = Self.axisValue(Self.int16LE(report, offset + 15))
-        let leftPadX = Self.int16LE(report, offset + 17)
-        let leftPadY = Self.int16LE(report, offset + 19)
-        let leftPadPressure = Self.uint16LE(report, offset + 21)
-        let rightPadX = Self.int16LE(report, offset + 23)
-        let rightPadY = Self.int16LE(report, offset + 25)
-        let rightPadPressure = Self.uint16LE(report, offset + 27)
+		let leftPadX = Self.int16LE(report, offset + 17 + touchpadFieldOffset)
+		let leftPadY = Self.int16LE(report, offset + 19 + touchpadFieldOffset)
+		let leftPadPressure = Self.uint16LE(report, offset + 21 + touchpadFieldOffset)
+		let rightPadX = Self.int16LE(report, offset + 23 + touchpadFieldOffset)
+		let rightPadY = Self.int16LE(report, offset + 25 + touchpadFieldOffset)
+		let rightPadPressure = Self.uint16LE(report, offset + 27 + touchpadFieldOffset)
         let motion: SteamControllerMotionReport?
         if payloadLength >= 45 {
+			let motionTimestamp = hasTouchpadTimestamp
+				? UInt32(Self.uint16LE(report, offset + 31))
+				: Self.uint32LE(report, offset + 29)
             motion = SteamControllerMotionReport(
-                timestamp: Self.uint32LE(report, offset + 29),
+				timestamp: motionTimestamp,
                 accelX: Self.int16LE(report, offset + 33),
                 accelY: Self.int16LE(report, offset + 35),
                 accelZ: Self.int16LE(report, offset + 37),

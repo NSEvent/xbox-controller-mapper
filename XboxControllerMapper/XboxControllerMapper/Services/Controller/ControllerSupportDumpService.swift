@@ -75,6 +75,12 @@ enum ControllerSupportDumpService {
 
 	private static func connectedDevices() -> [DeviceCandidate] {
 		let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
+		let steamControllerCriteria = SteamControllerHIDParser.productIDs.map { productID in
+			[
+				kIOHIDVendorIDKey as String: SteamControllerHIDParser.valveVendorID,
+				kIOHIDProductIDKey as String: productID,
+			] as CFDictionary
+		}
 		let knownMappingCriteria = GameControllerDatabase.shared
 			.knownVendorProductPairs()
 			.map { pair in
@@ -108,7 +114,7 @@ enum ControllerSupportDumpService {
 
 		IOHIDManagerSetDeviceMatchingMultiple(
 			manager,
-			(knownMappingCriteria + standardControllerCriteria + bluetoothLECriteria) as CFArray
+			(steamControllerCriteria + knownMappingCriteria + standardControllerCriteria + bluetoothLECriteria) as CFArray
 		)
 		IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
 		defer { IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone)) }
@@ -139,11 +145,14 @@ enum ControllerSupportDumpService {
 	}
 
 	private static func isDumpCandidate(_ candidate: DeviceCandidate) -> Bool {
+		let isSteamController = candidate.vendorID == SteamControllerHIDParser.valveVendorID
+			&& SteamControllerHIDParser.productIDs.contains(candidate.productID)
 		let hasKnownMapping = GameControllerDatabase.shared.hasKnownVendorProduct(
 			vendorID: candidate.vendorID,
 			productID: candidate.productID
 		)
-		return (hasKnownMapping && GenericHIDController.canUseKnownMapping(from: candidate.device))
+		return isSteamController
+			|| (hasKnownMapping && GenericHIDController.canUseKnownMapping(from: candidate.device))
 			|| GenericHIDController.canInferMapping(from: candidate.device)
 	}
 

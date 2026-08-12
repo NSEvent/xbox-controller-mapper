@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **New Steam Controller wireless receiver detection**: ControllerKeys now recognizes the Nereid 2.4 GHz receiver (`28DE:1305`), accepts the timestamped input reports used by newer firmware, and includes every known Valve Steam Controller product ID in Controller Support Dump diagnostics when macOS exposes it through HID.
+
 ## [2.6.3] - 2026-08-05
 
 ### Added

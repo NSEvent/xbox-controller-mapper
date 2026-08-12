@@ -320,6 +320,49 @@ final class HIDReportParserTests: XCTestCase {
         XCTAssertTrue(SteamControllerHIDParser.acceptedVendorUsages.contains(SteamControllerHIDParser.vendorCommandUsage))
     }
 
+	func testSteamController_SupportsEveryTritonConnectionProductID() {
+		XCTAssertEqual(
+			SteamControllerHIDParser.productIDs,
+			[0x1302, 0x1303, 0x1304, 0x1305]
+		)
+	}
+
+	func testSteamController_Report47ParsesTimestampedTouchpadLayout() {
+		let bytes = makeReport(length: 45) { p in
+			p[0] = 12
+			writeLE32(SteamControllerButtonMask.a, to: p, offset: 1)
+			writeLE16(0xBEEF, to: p, offset: 17) // Trackpad timestamp, not an axis.
+			writeLE16(UInt16(bitPattern: Int16(-8192)), to: p, offset: 19)
+			writeLE16(0x2000, to: p, offset: 21)
+			writeLE16(1234, to: p, offset: 23)
+			writeLE16(0x4000, to: p, offset: 25)
+			writeLE16(UInt16(bitPattern: Int16(-16384)), to: p, offset: 27)
+			writeLE16(4321, to: p, offset: 29)
+			writeLE16(0xCAFE, to: p, offset: 31)
+			writeLE16(UInt16(bitPattern: Int16(-100)), to: p, offset: 33)
+			writeLE16(UInt16(bitPattern: Int16(200)), to: p, offset: 35)
+			writeLE16(UInt16(bitPattern: Int16(-300)), to: p, offset: 37)
+			writeLE16(UInt16(bitPattern: Int16(400)), to: p, offset: 39)
+			writeLE16(UInt16(bitPattern: Int16(-500)), to: p, offset: 41)
+			writeLE16(UInt16(bitPattern: Int16(600)), to: p, offset: 43)
+		}
+
+		let report = bytes.withUnsafeBufferPointer { buf in
+			SteamControllerHIDParser().parse(reportID: 0x47, report: buf.baseAddress!, length: buf.count)
+		}
+
+		XCTAssertEqual(report?.reportID, 0x47)
+		XCTAssertEqual(report?.sequence, 12)
+		XCTAssertEqual(report?.leftPadX, -8192)
+		XCTAssertEqual(report?.leftPadY, 8192)
+		XCTAssertEqual(report?.leftPadPressure, 1234)
+		XCTAssertEqual(report?.rightPadX, 16384)
+		XCTAssertEqual(report?.rightPadY, -16384)
+		XCTAssertEqual(report?.rightPadPressure, 4321)
+		XCTAssertEqual(report?.motion?.timestamp, 0xCAFE)
+		XCTAssertEqual(report?.motion?.gyroZ, 600)
+	}
+
     func testSteamController_UnknownReportIDReturnsNil() {
         let bytes = makeReport(length: 29) { _ in }
         let result = bytes.withUnsafeBufferPointer { buf in
@@ -490,7 +533,7 @@ final class HIDReportParserTests: XCTestCase {
         XCTAssertTrue(
             SteamControllerHIDController.shouldSeizeLizardMouseInterface(
                 vendorID: SteamControllerHIDParser.valveVendorID,
-                productID: SteamControllerHIDParser.puckProductID,
+				productID: SteamControllerHIDParser.proteusDongleProductID,
                 primaryUsagePage: SteamControllerHIDParser.genericDesktopUsagePage,
                 primaryUsage: SteamControllerHIDParser.mouseUsage
             )
@@ -498,7 +541,7 @@ final class HIDReportParserTests: XCTestCase {
         XCTAssertFalse(
             SteamControllerHIDController.shouldSeizeLizardMouseInterface(
                 vendorID: SteamControllerHIDParser.valveVendorID,
-                productID: SteamControllerHIDParser.puckProductID,
+				productID: SteamControllerHIDParser.proteusDongleProductID,
                 primaryUsagePage: SteamControllerHIDParser.vendorUsagePage,
                 primaryUsage: SteamControllerHIDParser.vendorCommandUsage
             )
@@ -509,12 +552,13 @@ final class HIDReportParserTests: XCTestCase {
         let dictionaries = SteamControllerHIDParser.matchingDictionaries() as NSArray
         let expected = [
             kIOHIDVendorIDKey as String: SteamControllerHIDParser.valveVendorID,
-            kIOHIDProductIDKey as String: SteamControllerHIDParser.puckProductID,
+			kIOHIDProductIDKey as String: SteamControllerHIDParser.nereidDongleProductID,
             kIOHIDDeviceUsagePageKey as String: SteamControllerHIDParser.genericDesktopUsagePage,
             kIOHIDDeviceUsageKey as String: SteamControllerHIDParser.mouseUsage,
         ] as NSDictionary
 
         XCTAssertTrue(dictionaries.contains(expected))
+		XCTAssertEqual(dictionaries.count, SteamControllerHIDParser.productIDs.count * 3)
     }
 
     func testSteamController_ButtonEventsMapToControllerButtons() {
