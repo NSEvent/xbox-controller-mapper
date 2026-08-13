@@ -1815,6 +1815,8 @@ class MappingEngine: ObservableObject {
 
 	nonisolated private func handleControllerInputEvent(_ event: ControllerInputEvent) {
 		switch event {
+		case .controllerDisconnected:
+			resetControllerInputState()
 		case .buttonPressed(let button):
 			handleButtonPressed(button)
 		case .buttonReleased(let button, let holdDuration):
@@ -1876,6 +1878,10 @@ class MappingEngine: ObservableObject {
     }
 
     nonisolated func resetRemoteControllerInputState() {
+		resetControllerInputState()
+	}
+
+	nonisolated private func resetControllerInputState() {
 		let cleanup = state.lock.withLock {
 			let cleanup = RoutingBoundaryCleanup(
 				state: state,

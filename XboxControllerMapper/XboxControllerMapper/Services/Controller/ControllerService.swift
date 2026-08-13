@@ -298,8 +298,9 @@ class ControllerService: ObservableObject {
     var steamHIDControllers: [SteamControllerHIDController] = []
     var steamHIDActiveDevice: IOHIDDevice?
     var steamHIDCallbackContext: UnsafeMutableRawPointer?
-    let steamHIDControllerLock = NSLock()
-    var activeSteamHIDController: SteamControllerHIDController?
+	nonisolated(unsafe) let steamHIDControllerLock = NSLock()
+	nonisolated(unsafe) var activeSteamHIDController: SteamControllerHIDController?
+	var steamHIDConnectionGeneration: UInt64 = 0
 
     // Nintendo Pro Controller HID monitoring (Home button not exposed by GameController framework)
     var nintendoHIDManager: IOHIDManager?

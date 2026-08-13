@@ -33,6 +33,8 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 
         controllerService.onInputEvent = { event in
             switch event {
+			case .controllerDisconnected:
+				events.append("controllerDisconnected")
             case .buttonPressed:
                 events.append("buttonPressed")
             case .buttonReleased:
@@ -64,6 +66,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
             }
         }
 
+		controllerService.emitInputEvent(.controllerDisconnected)
         controllerService.emitInputEvent(.buttonPressed(.a))
         controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.08))
         controllerService.emitInputEvent(.chordDetected([.a, .b]))
@@ -89,6 +92,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         XCTAssertEqual(
             events,
             [
+				"controllerDisconnected",
                 "buttonPressed",
                 "buttonReleased",
                 "chordDetected",
@@ -132,6 +136,46 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         XCTAssertEqual(secondCount, 1)
         XCTAssertNil(controllerService.onInputEvent)
     }
+
+	func testSteamDisconnectClearsCachedInputSoReconnectPressIsAccepted() async {
+		controllerService.activeButtons = [.a]
+		controllerService.storage.lock.withLock {
+			controllerService.storage.activeButtons = [.a]
+			controllerService.storage.buttonPressTimestamps[.a] = Date()
+			controllerService.storage.pendingButtons = [.a]
+			controllerService.storage.capturedButtonsInWindow = [.a]
+			controllerService.storage.pendingReleases[.a] = 0.1
+			controllerService.storage.leftStick = CGPoint(x: 0.8, y: -0.4)
+			controllerService.storage.rightStick = CGPoint(x: -0.3, y: 0.7)
+			controllerService.storage.leftTrigger = 1
+			controllerService.storage.rightTrigger = 0.5
+			controllerService.storage.isSteamLeftTouchpadTouching = true
+			controllerService.storage.isSteamRightTouchpadTouching = true
+		}
+
+		controllerService.clearSteamControllerInputState()
+		await Task.yield()
+
+		controllerService.storage.lock.withLock {
+			XCTAssertTrue(controllerService.storage.activeButtons.isEmpty)
+			XCTAssertTrue(controllerService.storage.buttonPressTimestamps.isEmpty)
+			XCTAssertTrue(controllerService.storage.pendingButtons.isEmpty)
+			XCTAssertTrue(controllerService.storage.capturedButtonsInWindow.isEmpty)
+			XCTAssertTrue(controllerService.storage.pendingReleases.isEmpty)
+			XCTAssertEqual(controllerService.storage.leftStick, .zero)
+			XCTAssertEqual(controllerService.storage.rightStick, .zero)
+			XCTAssertEqual(controllerService.storage.leftTrigger, 0)
+			XCTAssertEqual(controllerService.storage.rightTrigger, 0)
+			XCTAssertFalse(controllerService.storage.isSteamLeftTouchpadTouching)
+			XCTAssertFalse(controllerService.storage.isSteamRightTouchpadTouching)
+		}
+		XCTAssertTrue(controllerService.activeButtons.isEmpty)
+
+		controllerService.buttonPressed(.a)
+		XCTAssertTrue(controllerService.storage.lock.withLock {
+			controllerService.storage.activeButtons.contains(.a)
+		})
+	}
 
     func testSteamTwoPadGestureLatchSuppressesSinglePadMovementBetweenAlternatingReports() {
         controllerService.storage.isSteamController = true

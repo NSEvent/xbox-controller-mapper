@@ -1600,6 +1600,31 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         XCTAssertEqual(chordCount, 1, "Remote reset should not break receiver chord routing")
     }
 
+	func testControllerDisconnectedEvent_releasesHeldSyntheticOutput() async throws {
+		await MainActor.run {
+			installActiveProfile(Profile(
+				name: "ReceiverDisconnect",
+				buttonMappings: [.leftBumper: .holdModifier(.command)]
+			))
+			mappingEngine.handleRemoteControllerButtonPressed(.leftBumper)
+		}
+		await waitForTasks(0.2)
+		XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand))
+
+		await MainActor.run {
+			mockInputSimulator.clearEvents()
+			controllerService.emitInputEvent(.controllerDisconnected)
+		}
+		await waitForTasks(0.2)
+
+		XCTAssertFalse(mockInputSimulator.heldModifiers.contains(.maskCommand))
+		let stopCount = mockInputSimulator.events.filter {
+			if case .stopHoldMapping = $0 { return true }
+			return false
+		}.count
+		XCTAssertEqual(stopCount, 1)
+	}
+
     func testLocalControllerButton_doesNotExecuteHomeMappingDuringRemoteSession() async throws {
         await MainActor.run {
             installActiveProfile(Profile(name: "Home", buttonMappings: [.a: .key(10)]))

@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **New Steam Controller wireless receiver detection**: ControllerKeys now recognizes the Nereid 2.4 GHz receiver (`28DE:1305`), accepts the timestamped input reports used by newer firmware, and includes every known Valve Steam Controller product ID in Controller Support Dump diagnostics when macOS exposes it through HID.
 
+- **Steam receiver disconnects no longer leave stale input active**: ControllerKeys now handles the wireless connect/disconnect reports emitted by Proteus and Nereid receivers, clears cached physical state, and safely releases held keys, modifiers, mouse buttons, MIDI controls, and stick directions when the controller powers off. A quick reconnect cancels only the stale connection transition, so the first new press is not swallowed.
+
+- **Composite receiver interfaces stay distinct in support dumps**: Controller Support Dump now records HID interface number, primary usage, and IORegistry identity, preventing the several interfaces exposed by one Steam wireless receiver from collapsing into a single diagnostic entry.
+
 ## [2.6.3] - 2026-08-05
 
 ### Added

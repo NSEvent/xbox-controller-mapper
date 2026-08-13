@@ -5,6 +5,7 @@ import XCTest
 final class ControllerInputEventTests: XCTestCase {
 	func testDiscreteInputEventsUseInputQueue() {
 		let events: [ControllerInputEvent] = [
+			.controllerDisconnected,
 			.buttonPressed(.a),
 			.buttonReleased(.a, holdDuration: 0.12),
 			.chordDetected([.a, .b]),

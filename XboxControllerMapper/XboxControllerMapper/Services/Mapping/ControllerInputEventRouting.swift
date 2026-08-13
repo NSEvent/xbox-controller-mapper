@@ -17,7 +17,8 @@ enum ControllerInputEventRouting {
 			 .touchpadLongTap,
 			 .touchpadTwoFingerLongTap:
 			return .polling
-		case .buttonPressed,
+		case .controllerDisconnected,
+			 .buttonPressed,
 			 .buttonReleased,
 			 .chordDetected,
 			 .controllerButtonTap,

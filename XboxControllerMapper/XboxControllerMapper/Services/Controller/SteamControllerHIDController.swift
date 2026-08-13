@@ -40,6 +40,30 @@ struct SteamControllerBatteryReport: Equatable {
     let state: GCDeviceBattery.State
 }
 
+enum SteamControllerWirelessState: UInt8, Equatable {
+	case disconnected = 1
+	case connected = 2
+}
+
+struct SteamControllerPhysicalDeviceIdentity: Equatable {
+	let vendorID: Int
+	let productID: Int
+	let locationID: Int
+	let serialNumber: String
+	let transport: String
+
+	func representsSameReceiver(as other: SteamControllerPhysicalDeviceIdentity) -> Bool {
+		guard vendorID == other.vendorID, productID == other.productID else { return false }
+		if locationID != 0, other.locationID != 0 {
+			return locationID == other.locationID
+		}
+		if !serialNumber.isEmpty, !other.serialNumber.isEmpty {
+			return serialNumber == other.serialNumber && transport == other.transport
+		}
+		return false
+	}
+}
+
 struct SteamControllerTouchpadState: Equatable, Sendable {
     let x: Float
     let y: Float
@@ -274,6 +298,7 @@ struct SteamControllerHIDParser {
     static let acceptedVendorUsages: Set<Int> = [vendorDataUsage, vendorCommandUsage]
 	static let acceptedInputReportIDs: Set<UInt8> = [0x42, 0x45, 0x47]
     static let batteryReportID: UInt8 = 0x43
+	static let wirelessStatusReportIDs: Set<UInt8> = [0x46, 0x79]
 
     static func matchingDictionaries() -> [CFDictionary] {
         productIDs.flatMap { productID -> [CFDictionary] in
@@ -377,6 +402,19 @@ struct SteamControllerHIDParser {
         )
     }
 
+	func parseWirelessStatus(
+		reportID: UInt32,
+		report: UnsafePointer<UInt8>,
+		length: Int
+	) -> SteamControllerWirelessState? {
+		guard let id = UInt8(exactly: reportID),
+			  Self.wirelessStatusReportIDs.contains(id) else { return nil }
+
+		let offset = length > 0 && report[0] == id ? 1 : 0
+		guard length - offset >= 1 else { return nil }
+		return SteamControllerWirelessState(rawValue: report[offset])
+	}
+
     private static func axisValue(_ raw: Int16) -> Float {
         max(-1.0, min(1.0, Float(raw) / 32767.0))
     }
@@ -417,8 +455,10 @@ struct SteamControllerHIDParser {
 final class SteamControllerHIDController {
     let device: IOHIDDevice
     let deviceName: String
+	let physicalDeviceIdentity: SteamControllerPhysicalDeviceIdentity
 
     var onActivated: ((SteamControllerHIDController) -> Void)?
+	var onWirelessConnectionChanged: ((SteamControllerHIDController, SteamControllerWirelessState) -> Void)?
     var onButtonAction: ((ControllerButton, Bool) -> Void)?
     var onLeftStickMoved: ((Float, Float) -> Void)?
     var onRightStickMoved: ((Float, Float) -> Void)?
@@ -484,6 +524,7 @@ final class SteamControllerHIDController {
     private var scheduledRunLoop: CFRunLoop?
     private var lizardModeTimer: DispatchSourceTimer?
     private var deviceOpenOptions = IOOptionBits(kIOHIDOptionsTypeNone)
+	private var wirelessConnectionState: SteamControllerWirelessState?
 
     private final class CallbackContext {
         weak var controller: SteamControllerHIDController?
@@ -502,7 +543,29 @@ final class SteamControllerHIDController {
     init(device: IOHIDDevice) {
         self.device = device
         self.deviceName = IOHIDDeviceGetProperty(device, kIOHIDProductKey as CFString) as? String ?? "Steam Controller"
+		self.physicalDeviceIdentity = SteamControllerPhysicalDeviceIdentity(
+			vendorID: IOHIDDeviceGetProperty(device, kIOHIDVendorIDKey as CFString) as? Int ?? 0,
+			productID: IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int ?? 0,
+			locationID: IOHIDDeviceGetProperty(device, kIOHIDLocationIDKey as CFString) as? Int ?? 0,
+			serialNumber: IOHIDDeviceGetProperty(device, kIOHIDSerialNumberKey as CFString) as? String ?? "",
+			transport: IOHIDDeviceGetProperty(device, kIOHIDTransportKey as CFString) as? String ?? ""
+		)
     }
+
+	var isWirelessReceiver: Bool {
+		physicalDeviceIdentity.productID == SteamControllerHIDParser.proteusDongleProductID
+			|| physicalDeviceIdentity.productID == SteamControllerHIDParser.nereidDongleProductID
+	}
+
+	func representsSamePhysicalReceiver(as other: SteamControllerHIDController) -> Bool {
+		self === other || physicalDeviceIdentity.representsSameReceiver(as: other.physicalDeviceIdentity)
+	}
+
+	func resetAfterPhysicalReceiverDisconnect() {
+		guard isWirelessReceiver else { return }
+		wirelessConnectionState = .disconnected
+		resetTrackedInputState(resetActivation: true)
+	}
 
     deinit {
         stop()
@@ -547,7 +610,9 @@ final class SteamControllerHIDController {
 
         isStarted = true
         startLizardModeTimer()
-        _ = ensureLizardModeDisabled()
+		if !isWirelessReceiver {
+			_ = ensureLizardModeDisabled()
+		}
     }
 
     func stop() {
@@ -579,33 +644,42 @@ final class SteamControllerHIDController {
         reportBuffer?.deallocate()
         reportBuffer = nil
         isStarted = false
-        resetActivationGate()
-        previousButtons = 0
-        lastAnalogDispatchNanoseconds = 0
-        lastLeftStick = nil
-        lastRightStick = nil
-        lastLeftTrigger = nil
-        lastRightTrigger = nil
-        lastLeftTouchpad = nil
-        lastRightTouchpad = nil
-        lastLeftTouchpadClick = nil
-        lastRightTouchpadClick = nil
-        lastLeftTouchpadClickReleaseTime = 0
-        lastRightTouchpadClickReleaseTime = 0
-        lastLeftTouchpadClickActionTime = 0
-        lastRightTouchpadClickActionTime = 0
-        suppressedLeftTouchpadClickPress = false
-        suppressedRightTouchpadClickPress = false
-        pendingLeftTouchpadClickRelease = nil
-        pendingRightTouchpadClickRelease = nil
-        touchpadClickReleaseFlushWorkItem?.cancel()
-        touchpadClickReleaseFlushWorkItem = nil
-        leftTouchpadTapTracker = SteamControllerTouchpadTapTracker()
-        rightTouchpadTapTracker = SteamControllerTouchpadTapTracker()
-        touchpadTapGate = SteamControllerTouchpadTapGate()
-        touchpadTapFlushWorkItem?.cancel()
-        touchpadTapFlushWorkItem = nil
+		wirelessConnectionState = nil
+		resetTrackedInputState(resetActivation: true)
     }
+
+	private func resetTrackedInputState(resetActivation: Bool) {
+		if resetActivation {
+			resetActivationGate()
+		}
+		previousButtons = 0
+		lastAnalogDispatchNanoseconds = 0
+		lastLeftStick = nil
+		lastRightStick = nil
+		lastLeftTrigger = nil
+		lastRightTrigger = nil
+		lastLeftTouchpad = nil
+		lastRightTouchpad = nil
+		lastLeftTouchpadClick = nil
+		lastRightTouchpadClick = nil
+		lastLeftTouchpadClickReleaseTime = 0
+		lastRightTouchpadClickReleaseTime = 0
+		lastLeftTouchpadClickActionTime = 0
+		lastRightTouchpadClickActionTime = 0
+		suppressedLeftTouchpadClickPress = false
+		suppressedRightTouchpadClickPress = false
+		pendingLeftTouchpadClickRelease = nil
+		pendingRightTouchpadClickRelease = nil
+		touchpadClickReleaseFlushWorkItem?.cancel()
+		touchpadClickReleaseFlushWorkItem = nil
+		leftTouchpadTapTracker = SteamControllerTouchpadTapTracker()
+		rightTouchpadTapTracker = SteamControllerTouchpadTapTracker()
+		touchpadTapGate = SteamControllerTouchpadTapGate()
+		touchpadTapFlushWorkItem?.cancel()
+		touchpadTapFlushWorkItem = nil
+		leftTouchpadHapticTracker = SteamControllerTouchpadMovementHapticTracker()
+		rightTouchpadHapticTracker = SteamControllerTouchpadMovementHapticTracker()
+	}
 
     static func supportsDevice(_ device: IOHIDDevice) -> Bool {
         let vendorID = IOHIDDeviceGetProperty(device, kIOHIDVendorIDKey as CFString) as? Int
@@ -857,12 +931,26 @@ final class SteamControllerHIDController {
     ]
 
     private func handleInputReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
+		if let wirelessState = parser.parseWirelessStatus(
+			reportID: reportID,
+			report: UnsafePointer(report),
+			length: length
+		) {
+			handleWirelessState(wirelessState)
+			return
+		}
+
         if let battery = parser.parseBattery(reportID: reportID, report: UnsafePointer(report), length: length) {
             onBatteryChanged?(battery.level, battery.state)
             return
         }
 
         guard let parsed = parser.parse(reportID: reportID, report: UnsafePointer(report), length: length) else { return }
+		if isWirelessReceiver, wirelessConnectionState != .connected {
+			wirelessConnectionState = .connected
+			resetActivationGate()
+			onWirelessConnectionChanged?(self, .connected)
+		}
 
         guard ensureLizardModeDisabled() else { return }
 
@@ -877,6 +965,23 @@ final class SteamControllerHIDController {
             onMotionChanged?(motion)
         }
     }
+
+	private func handleWirelessState(_ state: SteamControllerWirelessState) {
+		guard isWirelessReceiver else { return }
+		guard wirelessConnectionState != state else { return }
+		wirelessConnectionState = state
+
+		switch state {
+		case .connected:
+			// Wait for the first state packet before activation. Composite receiver
+			// interfaces can all report this status, but only the interface carrying
+			// controller state should become ControllerKeys' active input source.
+			resetActivationGate()
+		case .disconnected:
+			resetAfterPhysicalReceiverDisconnect()
+		}
+		onWirelessConnectionChanged?(self, state)
+	}
 
     private func dispatchTouchpadChanges(from parsed: SteamControllerInputReport) {
         let left = Self.leftTouchpadState(from: parsed)
@@ -1323,6 +1428,9 @@ final class SteamControllerHIDController {
     }
 
     private func reassertLizardModeDisabled() {
+		if isWirelessReceiver, wirelessConnectionState != .connected {
+			return
+		}
         guard isStarted, sendLizardMode(enabled: false) else { return }
         markLizardModeDisabledAndActivateIfNeeded()
     }

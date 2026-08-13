@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 
 enum ControllerInputEvent: Equatable {
+	case controllerDisconnected
 	case buttonPressed(ControllerButton)
 	case buttonReleased(ControllerButton, holdDuration: TimeInterval)
 	case chordDetected(Set<ControllerButton>)

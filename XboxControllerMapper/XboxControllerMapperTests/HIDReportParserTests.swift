@@ -363,6 +363,81 @@ final class HIDReportParserTests: XCTestCase {
 		XCTAssertEqual(report?.motion?.gyroZ, 600)
 	}
 
+	func testSteamController_WirelessStatus46ParsesDisconnect() {
+		let bytes: [UInt8] = [SteamControllerWirelessState.disconnected.rawValue]
+		let state = bytes.withUnsafeBufferPointer { buffer in
+			SteamControllerHIDParser().parseWirelessStatus(
+				reportID: 0x46,
+				report: buffer.baseAddress!,
+				length: buffer.count
+			)
+		}
+
+		XCTAssertEqual(state, .disconnected)
+	}
+
+	func testSteamController_WirelessStatus79ParsesLeadingReportIDAndConnect() {
+		let bytes: [UInt8] = [0x79, SteamControllerWirelessState.connected.rawValue]
+		let state = bytes.withUnsafeBufferPointer { buffer in
+			SteamControllerHIDParser().parseWirelessStatus(
+				reportID: 0x79,
+				report: buffer.baseAddress!,
+				length: buffer.count
+			)
+		}
+
+		XCTAssertEqual(state, .connected)
+	}
+
+	func testSteamController_WirelessStatusRejectsUnknownStateAndShortPayload() {
+		let unknown: [UInt8] = [0x7F]
+		let unknownState = unknown.withUnsafeBufferPointer { buffer in
+			SteamControllerHIDParser().parseWirelessStatus(
+				reportID: 0x79,
+				report: buffer.baseAddress!,
+				length: buffer.count
+			)
+		}
+		let missingPayload: [UInt8] = [0x46]
+		let emptyState = missingPayload.withUnsafeBufferPointer { buffer in
+			SteamControllerHIDParser().parseWirelessStatus(
+				reportID: 0x46,
+				report: buffer.baseAddress!,
+				length: buffer.count
+			)
+		}
+
+		XCTAssertNil(unknownState)
+		XCTAssertNil(emptyState)
+	}
+
+	func testSteamController_PhysicalReceiverIdentityMatchesCompositeInterfaces() {
+		let dataInterface = SteamControllerPhysicalDeviceIdentity(
+			vendorID: 0x28DE,
+			productID: 0x1305,
+			locationID: 0x14200000,
+			serialNumber: "",
+			transport: "USB"
+		)
+		let commandInterface = SteamControllerPhysicalDeviceIdentity(
+			vendorID: 0x28DE,
+			productID: 0x1305,
+			locationID: 0x14200000,
+			serialNumber: "",
+			transport: "USB"
+		)
+		let otherReceiver = SteamControllerPhysicalDeviceIdentity(
+			vendorID: 0x28DE,
+			productID: 0x1305,
+			locationID: 0x14300000,
+			serialNumber: "",
+			transport: "USB"
+		)
+
+		XCTAssertTrue(dataInterface.representsSameReceiver(as: commandInterface))
+		XCTAssertFalse(dataInterface.representsSameReceiver(as: otherReceiver))
+	}
+
     func testSteamController_UnknownReportIDReturnsNil() {
         let bytes = makeReport(length: 29) { _ in }
         let result = bytes.withUnsafeBufferPointer { buf in

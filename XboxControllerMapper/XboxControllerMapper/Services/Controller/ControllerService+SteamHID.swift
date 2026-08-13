@@ -224,6 +224,14 @@ extension ControllerService {
                 self?.steamControllerActivated(controller)
             }
         }
+		controller.onWirelessConnectionChanged = { [weak self] controller, state in
+			if state == .disconnected {
+				self?.resetActiveSteamControllerTrackedInputState(from: controller)
+			}
+			DispatchQueue.main.async {
+				self?.steamControllerWirelessConnectionChanged(controller, state: state)
+			}
+		}
         controller.onButtonAction = { [weak self] button, pressed in
             self?.controllerQueue.async {
                 self?.handleButton(button, pressed: pressed)
@@ -297,19 +305,151 @@ extension ControllerService {
         }
 
         if wasActive {
-            steamHIDActiveDevice = nil
-            steamHIDControllerLock.lock()
-            if activeSteamHIDController === controller {
-                activeSteamHIDController = nil
-            }
-            steamHIDControllerLock.unlock()
-            controllerDisconnected()
+			queueSteamControllerDisconnect(
+				controller,
+				generation: nil,
+				match: .exactController
+			)
         }
     }
 
+	func steamControllerWirelessConnectionChanged(
+		_ controller: SteamControllerHIDController,
+		state: SteamControllerWirelessState
+	) {
+		steamHIDControllerLock.lock()
+		let activeController = activeSteamHIDController
+		steamHIDControllerLock.unlock()
+		guard let activeController,
+			  activeController.representsSamePhysicalReceiver(as: controller) else { return }
+
+		steamHIDConnectionGeneration &+= 1
+		guard state == .disconnected else { return }
+		queueSteamControllerDisconnect(
+			activeController,
+			generation: steamHIDConnectionGeneration,
+			match: .physicalReceiver
+		)
+	}
+
+	nonisolated private func resetActiveSteamControllerTrackedInputState(
+		from reportingController: SteamControllerHIDController
+	) {
+		steamHIDControllerLock.lock()
+		let activeController = activeSteamHIDController
+		steamHIDControllerLock.unlock()
+		guard let activeController,
+			  activeController !== reportingController,
+			  activeController.representsSamePhysicalReceiver(as: reportingController) else { return }
+
+		// All Steam candidates share steamHIDRunLoop, so this callback can reset
+		// the state-carrying sibling synchronously before its next input report.
+		activeController.resetAfterPhysicalReceiverDisconnect()
+	}
+
+	private enum SteamControllerDisconnectMatch {
+		case exactController
+		case physicalReceiver
+	}
+
+	private func queueSteamControllerDisconnect(
+		_ controller: SteamControllerHIDController,
+		generation: UInt64?,
+		match: SteamControllerDisconnectMatch
+	) {
+		// Drain button callbacks first, then enqueue one routing reset. This keeps a
+		// final receiver packet from recreating held output after the reset event.
+		controllerQueue.async { [weak self] in
+			guard let self else { return }
+			clearSteamControllerInputState()
+			emitInputEvent(.controllerDisconnected)
+			DispatchQueue.main.async { [weak self] in
+				self?.finishSteamControllerDisconnect(
+					controller,
+					generation: generation,
+					match: match
+				)
+			}
+		}
+	}
+
+	/// Clears the receiver's cached physical state after all earlier callbacks
+	/// have drained. MappingEngine owns synthetic-output cleanup; this reset keeps
+	/// a held button from remaining in ControllerService and suppressing the first
+	/// press after a quick wireless reconnect.
+	nonisolated func clearSteamControllerInputState() {
+		storage.lock.lock()
+		storage.chordWorkItem?.cancel()
+		storage.chordWorkItem = nil
+		storage.activeButtons.removeAll()
+		storage.buttonPressTimestamps.removeAll()
+		storage.pendingButtons.removeAll()
+		storage.capturedButtonsInWindow.removeAll()
+		storage.pendingReleases.removeAll()
+		storage.leftStick = .zero
+		storage.rightStick = .zero
+		storage.leftTrigger = 0
+		storage.rightTrigger = 0
+		storage.lastInputTime = 0
+		storage.touchpadPosition = .zero
+		storage.touchpadPreviousPosition = .zero
+		storage.touchpadSecondaryPosition = .zero
+		storage.touchpadSecondaryPreviousPosition = .zero
+		storage.isTouchpadTouching = false
+		storage.isTouchpadSecondaryTouching = false
+		storage.steamLeftTouchpadPosition = .zero
+		storage.steamRightTouchpadPosition = .zero
+		storage.isSteamLeftTouchpadTouching = false
+		storage.isSteamRightTouchpadTouching = false
+		storage.activeSteamLeftTouchpadClickQuadrant = nil
+		storage.activeSteamRightTouchpadClickQuadrant = nil
+		storage.lock.unlock()
+
+		Task { @MainActor [weak self] in
+			self?.activeButtons.removeAll()
+		}
+	}
+
+	private func finishSteamControllerDisconnect(
+		_ controller: SteamControllerHIDController,
+		generation: UInt64?,
+		match: SteamControllerDisconnectMatch
+	) {
+		if let generation {
+			guard steamHIDConnectionGeneration == generation else { return }
+		}
+		steamHIDControllerLock.lock()
+		let activeController = activeSteamHIDController
+		let matchesActiveController: Bool
+		switch match {
+		case .exactController:
+			matchesActiveController = activeController === controller
+		case .physicalReceiver:
+			matchesActiveController = activeController?.representsSamePhysicalReceiver(as: controller) ?? false
+		}
+		guard matchesActiveController else {
+			steamHIDControllerLock.unlock()
+			return
+		}
+		activeSteamHIDController = nil
+		steamHIDControllerLock.unlock()
+
+		steamHIDActiveDevice = nil
+		controllerDisconnected()
+		NSLog("[ControllerKeys] Steam Controller wireless receiver disconnected")
+	}
+
     func steamControllerActivated(_ controller: SteamControllerHIDController) {
         guard steamHIDControllers.contains(where: { $0 === controller }) else { return }
-        guard steamHIDActiveDevice == nil || steamHIDActiveDevice == controller.device else { return }
+		steamHIDControllerLock.lock()
+		let previousActiveController = activeSteamHIDController
+		steamHIDControllerLock.unlock()
+		let previousControllerWasRemoved = previousActiveController.map { previous in
+			!steamHIDControllers.contains(where: { $0 === previous })
+		} ?? false
+		guard steamHIDActiveDevice == nil
+			|| steamHIDActiveDevice == controller.device
+			|| previousControllerWasRemoved else { return }
 
         genericHIDFallbackTimer?.cancel()
         genericHIDFallbackTimer = nil

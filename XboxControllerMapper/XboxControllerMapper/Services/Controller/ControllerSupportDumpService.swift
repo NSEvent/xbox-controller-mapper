@@ -15,6 +15,10 @@ enum ControllerSupportDumpService {
 		let version: Int
 		let transport: String
 		let locationID: Int
+		let interfaceNumber: Int?
+		let primaryUsagePage: Int
+		let primaryUsage: Int
+		let registryEntryID: UInt64
 
 		init(device: IOHIDDevice) {
 			self.device = device
@@ -25,19 +29,25 @@ enum ControllerSupportDumpService {
 			self.version = ControllerSupportDumpService.intProperty(device, kIOHIDVersionNumberKey as CFString) ?? 0
 			self.transport = ControllerSupportDumpService.stringProperty(device, kIOHIDTransportKey as CFString)
 			self.locationID = ControllerSupportDumpService.intProperty(device, kIOHIDLocationIDKey as CFString) ?? 0
+			self.interfaceNumber = ControllerSupportDumpService.interfaceNumber(for: device)
+			self.primaryUsagePage = ControllerSupportDumpService.intProperty(device, kIOHIDPrimaryUsagePageKey as CFString) ?? 0
+			self.primaryUsage = ControllerSupportDumpService.intProperty(device, kIOHIDPrimaryUsageKey as CFString) ?? 0
+			self.registryEntryID = ControllerSupportDumpService.registryEntryID(for: device)
 		}
 
 		var displayName: String {
 			let name = productName.isEmpty ? "Unknown HID Device" : productName
 			let maker = manufacturer.isEmpty ? nil : manufacturer
 			let vendorProduct = "\(ControllerSupportDumpService.hex(vendorID)):\(ControllerSupportDumpService.hex(productID))"
-			return [maker, name, transport.isEmpty ? nil : transport, vendorProduct]
+			let interface = interfaceNumber.map { "Interface \($0)" }
+				?? "Usage \(ControllerSupportDumpService.hex(primaryUsagePage)):\(ControllerSupportDumpService.hex(primaryUsage))"
+			return [maker, name, transport.isEmpty ? nil : transport, vendorProduct, interface]
 				.compactMap { $0 }
 				.joined(separator: " - ")
 		}
 
 		var stableKey: String {
-			"\(vendorID):\(productID):\(version):\(transport):\(locationID):\(productName)"
+			"\(vendorID):\(productID):\(version):\(transport):\(locationID):\(productName):\(interfaceNumber ?? -1):\(primaryUsagePage):\(primaryUsage):\(registryEntryID)"
 		}
 	}
 
@@ -233,8 +243,9 @@ enum ControllerSupportDumpService {
 			"version": device.version,
 			"versionHex": hex(device.version),
 			"transport": device.transport,
-			"primaryUsagePage": jsonValue(intProperty(device.device, kIOHIDPrimaryUsagePageKey as CFString)),
-			"primaryUsage": jsonValue(intProperty(device.device, kIOHIDPrimaryUsageKey as CFString)),
+			"interfaceNumber": jsonValue(device.interfaceNumber),
+			"primaryUsagePage": device.primaryUsagePage,
+			"primaryUsage": device.primaryUsage,
 			"usagePairs": usagePairs(for: device.device),
 			"maxInputReportSize": jsonValue(intProperty(device.device, kIOHIDMaxInputReportSizeKey as CFString)),
 		]
@@ -424,6 +435,23 @@ enum ControllerSupportDumpService {
 
 	private static func stringProperty(_ device: IOHIDDevice, _ key: CFString) -> String {
 		IOHIDDeviceGetProperty(device, key) as? String ?? ""
+	}
+
+	private static func interfaceNumber(for device: IOHIDDevice) -> Int? {
+		for key in ["bInterfaceNumber", "InterfaceNumber", "USB Interface Number"] {
+			if let value = intProperty(device, key as CFString) {
+				return value
+			}
+		}
+		return nil
+	}
+
+	private static func registryEntryID(for device: IOHIDDevice) -> UInt64 {
+		let service = IOHIDDeviceGetService(device)
+		guard service != 0 else { return 0 }
+		var entryID: UInt64 = 0
+		guard IORegistryEntryGetRegistryEntryID(service, &entryID) == kIOReturnSuccess else { return 0 }
+		return entryID
 	}
 
 	private static func intValue(_ value: Any?) -> Int? {
