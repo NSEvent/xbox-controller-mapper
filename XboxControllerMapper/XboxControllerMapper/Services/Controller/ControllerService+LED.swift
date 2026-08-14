@@ -128,9 +128,6 @@ extension ControllerService {
                 applyLightBarViaBluetooth(settings: settings)
             }
         } else {
-            #if DEBUG
-            print("[LED] No PlayStation controller available (isDualSense=\(isDualSense), isDualShock=\(isDualShock))")
-            #endif
             return
         }
     }

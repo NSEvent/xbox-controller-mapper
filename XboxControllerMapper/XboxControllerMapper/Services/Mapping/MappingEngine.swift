@@ -703,7 +703,7 @@ class MappingEngine: ObservableObject {
             guard state.isEnabled, let profile = state.activeProfile else {
                 #if DEBUG
                 if state.isEnabled && state.activeProfile == nil {
-                    print("⚠️ MappingEngine: Button \(button) pressed but no active profile — input ignored")
+                    // print("⚠️ MappingEngine: Button \(button) pressed but no active profile — input ignored")
                 }
                 #endif
                 return .blocked
@@ -1612,7 +1612,7 @@ class MappingEngine: ObservableObject {
             guard state.isEnabled, let profile = state.activeProfile else {
                 #if DEBUG
                 if state.isEnabled && state.activeProfile == nil {
-                    print("⚠️ MappingEngine: Chord \(buttons) detected but no active profile — input ignored")
+                    // print("⚠️ MappingEngine: Chord \(buttons) detected but no active profile — input ignored")
                 }
                 #endif
                 return nil
