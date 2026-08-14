@@ -248,7 +248,7 @@ extension ControllerService {
 
     /// Resets motion gesture state. Called from controllerDisconnected().
     /// Caller must hold storage.lock.
-    func resetMotionStateLocked() {
+    nonisolated func resetMotionStateLocked() {
         storage.motionInputEnabled = false
         storage.motionGestureDetector.reset()
 		clearAccumulatedMotionRatesLocked()

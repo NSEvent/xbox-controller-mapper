@@ -1625,6 +1625,70 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
 		XCTAssertEqual(stopCount, 1)
 	}
 
+	func testControllerDisconnectedEvent_cleansMouseStickScrollAndLayerState() async throws {
+		let mouseMapping = KeyMapping(
+			keyCode: KeyCodeMapping.mouseLeftClick,
+			isHoldModifier: true
+		)
+		let scrollMapping = KeyMapping(
+			keyCode: KeyCodeMapping.scrollDown,
+			scrollActionSettings: ScrollActionSettings(speed: 0.5, acceleration: 0)
+		)
+		let scrollTimer = DispatchSource.makeTimerSource(queue: mappingEngine.inputQueue)
+		scrollTimer.schedule(deadline: .now() + 60, repeating: 60)
+		scrollTimer.resume()
+
+		await MainActor.run {
+			installActiveProfile(Profile(
+				name: "ReceiverDisconnectOutputs",
+				buttonMappings: [.a: mouseMapping]
+			))
+			mappingEngine.handleRemoteControllerButtonPressed(.a)
+		}
+		await waitForTasks(0.2)
+		XCTAssertTrue(mockInputSimulator.isLeftMouseButtonHeld)
+
+		mockInputSimulator.keyDown(12, modifiers: [])
+		mockInputSimulator.keyDown(13, modifiers: [])
+		mappingEngine.state.lock.withLock {
+			mappingEngine.state.leftStickHeldKeys = [12]
+			mappingEngine.state.rightStickHeldKeys = [13]
+			mappingEngine.state.smoothScrollMappings[.b] = scrollMapping
+			mappingEngine.state.smoothScrollTimers[.b] = scrollTimer
+			mappingEngine.state.activeLayerIds = [UUID()]
+			mappingEngine.state.latchedLayerId = UUID()
+		}
+		mockInputSimulator.clearEvents()
+
+		await MainActor.run {
+			controllerService.emitInputEvent(.controllerDisconnected)
+		}
+		await waitForTasks(0.2)
+
+		XCTAssertFalse(mockInputSimulator.isLeftMouseButtonHeld)
+		XCTAssertTrue(scrollTimer.isCancelled)
+		XCTAssertTrue(mockInputSimulator.events.contains(.keyUp(12)))
+		XCTAssertTrue(mockInputSimulator.events.contains(.keyUp(13)))
+		let remainingState = mappingEngine.state.lock.withLock {
+			(
+				mappingEngine.state.heldButtons.count,
+				mappingEngine.state.leftStickHeldKeys.count,
+				mappingEngine.state.rightStickHeldKeys.count,
+				mappingEngine.state.smoothScrollMappings.count,
+				mappingEngine.state.smoothScrollTimers.count,
+				mappingEngine.state.activeLayerIds.count,
+				mappingEngine.state.latchedLayerId
+			)
+		}
+		XCTAssertEqual(remainingState.0, 0)
+		XCTAssertEqual(remainingState.1, 0)
+		XCTAssertEqual(remainingState.2, 0)
+		XCTAssertEqual(remainingState.3, 0)
+		XCTAssertEqual(remainingState.4, 0)
+		XCTAssertEqual(remainingState.5, 0)
+		XCTAssertNil(remainingState.6)
+	}
+
     func testLocalControllerButton_doesNotExecuteHomeMappingDuringRemoteSession() async throws {
         await MainActor.run {
             installActiveProfile(Profile(name: "Home", buttonMappings: [.a: .key(10)]))

@@ -1,4 +1,5 @@
 import XCTest
+import Foundation
 import GameController
 @testable import ControllerKeys
 
@@ -436,6 +437,121 @@ final class HIDReportParserTests: XCTestCase {
 
 		XCTAssertTrue(dataInterface.representsSameReceiver(as: commandInterface))
 		XCTAssertFalse(dataInterface.representsSameReceiver(as: otherReceiver))
+	}
+
+	func testSteamController_WirelessLifecycleRequiresStateReportBeforeActivation() {
+		var lifecycle = SteamControllerWirelessLifecycle()
+
+		XCTAssertTrue(lifecycle.receiveStatus(.connected))
+		XCTAssertFalse(lifecycle.canActivate, "Receiver status alone must not activate a composite interface")
+		let connectedGeneration = lifecycle.generation
+
+		XCTAssertFalse(lifecycle.receiveControllerState())
+		XCTAssertTrue(lifecycle.canActivate)
+		XCTAssertEqual(lifecycle.generation, connectedGeneration)
+
+		XCTAssertTrue(lifecycle.receiveStatus(.disconnected))
+		XCTAssertFalse(lifecycle.canActivate)
+		XCTAssertGreaterThan(lifecycle.generation, connectedGeneration)
+	}
+
+	func testSteamController_WirelessLifecycleInfersConnectFromFirstStateReport() {
+		var lifecycle = SteamControllerWirelessLifecycle()
+
+		XCTAssertTrue(lifecycle.receiveControllerState())
+		XCTAssertEqual(lifecycle.state, .connected)
+		XCTAssertTrue(lifecycle.canActivate)
+		XCTAssertFalse(lifecycle.receiveControllerState())
+	}
+
+	func testControllerSupportDumpIdentityPreservesCompositeInterfaceDetails() throws {
+		let identity = ControllerSupportDumpDeviceIdentity(
+			productName: "Steam Controller",
+			manufacturer: "Valve",
+			vendorID: 0x28DE,
+			productID: 0x1305,
+			version: 2,
+			transport: "USB",
+			locationID: 42,
+			interfaceNumber: 3,
+			primaryUsagePage: 0xFF00,
+			primaryUsage: 1,
+			registryEntryID: 9_876
+		)
+
+		XCTAssertTrue(identity.displayName.contains("Interface 3"))
+		XCTAssertEqual(identity.jsonObject["interfaceNumber"] as? Int, 3)
+		XCTAssertEqual(identity.jsonObject["primaryUsagePage"] as? Int, 0xFF00)
+		XCTAssertEqual(identity.jsonObject["primaryUsage"] as? Int, 1)
+		XCTAssertEqual((identity.jsonObject["registryEntryID"] as? NSNumber)?.uint64Value, 9_876)
+		XCTAssertNoThrow(try JSONSerialization.data(withJSONObject: identity.jsonObject))
+
+		let usageFallback = ControllerSupportDumpDeviceIdentity(
+			productName: "",
+			manufacturer: "",
+			vendorID: 0x28DE,
+			productID: 0x1305,
+			version: 2,
+			transport: "USB",
+			locationID: 42,
+			interfaceNumber: nil,
+			primaryUsagePage: 0xFF00,
+			primaryUsage: 1,
+			registryEntryID: 9_877
+		)
+		XCTAssertTrue(usageFallback.displayName.contains("Unknown HID Device"))
+		XCTAssertTrue(usageFallback.displayName.contains("Usage 0xFF00:0x0001"))
+		XCTAssertTrue(usageFallback.jsonObject["interfaceNumber"] is NSNull)
+	}
+
+	func testControllerSupportDumpIdentityDeduplicatesOnlyExactInterfaces() {
+		let base = ControllerSupportDumpDeviceIdentity(
+			productName: "Steam Controller",
+			manufacturer: "Valve",
+			vendorID: 0x28DE,
+			productID: 0x1305,
+			version: 2,
+			transport: "USB",
+			locationID: 42,
+			interfaceNumber: 1,
+			primaryUsagePage: 0xFF00,
+			primaryUsage: 1,
+			registryEntryID: 100
+		)
+		let otherInterface = ControllerSupportDumpDeviceIdentity(
+			productName: base.productName,
+			manufacturer: base.manufacturer,
+			vendorID: base.vendorID,
+			productID: base.productID,
+			version: base.version,
+			transport: base.transport,
+			locationID: base.locationID,
+			interfaceNumber: 2,
+			primaryUsagePage: base.primaryUsagePage,
+			primaryUsage: base.primaryUsage,
+			registryEntryID: 101
+		)
+		let otherRegistryEntry = ControllerSupportDumpDeviceIdentity(
+			productName: base.productName,
+			manufacturer: base.manufacturer,
+			vendorID: base.vendorID,
+			productID: base.productID,
+			version: base.version,
+			transport: base.transport,
+			locationID: base.locationID,
+			interfaceNumber: base.interfaceNumber,
+			primaryUsagePage: base.primaryUsagePage,
+			primaryUsage: base.primaryUsage,
+			registryEntryID: 102
+		)
+
+		let unique = ControllerSupportDumpDeviceIdentity.removingDuplicates(
+			from: [base, base, otherInterface, otherRegistryEntry]
+		)
+
+		XCTAssertEqual(unique, [base, otherInterface, otherRegistryEntry])
+		XCTAssertNotEqual(base.stableKey, otherInterface.stableKey)
+		XCTAssertNotEqual(base.stableKey, otherRegistryEntry.stableKey)
 	}
 
     func testSteamController_UnknownReportIDReturnsNil() {

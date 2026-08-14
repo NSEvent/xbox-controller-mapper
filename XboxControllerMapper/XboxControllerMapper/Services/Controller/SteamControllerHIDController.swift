@@ -249,6 +249,51 @@ struct SteamControllerLizardActivationGate: Equatable {
     }
 }
 
+/// Connection state for a wireless receiver interface. A receiver-wide status
+/// packet is not enough to identify the composite interface that carries input;
+/// activation is allowed only after that interface also receives a controller
+/// state report. `generation` invalidates an in-flight lizard-mode write when a
+/// disconnect or reconnect happens while that write is in progress.
+struct SteamControllerWirelessLifecycle: Equatable {
+	private(set) var state: SteamControllerWirelessState?
+	private(set) var hasReceivedControllerState = false
+	private(set) var generation: UInt64 = 0
+
+	var canActivate: Bool {
+		state == .connected && hasReceivedControllerState
+	}
+
+	@discardableResult
+	mutating func receiveStatus(_ newState: SteamControllerWirelessState) -> Bool {
+		guard state != newState else { return false }
+		generation &+= 1
+		state = newState
+		if newState == .disconnected {
+			hasReceivedControllerState = false
+		}
+		return true
+	}
+
+	/// Returns true when this state report implies a connection transition that
+	/// was not announced by a preceding receiver status packet.
+	@discardableResult
+	mutating func receiveControllerState() -> Bool {
+		let impliedConnection = state != .connected
+		if impliedConnection {
+			generation &+= 1
+			state = .connected
+		}
+		hasReceivedControllerState = true
+		return impliedConnection
+	}
+
+	mutating func reset() {
+		generation &+= 1
+		state = nil
+		hasReceivedControllerState = false
+	}
+}
+
 enum SteamControllerButtonMask {
     static let a: UInt32 = 0x00000001
     static let b: UInt32 = 0x00000002
@@ -524,7 +569,7 @@ final class SteamControllerHIDController {
     private var scheduledRunLoop: CFRunLoop?
     private var lizardModeTimer: DispatchSourceTimer?
     private var deviceOpenOptions = IOOptionBits(kIOHIDOptionsTypeNone)
-	private var wirelessConnectionState: SteamControllerWirelessState?
+	private var wirelessLifecycle = SteamControllerWirelessLifecycle()
 
     private final class CallbackContext {
         weak var controller: SteamControllerHIDController?
@@ -563,8 +608,11 @@ final class SteamControllerHIDController {
 
 	func resetAfterPhysicalReceiverDisconnect() {
 		guard isWirelessReceiver else { return }
-		wirelessConnectionState = .disconnected
-		resetTrackedInputState(resetActivation: true)
+		activationLock.lock()
+		_ = wirelessLifecycle.receiveStatus(.disconnected)
+		activationGate.reset()
+		activationLock.unlock()
+		resetTrackedInputState()
 	}
 
     deinit {
@@ -572,7 +620,15 @@ final class SteamControllerHIDController {
     }
 
     func start() {
-        guard !isStarted else { return }
+		activationLock.lock()
+		guard !isStarted else {
+			activationLock.unlock()
+			return
+		}
+		isStarted = true
+		wirelessLifecycle.reset()
+		activationGate.reset()
+		activationLock.unlock()
 
         let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Self.inputReportBufferSize)
         reportBuffer = buffer
@@ -608,7 +664,6 @@ final class SteamControllerHIDController {
             NSLog("[ControllerKeys] Steam Controller lizard mouse HID interface seized")
         }
 
-        isStarted = true
         startLizardModeTimer()
 		if !isWirelessReceiver {
 			_ = ensureLizardModeDisabled()
@@ -619,7 +674,15 @@ final class SteamControllerHIDController {
         lizardModeTimer?.cancel()
         lizardModeTimer = nil
 
-        if isStarted && isLizardModeDisabled() {
+		activationLock.lock()
+		let wasStarted = isStarted
+		let wasLizardModeDisabled = activationGate.isLizardModeDisabled
+		isStarted = false
+		wirelessLifecycle.reset()
+		activationGate.reset()
+		activationLock.unlock()
+
+		if wasStarted && wasLizardModeDisabled {
             stopAllHaptics()
             // Leave lizard mode disabled while the controller stays connected.
             // Restoring it makes macOS see Steam's mouse emulation again, which
@@ -627,7 +690,7 @@ final class SteamControllerHIDController {
             // present" is enabled.
         }
 
-        if isStarted {
+		if wasStarted {
             IOHIDDeviceClose(device, deviceOpenOptions)
             if let scheduledRunLoop {
                 IOHIDDeviceUnscheduleFromRunLoop(device, scheduledRunLoop, CFRunLoopMode.defaultMode.rawValue)
@@ -643,15 +706,10 @@ final class SteamControllerHIDController {
 
         reportBuffer?.deallocate()
         reportBuffer = nil
-        isStarted = false
-		wirelessConnectionState = nil
-		resetTrackedInputState(resetActivation: true)
+		resetTrackedInputState()
     }
 
-	private func resetTrackedInputState(resetActivation: Bool) {
-		if resetActivation {
-			resetActivationGate()
-		}
+	private func resetTrackedInputState() {
 		previousButtons = 0
 		lastAnalogDispatchNanoseconds = 0
 		lastLeftStick = nil
@@ -946,10 +1004,16 @@ final class SteamControllerHIDController {
         }
 
         guard let parsed = parser.parse(reportID: reportID, report: UnsafePointer(report), length: length) else { return }
-		if isWirelessReceiver, wirelessConnectionState != .connected {
-			wirelessConnectionState = .connected
-			resetActivationGate()
-			onWirelessConnectionChanged?(self, .connected)
+		if isWirelessReceiver {
+			activationLock.lock()
+			let impliedConnection = wirelessLifecycle.receiveControllerState()
+			if impliedConnection {
+				activationGate.reset()
+			}
+			activationLock.unlock()
+			if impliedConnection {
+				onWirelessConnectionChanged?(self, .connected)
+			}
 		}
 
         guard ensureLizardModeDisabled() else { return }
@@ -968,17 +1032,16 @@ final class SteamControllerHIDController {
 
 	private func handleWirelessState(_ state: SteamControllerWirelessState) {
 		guard isWirelessReceiver else { return }
-		guard wirelessConnectionState != state else { return }
-		wirelessConnectionState = state
+		activationLock.lock()
+		let changed = wirelessLifecycle.receiveStatus(state)
+		if changed {
+			activationGate.reset()
+		}
+		activationLock.unlock()
+		guard changed else { return }
 
-		switch state {
-		case .connected:
-			// Wait for the first state packet before activation. Composite receiver
-			// interfaces can all report this status, but only the interface carrying
-			// controller state should become ControllerKeys' active input source.
-			resetActivationGate()
-		case .disconnected:
-			resetAfterPhysicalReceiverDisconnect()
+		if state == .disconnected {
+			resetTrackedInputState()
 		}
 		onWirelessConnectionChanged?(self, state)
 	}
@@ -1403,46 +1466,72 @@ final class SteamControllerHIDController {
         timer.resume()
     }
 
-    private func isLizardModeDisabled() -> Bool {
-        activationLock.lock()
-        defer { activationLock.unlock() }
-        return activationGate.isLizardModeDisabled
-    }
-
-    private func resetActivationGate() {
-        activationLock.lock()
-        activationGate.reset()
-        activationLock.unlock()
-    }
-
     @discardableResult
     private func ensureLizardModeDisabled() -> Bool {
         activationLock.lock()
+		let connectionGeneration: UInt64?
+		if isWirelessReceiver {
+			guard wirelessLifecycle.canActivate else {
+				activationLock.unlock()
+				return false
+			}
+			connectionGeneration = wirelessLifecycle.generation
+		} else {
+			connectionGeneration = nil
+		}
         let alreadyDisabled = activationGate.canDispatchInput
         activationLock.unlock()
         guard !alreadyDisabled else { return true }
 
         guard sendLizardMode(enabled: false) else { return false }
-        markLizardModeDisabledAndActivateIfNeeded()
-        return true
+		return markLizardModeDisabledAndActivateIfNeeded(
+			expectedConnectionGeneration: connectionGeneration
+		)
     }
 
     private func reassertLizardModeDisabled() {
-		if isWirelessReceiver, wirelessConnectionState != .connected {
-			return
+		activationLock.lock()
+		let started = isStarted
+		let connectionGeneration: UInt64?
+		if isWirelessReceiver {
+			connectionGeneration = wirelessLifecycle.canActivate
+				? wirelessLifecycle.generation
+				: nil
+		} else {
+			connectionGeneration = nil
 		}
-        guard isStarted, sendLizardMode(enabled: false) else { return }
-        markLizardModeDisabledAndActivateIfNeeded()
+		let canWrite = !isWirelessReceiver || connectionGeneration != nil
+		activationLock.unlock()
+
+		guard started, canWrite, sendLizardMode(enabled: false) else { return }
+		_ = markLizardModeDisabledAndActivateIfNeeded(
+			expectedConnectionGeneration: connectionGeneration
+		)
     }
 
-    private func markLizardModeDisabledAndActivateIfNeeded() {
+	@discardableResult
+    private func markLizardModeDisabledAndActivateIfNeeded(
+		expectedConnectionGeneration: UInt64?
+	) -> Bool {
         activationLock.lock()
+		guard isStarted else {
+			activationLock.unlock()
+			return false
+		}
+		if let expectedConnectionGeneration {
+			guard wirelessLifecycle.canActivate,
+				  wirelessLifecycle.generation == expectedConnectionGeneration else {
+				activationLock.unlock()
+				return false
+			}
+		}
         let shouldActivate = activationGate.markDisableSucceeded()
         activationLock.unlock()
 
         if shouldActivate {
             onActivated?(self)
         }
+		return true
     }
 
     @discardableResult

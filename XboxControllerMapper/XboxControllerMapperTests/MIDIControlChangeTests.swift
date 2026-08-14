@@ -158,7 +158,7 @@ final class MIDIButtonLifecycleTests: MappingEngineTestCase {
 		XCTAssertNil(controllerService.onInputEvent)
 	}
 
-	func testControllerDisconnectReleasesHeldMIDIControlAndDoesNotPoisonReconnect() async {
+	func testControllerDisconnectedEventReleasesHeldMIDIControlAndDoesNotPoisonReconnect() async {
 		let message = MIDIControlChange(channel: 3, controller: 32)
 		await MainActor.run {
 			profileManager.setActiveProfile(
@@ -170,7 +170,7 @@ final class MIDIButtonLifecycleTests: MappingEngineTestCase {
 
 		await MainActor.run { controllerService.buttonPressed(.a) }
 		await waitForTasks(0.2)
-		await MainActor.run { controllerService.isConnected = false }
+		await MainActor.run { controllerService.emitInputEvent(.controllerDisconnected) }
 		await waitForTasks(0.1)
 
 		XCTAssertEqual(mockMIDIService.events, [.press(message), .release(message)])

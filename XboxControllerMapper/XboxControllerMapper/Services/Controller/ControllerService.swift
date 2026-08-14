@@ -300,7 +300,7 @@ class ControllerService: ObservableObject {
     var steamHIDCallbackContext: UnsafeMutableRawPointer?
 	nonisolated(unsafe) let steamHIDControllerLock = NSLock()
 	nonisolated(unsafe) var activeSteamHIDController: SteamControllerHIDController?
-	var steamHIDConnectionGeneration: UInt64 = 0
+	nonisolated(unsafe) var steamHIDConnectionGeneration: UInt64 = 0
 
     // Nintendo Pro Controller HID monitoring (Home button not exposed by GameController framework)
     var nintendoHIDManager: IOHIDManager?
@@ -1351,7 +1351,7 @@ class ControllerService: ObservableObject {
 		}
 	}
 
-    func resetTouchpadStateLocked() {
+    nonisolated func resetTouchpadStateLocked() {
         storage.isTouchpadTouching = false
         storage.isTouchpadSecondaryTouching = false
         storage.touchpadPosition = .zero
@@ -1375,6 +1375,9 @@ class ControllerService: ObservableObject {
         storage.touchpadMovementBlocked = false
         storage.touchpadTouchStartTime = 0
         storage.touchpadTouchStartPosition = .zero
+		storage.touchpadMaxDistanceFromStart = 0
+		storage.touchpadLastTapTime = 0
+		storage.touchpadDebugLastLogTime = 0
         storage.touchpadIdleSentinel = nil
         storage.touchpadSecondaryIdleSentinel = nil
         storage.touchpadHasSeenTouch = false
@@ -1389,6 +1392,17 @@ class ControllerService: ObservableObject {
         storage.activeSteamRightTouchpadClickQuadrant = nil
         storage.steamTwoPadGestureActiveUntil = 0
 		storage.steamTwoPadGestureWasActive = false
+		storage.touchpadSecondaryTouchStartTime = 0
+		storage.touchpadSecondaryTouchStartPosition = .zero
+		storage.touchpadSecondaryMaxDistanceFromStart = 0
+		storage.touchpadTwoFingerClickArmed = false
+		storage.touchpadWasTwoFingerDuringTouch = false
+		storage.touchpadTwoFingerGestureDistance = 0
+		storage.touchpadTwoFingerPinchDistance = 0
+		storage.activeTouchpadClickQuadrant = nil
+		storage.touchpadLongTapTimer?.cancel()
+		storage.touchpadLongTapTimer = nil
+		storage.touchpadLongTapFired = false
     }
 
 	nonisolated func guideMonitorPaddleButton(for paddleIndex: Int, pressed: Bool) -> ControllerButton? {

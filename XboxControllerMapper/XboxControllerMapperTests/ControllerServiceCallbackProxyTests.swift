@@ -137,7 +137,8 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         XCTAssertNil(controllerService.onInputEvent)
     }
 
-	func testSteamDisconnectClearsCachedInputSoReconnectPressIsAccepted() async {
+	func testSteamDisconnectClearsAllCachedPhysicalInputState() async {
+		let longTapTimer = DispatchWorkItem {}
 		controllerService.activeButtons = [.a]
 		controllerService.storage.lock.withLock {
 			controllerService.storage.activeButtons = [.a]
@@ -151,6 +152,47 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 			controllerService.storage.rightTrigger = 0.5
 			controllerService.storage.isSteamLeftTouchpadTouching = true
 			controllerService.storage.isSteamRightTouchpadTouching = true
+			controllerService.storage.pendingTouchpadDelta = CGPoint(x: 0.2, y: -0.4)
+			controllerService.storage.touchpadClickArmed = true
+			controllerService.storage.touchpadClickStartPosition = CGPoint(x: 0.4, y: 0.3)
+			controllerService.storage.touchpadClickFiredDuringTouch = true
+			controllerService.storage.touchpadMovementBlocked = true
+			controllerService.storage.touchpadTouchStartTime = 8
+			controllerService.storage.touchpadTouchStartPosition = CGPoint(x: -0.2, y: 0.7)
+			controllerService.storage.touchpadMaxDistanceFromStart = 0.9
+			controllerService.storage.touchpadLastTapTime = 7
+			controllerService.storage.touchpadDebugLastLogTime = 6
+			controllerService.storage.steamLeftTouchpadClickArmed = true
+			controllerService.storage.steamLeftTouchpadClickStartPosition = CGPoint(x: 0.8, y: 0.1)
+			controllerService.storage.activeSteamLeftTouchpadClickQuadrant = .leftTouchpadRegionTopLeftClick
+			controllerService.storage.activeSteamRightTouchpadClickQuadrant = .rightTouchpadRegionBottomRightClick
+			controllerService.storage.steamTwoPadGestureActiveUntil = 100
+			controllerService.storage.steamTwoPadGestureWasActive = true
+			controllerService.storage.touchpadSecondaryTouchStartTime = 9
+			controllerService.storage.touchpadSecondaryTouchStartPosition = CGPoint(x: 0.1, y: 0.2)
+			controllerService.storage.touchpadSecondaryMaxDistanceFromStart = 0.8
+			controllerService.storage.touchpadTwoFingerClickArmed = true
+			controllerService.storage.touchpadWasTwoFingerDuringTouch = true
+			controllerService.storage.touchpadTwoFingerGestureDistance = 0.7
+			controllerService.storage.touchpadTwoFingerPinchDistance = 0.6
+			controllerService.storage.activeTouchpadClickQuadrant = .touchpadRegionTopRightClick
+			controllerService.storage.touchpadLongTapTimer = longTapTimer
+			controllerService.storage.touchpadLongTapFired = true
+			controllerService.storage.motionInputEnabled = true
+			controllerService.storage.motionPitchAccum = 3
+			controllerService.storage.motionRollAccum = -4
+			controllerService.storage.motionSampleCount = 5
+			controllerService.storage.steamGyroPitchBiasSum = 10
+			controllerService.storage.steamGyroRollBiasSum = 11
+			controllerService.storage.steamGyroYawBiasSum = 12
+			controllerService.storage.steamGyroBiasSampleCount = 13
+			controllerService.storage.steamGyroPitchBias = 1
+			controllerService.storage.steamGyroRollBias = 2
+			controllerService.storage.steamGyroYawBias = 3
+			controllerService.storage.steamGyroBiasCalibrationNotBefore = 99
+			controllerService.storage.steamGyroLastRawPitch = 4
+			controllerService.storage.steamGyroLastRawRoll = 5
+			controllerService.storage.steamGyroLastRawYaw = 6
 		}
 
 		controllerService.clearSteamControllerInputState()
@@ -168,10 +210,78 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 			XCTAssertEqual(controllerService.storage.rightTrigger, 0)
 			XCTAssertFalse(controllerService.storage.isSteamLeftTouchpadTouching)
 			XCTAssertFalse(controllerService.storage.isSteamRightTouchpadTouching)
+			XCTAssertNil(controllerService.storage.pendingTouchpadDelta)
+			XCTAssertFalse(controllerService.storage.touchpadClickArmed)
+			XCTAssertEqual(controllerService.storage.touchpadClickStartPosition, .zero)
+			XCTAssertFalse(controllerService.storage.touchpadClickFiredDuringTouch)
+			XCTAssertFalse(controllerService.storage.touchpadMovementBlocked)
+			XCTAssertEqual(controllerService.storage.touchpadTouchStartTime, 0)
+			XCTAssertEqual(controllerService.storage.touchpadTouchStartPosition, .zero)
+			XCTAssertEqual(controllerService.storage.touchpadMaxDistanceFromStart, 0)
+			XCTAssertEqual(controllerService.storage.touchpadLastTapTime, 0)
+			XCTAssertEqual(controllerService.storage.touchpadDebugLastLogTime, 0)
+			XCTAssertFalse(controllerService.storage.steamLeftTouchpadClickArmed)
+			XCTAssertEqual(controllerService.storage.steamLeftTouchpadClickStartPosition, .zero)
+			XCTAssertNil(controllerService.storage.activeSteamLeftTouchpadClickQuadrant)
+			XCTAssertNil(controllerService.storage.activeSteamRightTouchpadClickQuadrant)
+			XCTAssertEqual(controllerService.storage.steamTwoPadGestureActiveUntil, 0)
+			XCTAssertFalse(controllerService.storage.steamTwoPadGestureWasActive)
+			XCTAssertEqual(controllerService.storage.touchpadSecondaryTouchStartTime, 0)
+			XCTAssertEqual(controllerService.storage.touchpadSecondaryTouchStartPosition, .zero)
+			XCTAssertEqual(controllerService.storage.touchpadSecondaryMaxDistanceFromStart, 0)
+			XCTAssertFalse(controllerService.storage.touchpadTwoFingerClickArmed)
+			XCTAssertFalse(controllerService.storage.touchpadWasTwoFingerDuringTouch)
+			XCTAssertEqual(controllerService.storage.touchpadTwoFingerGestureDistance, 0)
+			XCTAssertEqual(controllerService.storage.touchpadTwoFingerPinchDistance, 0)
+			XCTAssertNil(controllerService.storage.activeTouchpadClickQuadrant)
+			XCTAssertNil(controllerService.storage.touchpadLongTapTimer)
+			XCTAssertFalse(controllerService.storage.touchpadLongTapFired)
+			XCTAssertTrue(
+				controllerService.storage.motionInputEnabled,
+				"Quick receiver reconnect cleanup must preserve profile-configured motion activation"
+			)
+			XCTAssertEqual(controllerService.storage.motionPitchAccum, 0)
+			XCTAssertEqual(controllerService.storage.motionRollAccum, 0)
+			XCTAssertEqual(controllerService.storage.motionSampleCount, 0)
+			XCTAssertEqual(controllerService.storage.steamGyroPitchBiasSum, 0)
+			XCTAssertEqual(controllerService.storage.steamGyroRollBiasSum, 0)
+			XCTAssertEqual(controllerService.storage.steamGyroYawBiasSum, 0)
+			XCTAssertEqual(controllerService.storage.steamGyroBiasSampleCount, 0)
+			XCTAssertEqual(controllerService.storage.steamGyroPitchBias, 0)
+			XCTAssertEqual(controllerService.storage.steamGyroRollBias, 0)
+			XCTAssertEqual(controllerService.storage.steamGyroYawBias, 0)
+			XCTAssertEqual(controllerService.storage.steamGyroBiasCalibrationNotBefore, 0)
+			XCTAssertNil(controllerService.storage.steamGyroLastRawPitch)
+			XCTAssertNil(controllerService.storage.steamGyroLastRawRoll)
+			XCTAssertNil(controllerService.storage.steamGyroLastRawYaw)
 		}
+		XCTAssertTrue(longTapTimer.isCancelled)
 		XCTAssertTrue(controllerService.activeButtons.isEmpty)
+	}
 
-		controllerService.buttonPressed(.a)
+	func testSteamDisconnectCleanupPrecedesLaterReconnectInput() {
+		controllerService.lowLatencyInputEnabled = true
+		controllerService.storage.lock.withLock {
+			controllerService.storage.activeButtons = [.a]
+		}
+		var events: [ControllerInputEvent] = []
+		controllerService.onInputEvent = { events.append($0) }
+
+		controllerService.enqueueSteamControllerInputCleanup()
+		controllerService.controllerQueue.async { [controllerService] in
+			controllerService?.handleButton(.a, pressed: true)
+		}
+		drainControllerQueue()
+
+		XCTAssertEqual(events.count, 2)
+		if events.count == 2 {
+			guard case .controllerDisconnected = events[0] else {
+				return XCTFail("Disconnect reset must be the first queued event")
+			}
+			guard case .buttonPressed(.a) = events[1] else {
+				return XCTFail("Reconnect press must survive after the reset")
+			}
+		}
 		XCTAssertTrue(controllerService.storage.lock.withLock {
 			controllerService.storage.activeButtons.contains(.a)
 		})

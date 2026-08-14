@@ -225,12 +225,7 @@ extension ControllerService {
             }
         }
 		controller.onWirelessConnectionChanged = { [weak self] controller, state in
-			if state == .disconnected {
-				self?.resetActiveSteamControllerTrackedInputState(from: controller)
-			}
-			DispatchQueue.main.async {
-				self?.steamControllerWirelessConnectionChanged(controller, state: state)
-			}
+			self?.steamControllerWirelessConnectionChanged(controller, state: state)
 		}
         controller.onButtonAction = { [weak self] button, pressed in
             self?.controllerQueue.async {
@@ -305,7 +300,7 @@ extension ControllerService {
         }
 
         if wasActive {
-			queueSteamControllerDisconnect(
+			enqueueSteamControllerDisconnect(
 				controller,
 				generation: nil,
 				match: .exactController
@@ -313,63 +308,65 @@ extension ControllerService {
         }
     }
 
-	func steamControllerWirelessConnectionChanged(
+	nonisolated func steamControllerWirelessConnectionChanged(
 		_ controller: SteamControllerHIDController,
 		state: SteamControllerWirelessState
 	) {
 		steamHIDControllerLock.lock()
-		let activeController = activeSteamHIDController
-		steamHIDControllerLock.unlock()
-		guard let activeController,
-			  activeController.representsSamePhysicalReceiver(as: controller) else { return }
-
+		guard let activeController = activeSteamHIDController,
+			  activeController.representsSamePhysicalReceiver(as: controller) else {
+			steamHIDControllerLock.unlock()
+			return
+		}
 		steamHIDConnectionGeneration &+= 1
+		let generation = steamHIDConnectionGeneration
+		steamHIDControllerLock.unlock()
+
 		guard state == .disconnected else { return }
-		queueSteamControllerDisconnect(
+		if activeController !== controller {
+			// All candidates share steamHIDRunLoop, so reset the state-carrying
+			// sibling synchronously before its next report is parsed.
+			activeController.resetAfterPhysicalReceiverDisconnect()
+		}
+		enqueueSteamControllerDisconnect(
 			activeController,
-			generation: steamHIDConnectionGeneration,
+			generation: generation,
 			match: .physicalReceiver
 		)
 	}
 
-	nonisolated private func resetActiveSteamControllerTrackedInputState(
-		from reportingController: SteamControllerHIDController
-	) {
-		steamHIDControllerLock.lock()
-		let activeController = activeSteamHIDController
-		steamHIDControllerLock.unlock()
-		guard let activeController,
-			  activeController !== reportingController,
-			  activeController.representsSamePhysicalReceiver(as: reportingController) else { return }
-
-		// All Steam candidates share steamHIDRunLoop, so this callback can reset
-		// the state-carrying sibling synchronously before its next input report.
-		activeController.resetAfterPhysicalReceiverDisconnect()
-	}
-
-	private enum SteamControllerDisconnectMatch {
+	private enum SteamControllerDisconnectMatch: Sendable {
 		case exactController
 		case physicalReceiver
 	}
 
-	private func queueSteamControllerDisconnect(
+	nonisolated private func enqueueSteamControllerDisconnect(
 		_ controller: SteamControllerHIDController,
 		generation: UInt64?,
 		match: SteamControllerDisconnectMatch
 	) {
-		// Drain button callbacks first, then enqueue one routing reset. This keeps a
-		// final receiver packet from recreating held output after the reset event.
-		controllerQueue.async { [weak self] in
-			guard let self else { return }
-			clearSteamControllerInputState()
-			emitInputEvent(.controllerDisconnected)
-			DispatchQueue.main.async { [weak self] in
+		enqueueSteamControllerInputCleanup { [weak self] in
+			Task { @MainActor [weak self] in
 				self?.finishSteamControllerDisconnect(
 					controller,
 					generation: generation,
 					match: match
 				)
 			}
+		}
+	}
+
+	/// Enqueues the receiver reset at the same FIFO boundary as button input.
+	/// The HID callback calls this synchronously, so a later reconnect packet
+	/// cannot run before the disconnect cleanup. Internal for regression tests.
+	nonisolated func enqueueSteamControllerInputCleanup(
+		then completion: @escaping @Sendable () -> Void = {}
+	) {
+		controllerQueue.async { [weak self] in
+			guard let self else { return }
+			clearSteamControllerInputState()
+			emitInputEvent(.controllerDisconnected)
+			completion()
 		}
 	}
 
@@ -391,18 +388,10 @@ extension ControllerService {
 		storage.leftTrigger = 0
 		storage.rightTrigger = 0
 		storage.lastInputTime = 0
-		storage.touchpadPosition = .zero
-		storage.touchpadPreviousPosition = .zero
-		storage.touchpadSecondaryPosition = .zero
-		storage.touchpadSecondaryPreviousPosition = .zero
-		storage.isTouchpadTouching = false
-		storage.isTouchpadSecondaryTouching = false
-		storage.steamLeftTouchpadPosition = .zero
-		storage.steamRightTouchpadPosition = .zero
-		storage.isSteamLeftTouchpadTouching = false
-		storage.isSteamRightTouchpadTouching = false
-		storage.activeSteamLeftTouchpadClickQuadrant = nil
-		storage.activeSteamRightTouchpadClickQuadrant = nil
+		resetTouchpadStateLocked()
+		let motionInputWasEnabled = storage.motionInputEnabled
+		resetMotionStateLocked()
+		storage.motionInputEnabled = motionInputWasEnabled
 		storage.lock.unlock()
 
 		Task { @MainActor [weak self] in
@@ -415,10 +404,11 @@ extension ControllerService {
 		generation: UInt64?,
 		match: SteamControllerDisconnectMatch
 	) {
-		if let generation {
-			guard steamHIDConnectionGeneration == generation else { return }
-		}
 		steamHIDControllerLock.lock()
+		if let generation, steamHIDConnectionGeneration != generation {
+			steamHIDControllerLock.unlock()
+			return
+		}
 		let activeController = activeSteamHIDController
 		let matchesActiveController: Bool
 		switch match {
