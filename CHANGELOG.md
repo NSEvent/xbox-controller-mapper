@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.4] - 2026-08-13
+
 ### Changed
 
 - **Controller-free Steam receiver verification**: Expanded automated coverage now pins the Nereid report format and wireless lifecycle, composite-interface activation, disconnect-before-reconnect queue ordering, complete cached-input reset, support-dump identity and JSON output, and cleanup of held mouse, MIDI, stick-direction, scrolling, modifier, and layer state without requiring connected hardware.
