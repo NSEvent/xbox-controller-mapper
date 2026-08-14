@@ -7,13 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Controller-free Steam receiver verification**: Expanded automated coverage now pins the Nereid report format and wireless lifecycle, composite-interface activation, disconnect-before-reconnect queue ordering, complete cached-input reset, support-dump identity and JSON output, and cleanup of held mouse, MIDI, stick-direction, scrolling, modifier, and layer state without requiring connected hardware.
+
 ### Fixed
 
-- **New Steam Controller wireless receiver detection**: ControllerKeys now recognizes the Nereid 2.4 GHz receiver (`28DE:1305`), accepts the timestamped input reports used by newer firmware, and includes every known Valve Steam Controller product ID in Controller Support Dump diagnostics when macOS exposes it through HID.
+- **New Steam Controller wireless receiver support**: ControllerKeys now recognizes the Nereid 2.4 GHz receiver (`28DE:1305`), accepts the timestamped `0x47` input reports used by newer firmware, and includes every known Valve Steam Controller product ID in Controller Support Dump discovery when macOS exposes it through HID.
 
-- **Steam receiver disconnects no longer leave stale input active**: ControllerKeys now handles the wireless connect/disconnect reports emitted by Proteus and Nereid receivers, clears cached physical state, and safely releases held keys, modifiers, mouse buttons, MIDI controls, and stick directions when the controller powers off. A quick reconnect cancels only the stale connection transition, so the first new press is not swallowed.
+- **Steam receiver power cycles are race-free**: ControllerKeys now handles the wireless connect/disconnect reports emitted by Proteus and Nereid receivers, activates only the composite HID interface that actually carries controller state, and synchronizes its periodic lizard-mode writes with connection changes. Disconnect cleanup enters the same serial input queue before any later reconnect packet, so a quick reconnect cancels only stale UI teardown and the first new press is never cleared or swallowed.
 
-- **Composite receiver interfaces stay distinct in support dumps**: Controller Support Dump now records HID interface number, primary usage, and IORegistry identity, preventing the several interfaces exposed by one Steam wireless receiver from collapsing into a single diagnostic entry.
+- **Steam disconnects fully release physical and mapped state**: Powering off the controller now clears cached buttons and chords, sticks, triggers, both touchpads, click and gesture latches, pending timers and deltas, and gyro calibration samples while preserving the profile's motion-input setting. The mapping engine also releases held keys, modifiers, mouse buttons, MIDI controls, stick directions, smooth scrolling, and active layers.
+
+- **Composite receiver interfaces stay distinct in support dumps**: Controller Support Dump now records and exports HID interface number, primary usage, and IORegistry entry identity, uses them for stable deduplication, and labels each interface separately instead of collapsing the several interfaces exposed by one Steam wireless receiver into a single diagnostic entry.
 
 ## [2.6.3] - 2026-08-05
 
