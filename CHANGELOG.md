@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Media keys work in Realtime mode**: Controller button mappings such as Next Track now emit macOS media-key events on both press and release instead of treating their internal marker values as keyboard virtual keys.
+
 ## [2.6.4] - 2026-08-13
 
 ### Changed

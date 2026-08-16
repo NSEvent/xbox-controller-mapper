@@ -13,6 +13,77 @@ struct ScrollEvent: Sendable, Equatable {
     var flags: CGEventFlags = []
 }
 
+protocol MediaKeyEventPosting: Sendable {
+	func postMediaKey(_ keyCode: CGKeyCode, keyDown: Bool)
+}
+
+struct SystemMediaKeyEventPoster: MediaKeyEventPosting {
+	/// NX key type constants for media keys.
+	private enum NXKeyType: UInt32 {
+		case soundUp = 0
+		case soundDown = 1
+		case brightnessUp = 2
+		case brightnessDown = 3
+		case mute = 7
+		case play = 16
+		case next = 17
+		case previous = 18
+		case fast = 19
+		case rewind = 20
+	}
+
+	func postMediaKey(_ keyCode: CGKeyCode, keyDown: Bool) {
+		guard let keyType = mediaKeyToNXType(keyCode) else {
+			NSLog("[InputSimulator] Unknown media key code: %d", keyCode)
+			return
+		}
+
+		// NX media key events use NSEvent with subtype 8 (NX_SUBTYPE_AUX_CONTROL_BUTTONS).
+		// data1 format: (keyCode << 16) | (flags << 8) | repeat.
+		// flags: 0x0A = key down, 0x0B = key up.
+		// modifierFlags must carry the matching 0xA00/0xB00 state for Now Playing routing.
+		let flags = keyDown ? 0x0A : 0x0B
+		let data1 = (Int(keyType.rawValue) << 16) | (flags << 8)
+		let modifierFlags = NSEvent.ModifierFlags(rawValue: UInt(keyDown ? 0xA00 : 0xB00))
+
+		guard let event = NSEvent.otherEvent(
+			with: .systemDefined,
+			location: .zero,
+			modifierFlags: modifierFlags,
+			timestamp: 0,
+			windowNumber: 0,
+			context: nil,
+			subtype: 8,
+			data1: data1,
+			data2: -1
+		) else {
+			NSLog("[InputSimulator] Failed to create media key event for keyType %d", keyType.rawValue)
+			return
+		}
+
+		if let cgEvent = event.cgEvent {
+			cgEvent.setIntegerValueField(.eventSourceUserData, value: Config.controllerKeysSyntheticMediaEventUserData)
+			cgEvent.post(tap: .cghidEventTap)
+		}
+	}
+
+	private func mediaKeyToNXType(_ keyCode: CGKeyCode) -> NXKeyType? {
+		switch keyCode {
+		case KeyCodeMapping.mediaPlayPause: return .play
+		case KeyCodeMapping.mediaNext: return .next
+		case KeyCodeMapping.mediaPrevious: return .previous
+		case KeyCodeMapping.mediaFastForward: return .fast
+		case KeyCodeMapping.mediaRewind: return .rewind
+		case KeyCodeMapping.volumeUp: return .soundUp
+		case KeyCodeMapping.volumeDown: return .soundDown
+		case KeyCodeMapping.volumeMute: return .mute
+		case KeyCodeMapping.brightnessUp: return .brightnessUp
+		case KeyCodeMapping.brightnessDown: return .brightnessDown
+		default: return nil
+		}
+	}
+}
+
 protocol InputSimulatorProtocol: Sendable {
     func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags)
     /// Side-aware variant of `pressKey` — the simulator picks the Left/Right
@@ -139,6 +210,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     }
     private let eventSource: CGEventSource?
 	private let codexMicroOutput: any CodexMicroOutputProtocol
+	private let mediaKeyEventPoster: any MediaKeyEventPosting
 	private var heldModifierPointerEventBridge: HeldModifierPointerEventBridge?
 
     /// Currently held modifier flags (for hold-type mappings)
@@ -488,6 +560,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             return
         }
 
+		if KeyCodeMapping.isMediaKey(keyCode) {
+			mediaKeyEventPoster.postMediaKey(keyCode, keyDown: true)
+			return
+		}
+
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
         
@@ -528,6 +605,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         if KeyCodeMapping.isScrollAction(keyCode) {
             return
         }
+
+		if KeyCodeMapping.isMediaKey(keyCode) {
+			mediaKeyEventPoster.postMediaKey(keyCode, keyDown: false)
+			return
+		}
 
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
@@ -943,8 +1025,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Reusable event source for warp suppression interval (avoids creating one per frame)
     private let warpEventSource: CGEventSource?
 
-    init(codexMicroOutput: any CodexMicroOutputProtocol = CodexMicroBridgeService.shared) {
+    init(
+		codexMicroOutput: any CodexMicroOutputProtocol = CodexMicroBridgeService.shared,
+		mediaKeyEventPoster: any MediaKeyEventPosting = SystemMediaKeyEventPoster()
+	) {
 		self.codexMicroOutput = codexMicroOutput
+		self.mediaKeyEventPoster = mediaKeyEventPoster
         // .hidSystemState simulates hardware-level events, which are often more reliable for system shortcuts
         eventSource = CGEventSource(stateID: .hidSystemState)
 
@@ -2110,78 +2196,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     // MARK: - Media Key Simulation
 
-    /// NX key type constants for media keys
-    private enum NXKeyType: UInt32 {
-        case soundUp = 0
-        case soundDown = 1
-        case brightnessUp = 2
-        case brightnessDown = 3
-        case mute = 7
-        case play = 16
-        case next = 17
-        case previous = 18
-        case fast = 19
-        case rewind = 20
-    }
-
     private func pressMediaKey(_ keyCode: CGKeyCode) {
-        guard let nxKeyType = mediaKeyToNXType(keyCode) else {
-            NSLog("[InputSimulator] Unknown media key code: %d", keyCode)
-            return
-        }
-
-        keyboardQueue.async {
-            self.postMediaKeyEvent(keyType: nxKeyType, keyDown: true)
+		keyboardQueue.async {
+			self.mediaKeyEventPoster.postMediaKey(keyCode, keyDown: true)
             usleep(50000)  // 50ms hold
-            self.postMediaKeyEvent(keyType: nxKeyType, keyDown: false)
+			self.mediaKeyEventPoster.postMediaKey(keyCode, keyDown: false)
         }
-    }
-
-    private func mediaKeyToNXType(_ keyCode: CGKeyCode) -> NXKeyType? {
-        switch keyCode {
-        case KeyCodeMapping.mediaPlayPause: return .play
-        case KeyCodeMapping.mediaNext: return .next
-        case KeyCodeMapping.mediaPrevious: return .previous
-        case KeyCodeMapping.mediaFastForward: return .fast
-        case KeyCodeMapping.mediaRewind: return .rewind
-        case KeyCodeMapping.volumeUp: return .soundUp
-        case KeyCodeMapping.volumeDown: return .soundDown
-        case KeyCodeMapping.volumeMute: return .mute
-        case KeyCodeMapping.brightnessUp: return .brightnessUp
-        case KeyCodeMapping.brightnessDown: return .brightnessDown
-        default: return nil
-        }
-    }
-
-    private func postMediaKeyEvent(keyType: NXKeyType, keyDown: Bool) {
-        // NX media key events use NSEvent with subtype 8 (NX_SUBTYPE_AUX_CONTROL_BUTTONS)
-        // data1 format: (keyCode << 16) | (flags << 8) | repeat
-        // flags: 0x0A = key down, 0x0B = key up
-        // modifierFlags: 0xA00 = key down, 0xB00 = key up (must match data1 flags)
-        let keyCode = Int(keyType.rawValue)
-        let flags = keyDown ? 0x0A : 0x0B
-        let data1 = (keyCode << 16) | (flags << 8)
-        let modifierFlags = NSEvent.ModifierFlags(rawValue: UInt(keyDown ? 0xA00 : 0xB00))
-
-        guard let event = NSEvent.otherEvent(
-            with: .systemDefined,
-            location: .zero,
-            modifierFlags: modifierFlags,
-            timestamp: 0,
-            windowNumber: 0,
-            context: nil,
-            subtype: 8,  // NX_SUBTYPE_AUX_CONTROL_BUTTONS
-            data1: data1,
-            data2: -1
-        ) else {
-            NSLog("[InputSimulator] Failed to create media key event for keyType %d", keyType.rawValue)
-            return
-        }
-
-		if let cgEvent = event.cgEvent {
-			cgEvent.setIntegerValueField(.eventSourceUserData, value: Config.controllerKeysSyntheticMediaEventUserData)
-			cgEvent.post(tap: .cghidEventTap)
-		}
     }
 
     // MARK: - Mapping Execution

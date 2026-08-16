@@ -761,6 +761,48 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
 		XCTAssertEqual(holdStopCount, 1, "Regular layer remap should leave realtime held-key path on release")
 	}
 
+	func testRealtimeRightStickClickRoutesNextTrackThroughHeldMediaPath() async throws {
+		await MainActor.run {
+			installActiveProfile(
+				Profile(
+					name: "Realtime Media",
+					buttonMappings: [
+						.rightThumbstick: KeyMapping(keyCode: KeyCodeMapping.mediaNext)
+					],
+					inputLatencyMode: .realtime
+				)
+			)
+		}
+		await waitForTasks(0.05)
+
+		await MainActor.run {
+			controllerService.buttonPressed(.rightThumbstick)
+		}
+		await waitForTasks(0.1)
+		await MainActor.run {
+			controllerService.buttonReleased(.rightThumbstick)
+		}
+		await waitForTasks(0.1)
+
+		let events = mockInputSimulator.events
+		XCTAssertEqual(events.filter {
+			if case .keyDown(KeyCodeMapping.mediaNext) = $0 { return true }
+			return false
+		}.count, 1)
+		XCTAssertEqual(events.filter {
+			if case .keyUp(KeyCodeMapping.mediaNext) = $0 { return true }
+			return false
+		}.count, 1)
+		XCTAssertEqual(events.filter {
+			if case .startHoldMapping(let mapping) = $0 { return mapping.keyCode == KeyCodeMapping.mediaNext }
+			return false
+		}.count, 1)
+		XCTAssertEqual(events.filter {
+			if case .stopHoldMapping(let mapping) = $0 { return mapping.keyCode == KeyCodeMapping.mediaNext }
+			return false
+		}.count, 1)
+	}
+
     /// Test 6: The layer activator button itself does not emit its own key mapping.
     func testLayerActivator_buttonDoesNotFireOwnMapping() async throws {
         let layer = Layer(name: "Activator", activatorButton: .leftBumper, buttonMappings: [.a: .key(50)])

@@ -87,6 +87,56 @@ final class InputSimulatorTests: XCTestCase {
         XCTAssertEqual(first.y, second.y, "Both consumes post-reset should return zero Y")
     }
 
+	func testHeldNextTrackMappingPostsMediaKeyDownAndUp() {
+		let poster = RecordingMediaKeyEventPoster()
+		let simulator = InputSimulator(mediaKeyEventPoster: poster)
+		let mapping = KeyMapping(keyCode: KeyCodeMapping.mediaNext)
+
+		simulator.startHoldMapping(mapping)
+		simulator.stopHoldMapping(mapping)
+
+		XCTAssertEqual(
+			poster.events,
+			[
+				.init(keyCode: KeyCodeMapping.mediaNext, keyDown: true),
+				.init(keyCode: KeyCodeMapping.mediaNext, keyDown: false),
+			]
+		)
+	}
+
+	func testHeldMediaMappingsAllUseSystemMediaEvents() {
+		let mediaKeys = [
+			KeyCodeMapping.mediaPlayPause,
+			KeyCodeMapping.mediaNext,
+			KeyCodeMapping.mediaPrevious,
+			KeyCodeMapping.mediaFastForward,
+			KeyCodeMapping.mediaRewind,
+			KeyCodeMapping.volumeUp,
+			KeyCodeMapping.volumeDown,
+			KeyCodeMapping.volumeMute,
+			KeyCodeMapping.brightnessUp,
+			KeyCodeMapping.brightnessDown,
+		]
+		let poster = RecordingMediaKeyEventPoster()
+		let simulator = InputSimulator(mediaKeyEventPoster: poster)
+
+		for keyCode in mediaKeys {
+			let mapping = KeyMapping(keyCode: keyCode)
+			simulator.startHoldMapping(mapping)
+			simulator.stopHoldMapping(mapping)
+		}
+
+		XCTAssertEqual(
+			poster.events,
+			mediaKeys.flatMap {
+				[
+					.init(keyCode: $0, keyDown: true),
+					.init(keyCode: $0, keyDown: false),
+				]
+			}
+		)
+	}
+
     // MARK: - Static Zoom Level
 
     func testGetZoomLevel_returnsAtLeastOne() {
@@ -95,6 +145,26 @@ final class InputSimulatorTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(level, 1.0,
             "Zoom level should never be less than 1.0")
     }
+}
+
+private final class RecordingMediaKeyEventPoster: MediaKeyEventPosting, @unchecked Sendable {
+	struct Event: Equatable {
+		let keyCode: CGKeyCode
+		let keyDown: Bool
+	}
+
+	private let lock = NSLock()
+	private var recordedEvents: [Event] = []
+
+	var events: [Event] {
+		lock.withLock { recordedEvents }
+	}
+
+	func postMediaKey(_ keyCode: CGKeyCode, keyDown: Bool) {
+		lock.withLock {
+			recordedEvents.append(Event(keyCode: keyCode, keyDown: keyDown))
+		}
+	}
 }
 
 // MARK: - Modifier Reference Counting Tests
