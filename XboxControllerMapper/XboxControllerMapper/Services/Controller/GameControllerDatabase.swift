@@ -373,7 +373,8 @@ class GameControllerDatabase {
 
 	guard loadedAnyDatabase else {
             #if DEBUG
-		print("[GameControllerDB] No database file found")
+		// Memory: Excessive synchronous logging in hot paths causes XCTest deadlocks.
+		// Omit print("[GameControllerDB] No database file found") to prevent filling OS buffers.
             #endif
             return
         }

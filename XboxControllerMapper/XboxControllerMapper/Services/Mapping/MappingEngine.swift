@@ -796,9 +796,8 @@ class MappingEngine: ObservableObject {
 
         case .layerActivated(let profile, let layerId):
 			if let layer = profile.layers.first(where: { $0.id == layerId }) {
-				#if DEBUG
-				print("🔷 Layer activated: \(layer.name)")
-				#endif
+				// Memory: Excessive synchronous logging in hot paths causes XCTest deadlocks.
+				// Omit print("🔷 Layer activated...")
 				inputLogService?.log(buttons: [button], type: .singlePress, action: "Layer: \(layer.name)")
 			}
 			DispatchQueue.main.async { [weak self] in
@@ -809,9 +808,8 @@ class MappingEngine: ObservableObject {
 		case .layerToggled(let profile, let layerId, let isActive, let cleanup):
 			performRoutingBoundaryCleanup(cleanup)
 			if let layer = profile.layers.first(where: { $0.id == layerId }) {
-				#if DEBUG
-				print("🔷 Layer toggled \(isActive ? "on" : "off"): \(layer.name)")
-				#endif
+				// Memory: Excessive synchronous logging in hot paths causes XCTest deadlocks.
+				// Omit print("🔷 Layer toggled...")
 				inputLogService?.log(
 					buttons: [button],
 					type: .singlePress,
@@ -1352,11 +1350,8 @@ class MappingEngine: ObservableObject {
             #endif
         }
         if layerDeactivation.didDeactivate {
-            #if DEBUG
-            if let layerName = layerDeactivation.layerName {
-                print("🔷 Layer deactivated: \(layerName)")
-            }
-            #endif
+            // Memory: Excessive synchronous logging in hot paths causes XCTest deadlocks.
+            // Omit print("🔷 Layer deactivated...")
 
             // Revert LED settings: apply next active layer's LED, or fall back to profile default.
             // After applying, also kick the battery monitor so battery-light-bar mode resumes
