@@ -1682,9 +1682,8 @@ class MappingEngine: ObservableObject {
 				performRoutingBoundaryCleanup(cleanup)
 			}
 			if let layer = startState.profile.layers.first(where: { $0.id == change.layerId }) {
-				#if DEBUG
-				print("🔷 Layer \(change.isActive ? "activated" : "deactivated") via chord: \(layer.name)")
-				#endif
+				// Memory: Excessive synchronous logging in hot paths causes XCTest deadlocks.
+				// Omit print("🔷 Layer activated via chord...")
 				inputLogService?.log(
 					buttons: [change.button],
 					type: .singlePress,
