@@ -128,9 +128,8 @@ extension ControllerService {
                 applyLightBarViaBluetooth(settings: settings)
             }
         } else {
-            #if DEBUG
-            print("[LED] No PlayStation controller available (isDualSense=\(isDualSense), isDualShock=\(isDualShock))")
-            #endif
+            // Memory: Excessive synchronous logging in hot paths (like LED loops) causes XCTest deadlocks.
+            // Omit print("[LED] No PlayStation controller available...") here to avoid filling OS buffers.
             return
         }
     }

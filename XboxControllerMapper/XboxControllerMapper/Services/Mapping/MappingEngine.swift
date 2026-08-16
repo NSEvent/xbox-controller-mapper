@@ -701,11 +701,7 @@ class MappingEngine: ObservableObject {
     nonisolated private func beginButtonPress(_ button: ControllerButton) -> ButtonPressStartState {
         state.lock.withLock {
             guard state.isEnabled, let profile = state.activeProfile else {
-                #if DEBUG
-                if state.isEnabled && state.activeProfile == nil {
-                    print("⚠️ MappingEngine: Button \(button) pressed but no active profile — input ignored")
-                }
-                #endif
+                // Memory: Excessive synchronous logging in hot paths causes XCTest deadlocks.
                 return .blocked
             }
 
@@ -1610,11 +1606,7 @@ class MappingEngine: ObservableObject {
 
 		guard let startState = state.lock.withLock({ () -> ChordStartState? in
             guard state.isEnabled, let profile = state.activeProfile else {
-                #if DEBUG
-                if state.isEnabled && state.activeProfile == nil {
-                    print("⚠️ MappingEngine: Chord \(buttons) detected but no active profile — input ignored")
-                }
-                #endif
+                // Memory: Excessive synchronous logging in hot paths causes XCTest deadlocks.
                 return nil
             }
 
