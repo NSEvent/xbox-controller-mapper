@@ -1,0 +1,2 @@
+Building tests with xcodebuild build-for-testing
+./Scripts/run-direct-xctest.sh: line 15: xcodebuild: command not found
