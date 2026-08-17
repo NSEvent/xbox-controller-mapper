@@ -565,7 +565,11 @@ class CommandWheelManager: ObservableObject {
             let appleScript = Process()
             appleScript.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
             appleScript.arguments = ["-e", script]
-            try? appleScript.run()
+            do {
+                try appleScript.run()
+            } catch {
+                NSLog("[CommandWheel] Failed to run AppleScript: %@", error.localizedDescription)
+            }
             return
         default:
             // Fallback: just open normally if browser is unknown
@@ -574,7 +578,11 @@ class CommandWheelManager: ObservableObject {
             return
         }
 
-        try? process.run()
-        usageStatsService?.recordLinkOpened()
+        do {
+            try process.run()
+            usageStatsService?.recordLinkOpened()
+        } catch {
+            NSLog("[CommandWheel] Failed to run process: %@", error.localizedDescription)
+        }
     }
 }
