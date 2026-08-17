@@ -168,9 +168,9 @@ private enum OBSMediaMTXManager {
         which.standardError = Pipe()
         do {
             try which.run()
+            let data = outPipe.fileHandleForReading.readDataToEndOfFile()
             which.waitUntilExit()
             if which.terminationStatus == 0 {
-                let data = outPipe.fileHandleForReading.readDataToEndOfFile()
                 if let path = String(data: data, encoding: .utf8)?
                     .trimmingCharacters(in: .whitespacesAndNewlines),
                    !path.isEmpty,
@@ -247,11 +247,11 @@ private enum OBSMediaMTXManager {
         p.standardError = Pipe()
         do {
             try p.run()
+            p.waitUntilExit()
+            return p.terminationStatus == 0
         } catch {
             return false
         }
-        p.waitUntilExit()
-        return p.terminationStatus == 0
     }
 }
 
