@@ -775,7 +775,9 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
 
         XCTAssertNotNil(upStopIndex, "Leaving Up should stop the old hold mapping")
         XCTAssertNotNil(rightStartIndex, "Entering Right should start the new hold mapping")
-        XCTAssertLessThan(upStopIndex!, rightStartIndex!, "Old direction must release before the new direction presses")
+        if let up = upStopIndex, let right = rightStartIndex {
+            XCTAssertLessThan(up, right, "Old direction must release before the new direction presses")
+        }
         let upIsStillActive = await isActiveButton(.leftStickUp)
         let rightIsActive = await isActiveButton(.leftStickRight)
         XCTAssertFalse(upIsStillActive)
