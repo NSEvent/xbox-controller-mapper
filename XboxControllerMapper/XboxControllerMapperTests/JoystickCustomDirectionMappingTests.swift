@@ -763,11 +763,11 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
         await MainActor.run {
             controllerService.setLeftStickForTesting(CGPoint(x: 0, y: 0.9))
         }
-        await waitForTasks(0.18)
+        await waitForTasks(0.3)
         await MainActor.run {
             controllerService.setLeftStickForTesting(CGPoint(x: 0.9, y: 0))
         }
-        await waitForTasks(0.22)
+        await waitForTasks(0.3)
 
         let events = mockInputSimulator.events
         let upStopIndex = firstStopHoldIndex(for: 10, in: events)

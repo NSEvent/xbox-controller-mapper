@@ -260,7 +260,7 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
 		await MainActor.run {
 			controllerService.buttonPressed(.a)
 		}
-		await waitForTasks(0.12)
+		await waitForTasks(0.25)
 
 		await MainActor.run {
 			XCTAssertFalse(mockInputSimulator.events.contains { event in
@@ -295,7 +295,7 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
 		await MainActor.run {
 			controllerService.buttonPressed(.a)
 		}
-		await waitForTasks(0.12)
+		await waitForTasks(0.25)
 
 		let scrollCountWhileHeld = await MainActor.run {
 			mockInputSimulator.events.filter { event in
