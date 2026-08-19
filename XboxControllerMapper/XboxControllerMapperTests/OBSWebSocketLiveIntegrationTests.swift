@@ -199,7 +199,12 @@ private enum OBSMediaMTXManager {
         p.arguments = []
         p.standardOutput = handle
         p.standardError = handle
-        try p.run()
+
+        do {
+            try p.run()
+        } catch {
+            throw XCTSkip("Failed to launch mediamtx: \(error)")
+        }
 
         for _ in 0..<50 {
             if isPortOpen() {
@@ -243,14 +248,14 @@ private enum OBSMediaMTXManager {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/nc")
         p.arguments = ["-z", host, "\(port)"]
-        p.standardOutput = Pipe()
-        p.standardError = Pipe()
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
         do {
             try p.run()
+            p.waitUntilExit()
         } catch {
             return false
         }
-        p.waitUntilExit()
         return p.terminationStatus == 0
     }
 }
