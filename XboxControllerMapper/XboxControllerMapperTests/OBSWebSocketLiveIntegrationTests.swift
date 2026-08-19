@@ -165,11 +165,11 @@ private enum OBSMediaMTXManager {
         which.arguments = ["mediamtx"]
         let outPipe = Pipe()
         which.standardOutput = outPipe
-        which.standardError = Pipe()
+        which.standardError = FileHandle.nullDevice
         try? which.run()
+        let data = outPipe.fileHandleForReading.readDataToEndOfFile()
         which.waitUntilExit()
         if which.terminationStatus == 0 {
-            let data = outPipe.fileHandleForReading.readDataToEndOfFile()
             if let path = String(data: data, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
                !path.isEmpty,
