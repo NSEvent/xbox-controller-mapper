@@ -239,13 +239,20 @@ private enum OBSMediaMTXManager {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/nc")
         p.arguments = ["-z", host, "\(port)"]
-        p.standardOutput = Pipe()
-        p.standardError = Pipe()
+
+        let outPipe = Pipe()
+        let errPipe = Pipe()
+        p.standardOutput = outPipe
+        p.standardError = errPipe
+
         do {
             try p.run()
         } catch {
             return false
         }
+
+        _ = outPipe.fileHandleForReading.readDataToEndOfFile()
+        _ = errPipe.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
         return p.terminationStatus == 0
     }
