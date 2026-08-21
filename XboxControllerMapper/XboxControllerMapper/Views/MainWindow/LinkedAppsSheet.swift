@@ -33,7 +33,10 @@ struct LinkedAppsSheet: View {
                 } else {
                     ForEach(liveProfile.linkedApps, id: \.self) { bundleId in
                         HStack {
-                            if let appInfo = appMonitor.appInfo(for: bundleId) {
+                            let appInfo = appMonitor.appInfo(for: bundleId)
+                            let displayName = appInfo?.name ?? bundleId
+
+                            if let appInfo = appInfo {
                                 if let icon = appInfo.icon {
                                     Image(nsImage: icon)
                                         .resizable()
@@ -57,8 +60,8 @@ struct LinkedAppsSheet: View {
                                     .foregroundColor(.red)
                             }
                             .buttonStyle(.borderless)
-                            .help("Remove \(appInfo?.name ?? bundleId)")
-                            .accessibilityLabel("Remove \(appInfo?.name ?? bundleId)")
+                            .help("Remove \(displayName)")
+                            .accessibilityLabel("Remove \(displayName)")
                         }
                         .padding(.vertical, 4)
                     }
