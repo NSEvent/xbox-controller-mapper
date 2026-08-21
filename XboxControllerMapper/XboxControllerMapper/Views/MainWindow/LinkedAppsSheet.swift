@@ -36,7 +36,7 @@ struct LinkedAppsSheet: View {
                             let appInfo = appMonitor.appInfo(for: bundleId)
                             let displayName = appInfo?.name ?? bundleId
 
-                            if let appInfo = appInfo {
+                            if let appInfo = appMonitor.appInfo(for: bundleId) {
                                 if let icon = appInfo.icon {
                                     Image(nsImage: icon)
                                         .resizable()
