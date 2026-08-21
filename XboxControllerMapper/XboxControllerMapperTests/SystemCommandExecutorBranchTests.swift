@@ -133,6 +133,27 @@ final class SystemCommandExecutorBranchTests: XCTestCase {
 		XCTAssertEqual(profileManager.activeProfileId, first.id)
 	}
 
+	func testNavigateProfileExecutesLastNextAndPreviousActions() async {
+		let first = Profile(name: "First")
+		let second = Profile(name: "Second")
+		let third = Profile(name: "Third")
+		profileManager.profiles = [first, second, third]
+		profileManager.setActiveProfile(first)
+		profileManager.setActiveProfile(second)
+
+		executor.execute(.navigateProfile(.lastUsed))
+		let switchedToLast = await waitForCondition { self.profileManager.activeProfileId == first.id }
+		XCTAssertTrue(switchedToLast)
+
+		executor.execute(.navigateProfile(.previous))
+		let switchedToPrevious = await waitForCondition { self.profileManager.activeProfileId == third.id }
+		XCTAssertTrue(switchedToPrevious)
+
+		executor.execute(.navigateProfile(.next))
+		let switchedToNext = await waitForCondition { self.profileManager.activeProfileId == first.id }
+		XCTAssertTrue(switchedToNext)
+	}
+
     func testShellCommandSilentBranchRuns() async {
         executor.execute(.shellCommand(command: "/usr/bin/true", inTerminal: false))
         try? await Task.sleep(nanoseconds: 100_000_000)

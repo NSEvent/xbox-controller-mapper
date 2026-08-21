@@ -21,8 +21,7 @@ struct MappingEditorState {
 
     // MARK: - System command
     var systemCommandCategory: SystemCommandCategory = .shell
-	var selectedProfileId: UUID?
-	var selectedProfileName: String?
+	var profileCommand = ProfileCommandSelection()
     var appBundleIdentifier: String = ""
     var appNewWindow: Bool = false
     var shellCommandText: String = ""
@@ -115,8 +114,7 @@ struct MappingEditorState {
     func buildSystemCommand() -> SystemCommand? {
         switch systemCommandCategory {
 		case .profile:
-			guard let selectedProfileId else { return nil }
-			return .switchProfile(profileId: selectedProfileId, profileName: selectedProfileName)
+			return profileCommand.systemCommand
         case .shell:
             guard !shellCommandText.isEmpty else { return nil }
             return .shellCommand(command: shellCommandText, inTerminal: shellRunInTerminal)
@@ -161,9 +159,8 @@ struct MappingEditorState {
     mutating func loadSystemCommand(_ command: SystemCommand) {
         systemCommandCategory = command.category
         switch command {
-		case .switchProfile(let profileId, let profileName):
-			selectedProfileId = profileId
-			selectedProfileName = profileName
+		case .switchProfile, .navigateProfile:
+			profileCommand.load(command)
         case .launchApp(let bundleId, let newWindow):
             appBundleIdentifier = bundleId
             appNewWindow = newWindow

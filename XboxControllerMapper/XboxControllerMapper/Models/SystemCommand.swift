@@ -146,10 +146,39 @@ enum OuraRingSystemCommandOption: String, CaseIterable, Identifiable {
 	}
 }
 
+/// Relative profile destinations that do not depend on a stored profile UUID.
+enum ProfileNavigationAction: String, Codable, CaseIterable, Identifiable {
+	case lastUsed
+	case next
+	case previous
+
+	var id: String { rawValue }
+
+	var displayName: String {
+		switch self {
+		case .lastUsed: return "Last Used Profile"
+		case .next: return "Next Profile"
+		case .previous: return "Previous Profile"
+		}
+	}
+
+	var helpText: String {
+		switch self {
+		case .lastUsed:
+			return "Switches to the profile used immediately before this one. Assign it in both profiles to toggle between them."
+		case .next:
+			return "Switches to the next profile in sidebar order, wrapping at the end."
+		case .previous:
+			return "Switches to the previous profile in sidebar order, wrapping at the beginning."
+		}
+	}
+}
+
 /// Represents a system-level command that can be triggered by a button or chord mapping
 enum SystemCommand: Equatable {
 	// Profile switching
 	case switchProfile(profileId: UUID, profileName: String? = nil)
+	case navigateProfile(ProfileNavigationAction)
 
     // App launching
     case launchApp(bundleIdentifier: String, newWindow: Bool = false)
@@ -178,6 +207,8 @@ enum SystemCommand: Equatable {
 				return "Switch to \(profileName)"
 			}
 			return "Switch Profile"
+		case .navigateProfile(let action):
+			return action.displayName
         case .launchApp(let bundleId, let newWindow):
             let name: String
             if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
@@ -218,7 +249,7 @@ enum SystemCommand: Equatable {
     /// Category for UI grouping
     var category: SystemCommandCategory {
         switch self {
-		case .switchProfile: return .profile
+		case .switchProfile, .navigateProfile: return .profile
         case .launchApp: return .app
         case .shellCommand: return .shell
         case .openLink: return .link
@@ -238,7 +269,7 @@ extension SystemCommand: Codable {
     }
 
     private enum CodingKeys: String, CodingKey {
-		case type, profileId, profileName, bundleIdentifier, command, inTerminal, url, newWindow
+		case type, profileId, profileName, profileNavigation, bundleIdentifier, command, inTerminal, url, newWindow
         case method, headers, body, password, requestType, requestData
         case responseHandling
     }
@@ -249,6 +280,10 @@ extension SystemCommand: Codable {
 
         switch type {
 		case .switchProfile:
+			if let navigation = try container.decodeIfPresent(ProfileNavigationAction.self, forKey: .profileNavigation) {
+				self = .navigateProfile(navigation)
+				return
+			}
 			let profileId: UUID = try container.decode(.profileId, default: UUID())
 			let profileName = try container.decodeIfPresent(String.self, forKey: .profileName)
 			self = .switchProfile(profileId: profileId, profileName: profileName)
@@ -299,6 +334,11 @@ extension SystemCommand: Codable {
 			try container.encode(CommandType.switchProfile, forKey: .type)
 			try container.encode(profileId, forKey: .profileId)
 			try container.encodeIfPresent(profileName, forKey: .profileName)
+		case .navigateProfile(let action):
+			// Keep the existing type discriminator so older releases decode this as
+			// a harmless missing-profile switch instead of rejecting the config.
+			try container.encode(CommandType.switchProfile, forKey: .type)
+			try container.encode(action, forKey: .profileNavigation)
         case .launchApp(let bundleId, let newWindow):
             try container.encode(CommandType.launchApp, forKey: .type)
             try container.encode(bundleId, forKey: .bundleIdentifier)

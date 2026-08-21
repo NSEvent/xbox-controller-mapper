@@ -92,6 +92,7 @@ class ProfileManager: ObservableObject {
     private var previousBundleId: String?
     private var profileIdBeforeBackground: UUID?
     private var currentControllerIdentity: ControllerIdentity?
+	private(set) var lastActiveProfileId: UUID?
     
     private var cancellables = Set<AnyCancellable>()
 
@@ -304,6 +305,9 @@ class ProfileManager: ObservableObject {
         snapshotCurrentState(reason: "Before deleting '\(profile.name)'")
         let deletedProfileId = profile.id
         profiles.removeAll { $0.id == deletedProfileId }
+		if lastActiveProfileId == deletedProfileId {
+			lastActiveProfileId = nil
+		}
         clearOnScreenKeyboardInheritanceReferences(to: deletedProfileId)
         saveConfiguration()
 
@@ -368,6 +372,11 @@ class ProfileManager: ObservableObject {
         if !profiles.contains(where: { $0.id == profile.id }) {
             profiles.append(profile)
         }
+		if activeProfileId != profile.id,
+		   let outgoingProfileId = activeProfileId,
+		   profiles.contains(where: { $0.id == outgoingProfileId }) {
+			lastActiveProfileId = outgoingProfileId
+		}
         // Update both properties atomically: set activeProfileId first so that
         // when activeProfile's @Published triggers objectWillChange, any
         // downstream reader that also reads activeProfileId sees the new value.

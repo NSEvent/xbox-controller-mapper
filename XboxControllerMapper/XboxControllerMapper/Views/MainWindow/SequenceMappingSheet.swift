@@ -37,8 +37,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
 
     // System command support
     @State private var systemCommandCategory: SystemCommandCategory = .shell
-	@State private var selectedProfileId: UUID?
-	@State private var selectedProfileName: String?
+	@State private var profileCommand = ProfileCommandSelection()
     @State private var appBundleIdentifier: String = ""
     @State private var appNewWindow: Bool = false
     @State private var shellCommandText: String = ""
@@ -660,7 +659,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
 
             switch systemCommandCategory {
 			case .profile:
-				ProfileSelectionPicker(selection: $selectedProfileId, selectedName: $selectedProfileName)
+				ProfileCommandPicker(selection: $profileCommand)
             case .app:
                 AppSelectionButton(bundleId: appBundleIdentifier, showingPicker: $showingAppPicker)
                     .sheet(isPresented: $showingAppPicker) {
@@ -766,8 +765,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
     private func buildSystemCommand() -> SystemCommand? {
         switch systemCommandCategory {
 		case .profile:
-			guard let selectedProfileId else { return nil }
-			return .switchProfile(profileId: selectedProfileId, profileName: selectedProfileName)
+			return profileCommand.systemCommand
         case .app:
             guard !appBundleIdentifier.isEmpty else { return nil }
             return .launchApp(bundleIdentifier: appBundleIdentifier, newWindow: appNewWindow)
@@ -809,9 +807,8 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
     private func loadSystemCommandState(_ command: SystemCommand) {
         systemCommandCategory = command.category
         switch command {
-		case .switchProfile(let profileId, let profileName):
-			selectedProfileId = profileId
-			selectedProfileName = profileName
+		case .switchProfile, .navigateProfile:
+			profileCommand.load(command)
         case .launchApp(let bundleId, let newWindow):
             appBundleIdentifier = bundleId
             appNewWindow = newWindow

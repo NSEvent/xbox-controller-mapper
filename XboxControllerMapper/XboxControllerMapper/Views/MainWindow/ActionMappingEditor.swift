@@ -329,7 +329,7 @@ struct ActionMappingEditor: View {
     private var systemCommandFields: some View {
         switch state.systemCommandCategory {
 		case .profile:
-			ProfileSelectionPicker(selection: $state.selectedProfileId, selectedName: $state.selectedProfileName)
+			ProfileCommandPicker(selection: $state.profileCommand)
         case .shell:
             shellFields
         case .app:
@@ -599,40 +599,6 @@ struct OuraRingSystemCommandPicker: View {
 				.font(.caption)
 				.foregroundColor(.secondary)
 		}
-	}
-}
-
-struct ProfileSelectionPicker: View {
-	@EnvironmentObject var profileManager: ProfileManager
-	@Binding var selection: UUID?
-	let selectedName: Binding<String?>?
-
-	init(selection: Binding<UUID?>, selectedName: Binding<String?>? = nil) {
-		self._selection = selection
-		self.selectedName = selectedName
-	}
-
-	var body: some View {
-		Picker("Profile", selection: $selection) {
-			Text("Select Profile...").tag(nil as UUID?)
-			ForEach(profileManager.profiles) { profile in
-				Text(profile.name).tag(profile.id as UUID?)
-			}
-		}
-		.labelsHidden()
-		.frame(maxWidth: .infinity)
-		.onAppear(perform: syncSelectedName)
-		.onChange(of: selection) { _, _ in syncSelectedName() }
-	}
-
-	private func syncSelectedName() {
-		guard let selectedName else { return }
-		guard let selection,
-			  let profile = profileManager.profiles.first(where: { $0.id == selection }) else {
-			selectedName.wrappedValue = nil
-			return
-		}
-		selectedName.wrappedValue = profile.name
 	}
 }
 

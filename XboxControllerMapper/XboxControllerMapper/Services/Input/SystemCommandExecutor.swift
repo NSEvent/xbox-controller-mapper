@@ -69,6 +69,8 @@ class SystemCommandExecutor: @unchecked Sendable {
         switch command {
 		case .switchProfile(let profileId, _):
 			switchProfile(profileId: profileId)
+		case .navigateProfile(let action):
+			navigateProfile(action)
 
         case .launchApp(let bundleIdentifier, let newWindow):
             launchApplication(bundleIdentifier: bundleIdentifier, newWindow: newWindow)
@@ -120,6 +122,14 @@ class SystemCommandExecutor: @unchecked Sendable {
 			profileManager.setActiveProfile(profile)
         }
     }
+
+	private func navigateProfile(_ action: ProfileNavigationAction) {
+		Task { @MainActor [profileManager] in
+			if !profileManager.navigateProfile(action) {
+				NSLog("[SystemCommand] No profile available for navigation action: %@", action.displayName)
+			}
+		}
+	}
 
     // MARK: - App Launching
 
