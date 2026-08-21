@@ -33,8 +33,8 @@ struct LinkedAppsSheet: View {
                 } else {
                     ForEach(liveProfile.linkedApps, id: \.self) { bundleId in
                         HStack {
-                            let appInfo = appMonitor.appInfo(for: bundleId)
-                            let displayName = appInfo?.name ?? bundleId
+                            let appInfoLocal = appMonitor.appInfo(for: bundleId)
+                            let displayName = appInfoLocal?.name ?? bundleId
 
                             if let appInfo = appMonitor.appInfo(for: bundleId) {
                                 if let icon = appInfo.icon {
