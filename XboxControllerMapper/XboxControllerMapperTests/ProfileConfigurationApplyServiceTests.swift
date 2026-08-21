@@ -9,6 +9,7 @@ final class ProfileConfigurationApplyServiceTests: XCTestCase {
             profiles: [profile],
             activeProfile: profile,
             activeProfileId: profile.id,
+			lastActiveProfileId: nil,
             uiScale: nil,
             didMigrate: false
         )
@@ -27,6 +28,7 @@ final class ProfileConfigurationApplyServiceTests: XCTestCase {
             profiles: [profile],
             activeProfile: profile,
             activeProfileId: profile.id,
+			lastActiveProfileId: nil,
             uiScale: 0.9,
             didMigrate: false
         )
@@ -46,6 +48,7 @@ final class ProfileConfigurationApplyServiceTests: XCTestCase {
             profiles: [first, second],
             activeProfile: second,
             activeProfileId: second.id,
+			lastActiveProfileId: first.id,
             uiScale: 1.0,
             didMigrate: true
         )
@@ -58,5 +61,6 @@ final class ProfileConfigurationApplyServiceTests: XCTestCase {
         XCTAssertEqual(state.profiles.map(\.id), [first.id, second.id])
         XCTAssertEqual(state.activeProfile?.id, second.id)
         XCTAssertEqual(state.activeProfileId, second.id)
+		XCTAssertEqual(state.lastActiveProfileId, first.id)
     }
 }

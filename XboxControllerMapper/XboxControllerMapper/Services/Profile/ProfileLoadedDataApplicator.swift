@@ -4,10 +4,15 @@ struct ProfileLoadApplicationResult: Equatable {
     let profiles: [Profile]
     let activeProfile: Profile?
     let activeProfileId: UUID?
+	let lastActiveProfileId: UUID?
 }
 
 enum ProfileLoadedDataApplicator {
-    static func apply(loadedProfiles: [Profile], activeProfileId: UUID?) -> ProfileLoadApplicationResult? {
+	static func apply(
+		loadedProfiles: [Profile],
+		activeProfileId: UUID?,
+		lastActiveProfileId: UUID? = nil
+	) -> ProfileLoadApplicationResult? {
         let validProfiles = loadedProfiles.filter { profile in
             let valid = profile.isValid()
             if !valid {
@@ -32,14 +37,21 @@ enum ProfileLoadedDataApplicator {
             return ProfileLoadApplicationResult(
                 profiles: sortedProfiles,
                 activeProfile: nil,
-                activeProfileId: nil
+				activeProfileId: nil,
+				lastActiveProfileId: nil
             )
         }
+		let validatedLastActiveProfileId = lastActiveProfileId.flatMap { candidate in
+			candidate != activeProfileId && sortedProfiles.contains(where: { $0.id == candidate })
+				? candidate
+				: nil
+		}
 
         return ProfileLoadApplicationResult(
             profiles: sortedProfiles,
             activeProfile: activeProfile,
-            activeProfileId: activeProfileId
+			activeProfileId: activeProfileId,
+			lastActiveProfileId: validatedLastActiveProfileId
         )
     }
 }

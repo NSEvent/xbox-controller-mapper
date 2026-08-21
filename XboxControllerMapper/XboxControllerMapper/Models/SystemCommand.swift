@@ -152,6 +152,27 @@ enum ProfileNavigationAction: String, Codable, CaseIterable, Identifiable {
 	case next
 	case previous
 
+	/// A reserved, non-v4 UUID written alongside `profileNavigation`. Releases
+	/// predating profile navigation preserve this ID when they decode and re-save
+	/// the command, allowing newer releases to recover the original action.
+	var legacyRoundTripProfileId: UUID {
+		switch self {
+		case .lastUsed:
+			return UUID(uuidString: "434B4E41-5600-5000-8000-000000000001")!
+		case .next:
+			return UUID(uuidString: "434B4E41-5600-5000-8000-000000000002")!
+		case .previous:
+			return UUID(uuidString: "434B4E41-5600-5000-8000-000000000003")!
+		}
+	}
+
+	init?(legacyRoundTripProfileId: UUID) {
+		guard let action = Self.allCases.first(where: { $0.legacyRoundTripProfileId == legacyRoundTripProfileId }) else {
+			return nil
+		}
+		self = action
+	}
+
 	var id: String { rawValue }
 
 	var displayName: String {
@@ -280,11 +301,15 @@ extension SystemCommand: Codable {
 
         switch type {
 		case .switchProfile:
-			if let navigation = try container.decodeIfPresent(ProfileNavigationAction.self, forKey: .profileNavigation) {
+			if let navigation: ProfileNavigationAction = try container.decodeLenient(.profileNavigation) {
 				self = .navigateProfile(navigation)
 				return
 			}
 			let profileId: UUID = try container.decode(.profileId, default: UUID())
+			if let navigation = ProfileNavigationAction(legacyRoundTripProfileId: profileId) {
+				self = .navigateProfile(navigation)
+				return
+			}
 			let profileName = try container.decodeIfPresent(String.self, forKey: .profileName)
 			self = .switchProfile(profileId: profileId, profileName: profileName)
         case .launchApp:
@@ -335,9 +360,11 @@ extension SystemCommand: Codable {
 			try container.encode(profileId, forKey: .profileId)
 			try container.encodeIfPresent(profileName, forKey: .profileName)
 		case .navigateProfile(let action):
-			// Keep the existing type discriminator so older releases decode this as
-			// a harmless missing-profile switch instead of rejecting the config.
+			// Keep the existing discriminator and a reserved profile ID. Older
+			// releases treat this as a harmless missing-profile switch and preserve
+			// the ID if they re-save, so a newer release can recover the action.
 			try container.encode(CommandType.switchProfile, forKey: .type)
+			try container.encode(action.legacyRoundTripProfileId, forKey: .profileId)
 			try container.encode(action, forKey: .profileNavigation)
         case .launchApp(let bundleId, let newWindow):
             try container.encode(CommandType.launchApp, forKey: .type)

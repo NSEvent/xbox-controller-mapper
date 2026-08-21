@@ -183,6 +183,7 @@ test-regressions:
 		-only-testing:XboxControllerMapperTests/ProfileNavigationTests \
 		-only-testing:XboxControllerMapperTests/ProfileCommandSelectionTests \
 		-only-testing:XboxControllerMapperTests/ProfileNavigationCodableTests \
+		-only-testing:XboxControllerMapperTests/ProfileSnapshotIntegrationTests/testRestoreSnapshotRestoresLastUsedProfileHistory \
 		-only-testing:XboxControllerMapperTests/SystemCommandExecutorBranchTests/testNavigateProfileExecutesLastNextAndPreviousActions \
 		-only-testing:XboxControllerMapperTests/MappingEngineCoreTests/testChordCanToggleLastUsedProfile \
 		-only-testing:XboxControllerMapperTests/MouseClickLocationPolicyTests \

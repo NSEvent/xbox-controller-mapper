@@ -14,7 +14,11 @@ final class ProfileNavigationTests: XCTestCase {
 	}
 
 	override func tearDown() async throws {
+		profileManager?.flushPendingSaves()
 		profileManager = nil
+		if let testConfigDirectory {
+			try? FileManager.default.removeItem(at: testConfigDirectory)
+		}
 		testConfigDirectory = nil
 		try await super.tearDown()
 	}
@@ -49,6 +53,23 @@ final class ProfileNavigationTests: XCTestCase {
 		XCTAssertEqual(profileManager.lastActiveProfileId, first.id)
 		XCTAssertTrue(profileManager.navigateProfile(.lastUsed))
 		XCTAssertEqual(profileManager.activeProfileId, first.id)
+	}
+
+	func testLastUsedProfileSurvivesRelaunch() {
+		let desktop = Profile(name: "Desktop")
+		let gaming = Profile(name: "Gaming")
+		profileManager.profiles = [desktop, gaming]
+		profileManager.setActiveProfile(desktop)
+		profileManager.setActiveProfile(gaming)
+		profileManager.flushPendingSaves()
+
+		let reloadedManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
+
+		XCTAssertEqual(reloadedManager.activeProfileId, gaming.id)
+		XCTAssertEqual(reloadedManager.lastActiveProfileId, desktop.id)
+		XCTAssertTrue(reloadedManager.navigateProfile(.lastUsed))
+		XCTAssertEqual(reloadedManager.activeProfileId, desktop.id)
+		reloadedManager.flushPendingSaves()
 	}
 
 	func testNextAndPreviousFollowProfileOrderAndWrap() {
@@ -149,6 +170,12 @@ final class ProfileCommandSelectionTests: XCTestCase {
 }
 
 final class ProfileNavigationCodableTests: XCTestCase {
+	private struct LegacyProfileCommand: Codable {
+		let type: String
+		let profileId: UUID?
+		let profileName: String?
+	}
+
 	func testNavigationActionsRoundTripUsingLegacyTypeDiscriminator() throws {
 		for action in ProfileNavigationAction.allCases {
 			let command = SystemCommand.navigateProfile(action)
@@ -157,8 +184,35 @@ final class ProfileNavigationCodableTests: XCTestCase {
 
 			XCTAssertEqual(object["type"] as? String, "switchProfile")
 			XCTAssertEqual(object["profileNavigation"] as? String, action.rawValue)
-			XCTAssertNil(object["profileId"])
+			XCTAssertEqual(object["profileId"] as? String, action.legacyRoundTripProfileId.uuidString)
 			XCTAssertEqual(try JSONDecoder().decode(SystemCommand.self, from: data), command)
 		}
+	}
+
+	func testNavigationActionsSurviveLegacyDecodeAndReencode() throws {
+		for action in ProfileNavigationAction.allCases {
+			let currentData = try JSONEncoder().encode(SystemCommand.navigateProfile(action))
+			let legacyCommand = try JSONDecoder().decode(LegacyProfileCommand.self, from: currentData)
+			let legacyResavedData = try JSONEncoder().encode(legacyCommand)
+
+			XCTAssertEqual(
+				try JSONDecoder().decode(SystemCommand.self, from: legacyResavedData),
+				.navigateProfile(action)
+			)
+		}
+	}
+
+	func testUnknownNavigationActionDegradesToSpecificProfileSwitch() throws {
+		let profileId = UUID()
+		let data = try JSONSerialization.data(withJSONObject: [
+			"type": "switchProfile",
+			"profileId": profileId.uuidString,
+			"profileNavigation": "futureNavigationAction"
+		])
+
+		XCTAssertEqual(
+			try JSONDecoder().decode(SystemCommand.self, from: data),
+			.switchProfile(profileId: profileId)
+		)
 	}
 }

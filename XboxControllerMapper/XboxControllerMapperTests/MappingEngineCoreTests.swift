@@ -190,6 +190,21 @@ final class MappingEngineCoreTests: MappingEngineTestCase {
 			profileManager.profiles = [desktop, gaming]
 			profileManager.setActiveProfile(desktop)
 			profileManager.setActiveProfile(gaming)
+			profileManager.flushPendingSaves()
+
+			mappingEngine.disable()
+			mappingEngine = nil
+			profileManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
+			mappingEngine = MappingEngine(
+				controllerService: controllerService,
+				profileManager: profileManager,
+				appMonitor: appMonitor,
+				inputSimulator: mockInputSimulator,
+				midiService: mockMIDIService
+			)
+			mappingEngine.enable()
+			XCTAssertEqual(profileManager.activeProfileId, gamingId)
+			XCTAssertEqual(profileManager.lastActiveProfileId, desktopId)
 		}
 
 		try? await Task.sleep(nanoseconds: 10_000_000)

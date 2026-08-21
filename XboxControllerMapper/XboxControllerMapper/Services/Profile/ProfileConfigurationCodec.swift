@@ -23,17 +23,24 @@ struct ProfileConfiguration: Codable {
     var schemaVersion: Int = currentSchemaVersion
     var profiles: [Profile]
     var activeProfileId: UUID?
+	var lastActiveProfileId: UUID?
     var uiScale: CGFloat?
     /// Legacy field: only decoded for migration to per-profile settings
     var onScreenKeyboardSettings: OnScreenKeyboardSettings?
 
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, profiles, activeProfileId, uiScale, onScreenKeyboardSettings
+		case schemaVersion, profiles, activeProfileId, lastActiveProfileId, uiScale, onScreenKeyboardSettings
     }
 
-    init(profiles: [Profile], activeProfileId: UUID?, uiScale: CGFloat?) {
+	init(
+		profiles: [Profile],
+		activeProfileId: UUID?,
+		lastActiveProfileId: UUID? = nil,
+		uiScale: CGFloat?
+	) {
         self.profiles = profiles
         self.activeProfileId = activeProfileId
+		self.lastActiveProfileId = lastActiveProfileId
         self.uiScale = uiScale
         self.onScreenKeyboardSettings = nil
     }
@@ -46,6 +53,7 @@ struct ProfileConfiguration: Codable {
         }
         profiles = try container.decode(.profiles, default: [])
         activeProfileId = try container.decodeIfPresent(UUID.self, forKey: .activeProfileId)
+		lastActiveProfileId = try container.decodeIfPresent(UUID.self, forKey: .lastActiveProfileId)
         uiScale = try container.decodeIfPresent(CGFloat.self, forKey: .uiScale)
         onScreenKeyboardSettings = try container.decodeIfPresent(OnScreenKeyboardSettings.self, forKey: .onScreenKeyboardSettings)
     }

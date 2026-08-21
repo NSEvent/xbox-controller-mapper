@@ -5,6 +5,7 @@ struct ProfileConfigurationLoadResult: Equatable {
     let profiles: [Profile]
     let activeProfile: Profile?
     let activeProfileId: UUID?
+	let lastActiveProfileId: UUID?
     let uiScale: CGFloat?
     let didMigrate: Bool
 }
@@ -34,12 +35,14 @@ enum ProfileConfigurationLoadCoordinator {
 
         let applied = ProfileLoadedDataApplicator.apply(
             loadedProfiles: migratedProfiles,
-            activeProfileId: config.activeProfileId
+			activeProfileId: config.activeProfileId,
+			lastActiveProfileId: config.lastActiveProfileId
         )
 
         var profiles = applied?.profiles ?? []
-        var activeProfile = applied?.activeProfile
-        var activeProfileId = applied?.activeProfileId
+		var activeProfile = applied?.activeProfile
+		var activeProfileId = applied?.activeProfileId
+		let lastActiveProfileId = applied?.lastActiveProfileId
 
         if let legacyKeyboardSettings = config.onScreenKeyboardSettings {
             let migration = ProfileConfigurationMigrationService.migrateLegacyKeyboardSettings(
@@ -55,9 +58,10 @@ enum ProfileConfigurationLoadCoordinator {
 
         return ProfileConfigurationLoadResult(
             profiles: profiles,
-            activeProfile: activeProfile,
-            activeProfileId: activeProfileId,
-            uiScale: config.uiScale,
+			activeProfile: activeProfile,
+			activeProfileId: activeProfileId,
+			lastActiveProfileId: lastActiveProfileId,
+			uiScale: config.uiScale,
             didMigrate: didMigrate
         )
     }

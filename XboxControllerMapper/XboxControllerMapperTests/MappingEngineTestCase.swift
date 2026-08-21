@@ -32,7 +32,7 @@ class MappingEngineTestCase: XCTestCase {
     var mockInputSimulator: MockInputSimulator!
     var mockMIDIService: MockMIDIService!
     var mappingEngine: MappingEngine!
-    private var testConfigDirectory: URL!
+	var testConfigDirectory: URL!
     
     override func setUp() async throws {
         testConfigDirectory = FileManager.default.temporaryDirectory
