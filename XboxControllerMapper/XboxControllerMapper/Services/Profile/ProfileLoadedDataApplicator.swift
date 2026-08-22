@@ -31,24 +31,23 @@ enum ProfileLoadedDataApplicator {
         }
         guard !validProfiles.isEmpty else { return nil }
 
-        let sortedProfiles = validProfiles.sorted { $0.createdAt < $1.createdAt }
-        guard let activeProfileId,
-              let activeProfile = sortedProfiles.first(where: { $0.id == activeProfileId }) else {
-            return ProfileLoadApplicationResult(
-                profiles: sortedProfiles,
+		guard let activeProfileId,
+		      let activeProfile = validProfiles.first(where: { $0.id == activeProfileId }) else {
+			return ProfileLoadApplicationResult(
+				profiles: validProfiles,
                 activeProfile: nil,
 				activeProfileId: nil,
 				lastActiveProfileId: nil
             )
         }
 		let validatedLastActiveProfileId = lastActiveProfileId.flatMap { candidate in
-			candidate != activeProfileId && sortedProfiles.contains(where: { $0.id == candidate })
+			candidate != activeProfileId && validProfiles.contains(where: { $0.id == candidate })
 				? candidate
 				: nil
 		}
 
-        return ProfileLoadApplicationResult(
-            profiles: sortedProfiles,
+		return ProfileLoadApplicationResult(
+			profiles: validProfiles,
             activeProfile: activeProfile,
 			activeProfileId: activeProfileId,
 			lastActiveProfileId: validatedLastActiveProfileId

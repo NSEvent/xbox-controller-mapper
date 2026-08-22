@@ -35,6 +35,14 @@
 "Profiles" = "Profile";
 "Preview" = "Vorschau";
 "Click a profile to see its mappings" = "Klicken Sie auf ein Profil, um seine Zuordnungen anzuzeigen";
+"Profile Action" = "Profilaktion";
+"Specific Profile" = "Bestimmtes Profil";
+"Last Used Profile" = "Zuletzt verwendetes Profil";
+"Next Profile" = "Nächstes Profil";
+"Previous Profile" = "Vorheriges Profil";
+"Switches to the profile used immediately before this one. Assign it in both profiles to toggle between them." = "Wechselt zu dem Profil, das unmittelbar vor diesem verwendet wurde. Weise die Aktion in beiden Profilen zu, um zwischen ihnen umzuschalten.";
+"Switches to the next profile in sidebar order, wrapping at the end." = "Wechselt zum nächsten Profil in der Reihenfolge der Seitenleiste und springt am Ende zum Anfang.";
+"Switches to the previous profile in sidebar order, wrapping at the beginning." = "Wechselt zum vorherigen Profil in der Reihenfolge der Seitenleiste und springt am Anfang zum Ende.";
 
 /* Hauptfenster-Tabs */
 "Buttons" = "Tasten";

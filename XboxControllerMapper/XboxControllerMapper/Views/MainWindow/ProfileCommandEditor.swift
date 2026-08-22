@@ -11,7 +11,7 @@ struct ProfileCommandSelection: Equatable {
 
 		var displayName: String {
 			switch self {
-			case .specific: return "Specific Profile"
+			case .specific: return String(localized: "Specific Profile")
 			case .lastUsed: return ProfileNavigationAction.lastUsed.displayName
 			case .next: return ProfileNavigationAction.next.displayName
 			case .previous: return ProfileNavigationAction.previous.displayName

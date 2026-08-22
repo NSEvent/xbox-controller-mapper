@@ -2,7 +2,7 @@ import XCTest
 @testable import ControllerKeys
 
 final class ProfileLoadedDataApplicatorTests: XCTestCase {
-    func testApplyFiltersInvalidProfilesSortsByCreationDateAndKeepsMatchingActiveProfile() {
+    func testApplyFiltersInvalidProfilesPreservesStoredOrderAndKeepsMatchingActiveProfile() {
         let now = Date()
         let older = now.addingTimeInterval(-60)
 
@@ -21,7 +21,7 @@ final class ProfileLoadedDataApplicatorTests: XCTestCase {
 			lastActiveProfileId: olderProfile.id
         )
 
-        XCTAssertEqual(result?.profiles.map(\.id), [olderProfile.id, newerProfile.id])
+		XCTAssertEqual(result?.profiles.map(\.id), [newerProfile.id, olderProfile.id])
         XCTAssertEqual(result?.activeProfile?.id, newerProfile.id)
         XCTAssertEqual(result?.activeProfileId, newerProfile.id)
 		XCTAssertEqual(result?.lastActiveProfileId, olderProfile.id)

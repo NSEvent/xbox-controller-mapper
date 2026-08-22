@@ -25,7 +25,7 @@ final class ProfileConfigurationLoadCoordinatorTests: XCTestCase {
         try super.tearDownWithError()
     }
 
-    func testLoadAppliesSortingActiveProfileAndUiScale() throws {
+    func testLoadPreservesStoredOrderActiveProfileAndUiScale() throws {
         var older = Profile(id: UUID(), name: "Older")
         older.createdAt = Date(timeIntervalSince1970: 10)
         var newer = Profile(id: UUID(), name: "Newer")
@@ -40,7 +40,7 @@ final class ProfileConfigurationLoadCoordinatorTests: XCTestCase {
 
         let result = try ProfileConfigurationLoadCoordinator.load(data: data)
 
-        XCTAssertEqual(result.profiles.map(\.id), [older.id, newer.id])
+		XCTAssertEqual(result.profiles.map(\.id), [newer.id, older.id])
         XCTAssertEqual(result.activeProfile?.id, newer.id)
         XCTAssertEqual(result.activeProfileId, newer.id)
 		XCTAssertEqual(result.lastActiveProfileId, older.id)

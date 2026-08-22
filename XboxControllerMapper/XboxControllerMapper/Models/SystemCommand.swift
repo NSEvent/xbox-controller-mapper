@@ -177,20 +177,20 @@ enum ProfileNavigationAction: String, Codable, CaseIterable, Identifiable {
 
 	var displayName: String {
 		switch self {
-		case .lastUsed: return "Last Used Profile"
-		case .next: return "Next Profile"
-		case .previous: return "Previous Profile"
+		case .lastUsed: return String(localized: "Last Used Profile")
+		case .next: return String(localized: "Next Profile")
+		case .previous: return String(localized: "Previous Profile")
 		}
 	}
 
 	var helpText: String {
 		switch self {
 		case .lastUsed:
-			return "Switches to the profile used immediately before this one. Assign it in both profiles to toggle between them."
+			return String(localized: "Switches to the profile used immediately before this one. Assign it in both profiles to toggle between them.")
 		case .next:
-			return "Switches to the next profile in sidebar order, wrapping at the end."
+			return String(localized: "Switches to the next profile in sidebar order, wrapping at the end.")
 		case .previous:
-			return "Switches to the previous profile in sidebar order, wrapping at the beginning."
+			return String(localized: "Switches to the previous profile in sidebar order, wrapping at the beginning.")
 		}
 	}
 }

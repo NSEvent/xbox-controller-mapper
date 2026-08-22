@@ -138,9 +138,12 @@ final class ProfileManagerAdvancedCoverageTests: XCTestCase {
 	}
 
 	func testMoveProfilesReordersAndPersistsWithoutChangingActiveProfile() {
-		let first = Profile(name: "First")
-		let second = Profile(name: "Second", isDefault: true)
-		let third = Profile(name: "Third")
+		var first = Profile(name: "First")
+		first.createdAt = Date(timeIntervalSince1970: 10)
+		var second = Profile(name: "Second", isDefault: true)
+		second.createdAt = Date(timeIntervalSince1970: 20)
+		var third = Profile(name: "Third")
+		third.createdAt = Date(timeIntervalSince1970: 30)
 		profileManager.profiles = [first, second, third]
 		profileManager.setActiveProfile(second)
 

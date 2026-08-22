@@ -87,6 +87,31 @@ final class ProfileNavigationTests: XCTestCase {
 		XCTAssertEqual(profileManager.activeProfileId, second.id)
 	}
 
+	func testNextAndPreviousUsePersistedSidebarOrderAfterRelaunch() {
+		var first = Profile(name: "First")
+		first.createdAt = Date(timeIntervalSince1970: 10)
+		var second = Profile(name: "Second")
+		second.createdAt = Date(timeIntervalSince1970: 20)
+		var third = Profile(name: "Third")
+		third.createdAt = Date(timeIntervalSince1970: 30)
+		profileManager.profiles = [first, second, third]
+		profileManager.setActiveProfile(second)
+		profileManager.moveProfiles(from: IndexSet(integer: 0), to: 3)
+		profileManager.flushPendingSaves()
+
+		let reloadedManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
+
+		XCTAssertEqual(reloadedManager.profiles.map(\.id), [second.id, third.id, first.id])
+		XCTAssertEqual(reloadedManager.activeProfileId, second.id)
+		XCTAssertTrue(reloadedManager.navigateProfile(.next))
+		XCTAssertEqual(reloadedManager.activeProfileId, third.id)
+		XCTAssertTrue(reloadedManager.navigateProfile(.next))
+		XCTAssertEqual(reloadedManager.activeProfileId, first.id)
+		XCTAssertTrue(reloadedManager.navigateProfile(.previous))
+		XCTAssertEqual(reloadedManager.activeProfileId, third.id)
+		reloadedManager.flushPendingSaves()
+	}
+
 	func testNavigationNoOpsWithoutAValidDestination() {
 		let only = Profile(name: "Only")
 		profileManager.profiles = [only]
@@ -214,5 +239,44 @@ final class ProfileNavigationCodableTests: XCTestCase {
 			try JSONDecoder().decode(SystemCommand.self, from: data),
 			.switchProfile(profileId: profileId)
 		)
+	}
+}
+
+final class ProfileNavigationLocalizationTests: XCTestCase {
+	func testProfileNavigationStringsExistInEverySupportedLocalization() throws {
+		let keys = [
+			"Profile Action",
+			"Specific Profile",
+			"Last Used Profile",
+			"Next Profile",
+			"Previous Profile",
+			"Switches to the profile used immediately before this one. Assign it in both profiles to toggle between them.",
+			"Switches to the next profile in sidebar order, wrapping at the end.",
+			"Switches to the previous profile in sidebar order, wrapping at the beginning.",
+		]
+		let testBundle = Bundle(for: Self.self)
+		let appBundleURL = testBundle.bundleURL
+			.deletingLastPathComponent()
+			.deletingLastPathComponent()
+			.deletingLastPathComponent()
+		let appBundle = try XCTUnwrap(
+			Bundle(url: appBundleURL),
+			"Missing host app bundle at \(appBundleURL.path)"
+		)
+
+		for localization in ["de", "ja", "zh-Hans", "zh-Hant"] {
+			let path = try XCTUnwrap(
+				appBundle.path(forResource: localization, ofType: "lproj"),
+				"Missing \(localization) localization bundle"
+			)
+			let bundle = try XCTUnwrap(Bundle(path: path))
+			for key in keys {
+				XCTAssertNotEqual(
+					bundle.localizedString(forKey: key, value: nil, table: nil),
+					key,
+					"\(localization) must translate \"\(key)\""
+				)
+			}
+		}
 	}
 }

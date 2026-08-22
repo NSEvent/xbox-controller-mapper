@@ -35,6 +35,14 @@
 "Profiles" = "設定檔";
 "Preview" = "預覽";
 "Click a profile to see its mappings" = "點擊設定檔查看其對應";
+"Profile Action" = "設定檔操作";
+"Specific Profile" = "指定設定檔";
+"Last Used Profile" = "上次使用的設定檔";
+"Next Profile" = "下一個設定檔";
+"Previous Profile" = "上一個設定檔";
+"Switches to the profile used immediately before this one. Assign it in both profiles to toggle between them." = "切換到目前設定檔之前使用的設定檔。請在兩個設定檔中都指派此操作，以便在它們之間切換。";
+"Switches to the next profile in sidebar order, wrapping at the end." = "依側邊欄順序切換到下一個設定檔，並在末尾回到開頭。";
+"Switches to the previous profile in sidebar order, wrapping at the beginning." = "依側邊欄順序切換到上一個設定檔，並在開頭回到末尾。";
 
 /* 主視窗標籤頁 */
 "Buttons" = "按鍵";
