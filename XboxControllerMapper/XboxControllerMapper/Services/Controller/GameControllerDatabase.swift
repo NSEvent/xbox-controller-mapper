@@ -373,7 +373,7 @@ class GameControllerDatabase {
 
 	guard loadedAnyDatabase else {
             #if DEBUG
-		print("[GameControllerDB] No database file found")
+		// print("[GameControllerDB] No database file found")
             #endif
             return
         }

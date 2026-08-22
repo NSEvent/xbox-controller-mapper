@@ -801,7 +801,7 @@ class MappingEngine: ObservableObject {
         case .layerActivated(let profile, let layerId):
 			if let layer = profile.layers.first(where: { $0.id == layerId }) {
 				#if DEBUG
-				print("🔷 Layer activated: \(layer.name)")
+				// print("🔷 Layer activated: \(layer.name)")
 				#endif
 				inputLogService?.log(buttons: [button], type: .singlePress, action: "Layer: \(layer.name)")
 			}
@@ -814,7 +814,7 @@ class MappingEngine: ObservableObject {
 			performRoutingBoundaryCleanup(cleanup)
 			if let layer = profile.layers.first(where: { $0.id == layerId }) {
 				#if DEBUG
-				print("🔷 Layer toggled \(isActive ? "on" : "off"): \(layer.name)")
+				// print("🔷 Layer toggled \(isActive ? \"on\" : \"off\"): \(layer.name)")
 				#endif
 				inputLogService?.log(
 					buttons: [button],
@@ -1358,7 +1358,7 @@ class MappingEngine: ObservableObject {
         if layerDeactivation.didDeactivate {
             #if DEBUG
             if let layerName = layerDeactivation.layerName {
-                print("🔷 Layer deactivated: \(layerName)")
+                // print("🔷 Layer deactivated: \(layerName)")
             }
             #endif
 
