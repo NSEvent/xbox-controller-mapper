@@ -29,3 +29,6 @@
 ## 2024-07-12 - [Dynamic Accessibility Labels for List Item Actions]
 **Learning:** Icon-only buttons (like Edit/Delete) inside lists pose a major accessibility challenge for VoiceOver users when identical labels ("Edit") are repeated without context, making it impossible to know which row is being acted on.
 **Action:** Always interpolate the dynamic item context (e.g., `item.name`) into both `.help()` tooltips and `.accessibilityLabel()` modifiers in repeated SwiftUI lists. Include fallback text for empty states (e.g., `"Unnamed Item"`).
+## 2026-08-23 - [SwiftUI Keyboard Accessibility Regression with onTapGesture]
+**Learning:** Found a pattern where `.onTapGesture` was used instead of `Button` for row selection in custom list views (like Macro lists). This removes keyboard focusability and VoiceOver traits. Replacing it with `Button(action:)` and `.buttonStyle(.plain)` restores accessibility, but you must keep `.contentShape(Rectangle())` inside the button's label to ensure the entire empty area remains clickable.
+**Action:** Always use `Button` with `.buttonStyle(.plain)` instead of `.onTapGesture` for interactive list rows to preserve full accessibility.
