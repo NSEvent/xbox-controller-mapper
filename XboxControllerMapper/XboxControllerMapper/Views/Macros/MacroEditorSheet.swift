@@ -223,29 +223,31 @@ struct AddStepRow: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "plus.circle.fill")
-                .font(.system(size: 16))
-                .foregroundColor(.accentColor)
-            Text("Add Step")
-                .font(.system(size: 13))
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.vertical, 8)
-        .background(isHovered ? Color.accentColor.opacity(0.15) : Color(nsColor: .controlBackgroundColor).opacity(0.3))
-        .cornerRadius(6)
-        .contentShape(Rectangle())
-        .onHover { hovering in
-            isHovered = hovering
-            if hovering {
-                NSCursor.pointingHand.push()
-            } else {
-                NSCursor.pop()
+        Button(action: onTap) {
+            HStack(spacing: 8) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(.accentColor)
+                Text("Add Step")
+                    .font(.system(size: 13))
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, 8)
+            .background(isHovered ? Color.accentColor.opacity(0.15) : Color(nsColor: .controlBackgroundColor).opacity(0.3))
+            .cornerRadius(6)
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                isHovered = hovering
+                if hovering {
+                    NSCursor.pointingHand.push()
+                } else {
+                    NSCursor.pop()
+                }
             }
         }
-        .onTapGesture {
-            onTap()
-        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add Step")
+        .help("Add Step")
     }
 }
 
