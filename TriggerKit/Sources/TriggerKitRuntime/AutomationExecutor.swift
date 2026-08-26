@@ -652,8 +652,8 @@ private final class ShellCommandRunner: @unchecked Sendable {
 			return ShellRunOutcome(result: .failure("Shell command timed out"))
 		}
 
-		clearStoredProcess()
 		pipe.fileHandleForReading.readabilityHandler = nil
+		clearStoredProcess()
 		let remainingData = pipe.fileHandleForReading.readDataToEndOfFile()
 		if !remainingData.isEmpty {
 			outputBuffer.append(remainingData)
