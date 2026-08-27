@@ -82,12 +82,12 @@ struct OnboardingView: View {
 
     private var headerTitle: String {
         switch step {
-        case .welcome: return "Welcome to ControllerKeys"
-        case .accessibility: return "Allow Accessibility"
-        case .inputMonitoring: return "Allow Input Monitoring"
-        case .bluetooth: return "Bluetooth (Optional)"
-        case .controllerTest: return "Try Your Controller"
-        case .done: return "You're all set"
+        case .welcome: return String(localized: "Welcome to ControllerKeys")
+        case .accessibility: return String(localized: "Allow Accessibility")
+        case .inputMonitoring: return String(localized: "Allow Input Monitoring")
+        case .bluetooth: return String(localized: "Bluetooth (Optional)")
+        case .controllerTest: return String(localized: "Try Your Controller")
+        case .done: return String(localized: "You're all set")
         }
     }
 
@@ -131,7 +131,7 @@ struct OnboardingView: View {
                 .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 10) {
-                upcomingRow(icon: "keyboard", title: "Input Monitoring", subtitle: "Required — read every controller type")
+                upcomingRow(icon: "keyboard", title: "Input Monitoring", subtitle: "Optional — Steam Controller, HID pads, Apple TV Remote")
 		upcomingRow(icon: "accessibility", title: "Accessibility", subtitle: "Required — move the mouse and press keys")
                 upcomingRow(icon: "dot.radiowaves.left.and.right", title: "Bluetooth", subtitle: "Optional — wireless battery level")
             }
@@ -141,7 +141,7 @@ struct OnboardingView: View {
         }
     }
 
-    private func upcomingRow(icon: String, title: String, subtitle: String) -> some View {
+    private func upcomingRow(icon: String, title: LocalizedStringKey, subtitle: LocalizedStringKey) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
                 .font(.body)
@@ -197,7 +197,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 14) {
             statusPill(for: permissions.inputMonitoring)
 
-            Text("Input Monitoring lets ControllerKeys read input from **Steam controllers, generic USB/Bluetooth gamepads, the Apple TV remote, and the Xbox guide button**. Standard Xbox and PlayStation pads work without it, but granting it covers every controller.")
+            Text("**Optional for most controllers** — standard Xbox, PlayStation, and Switch pads work without it, so feel free to continue. Grant it if you use a **Steam controller, generic USB/Bluetooth gamepad, the Apple TV remote, or the Xbox guide button** — or add it any time later from Settings ▸ Permissions.")
                 .font(.callout)
 
             instructionList([
@@ -261,13 +261,13 @@ struct OnboardingView: View {
         }
     }
 
-    private func grantedSummaryRow(_ title: String, state: PermissionState, optional: Bool = false) -> some View {
+    private func grantedSummaryRow(_ title: LocalizedStringKey, state: PermissionState, optional: Bool = false) -> some View {
         HStack(spacing: 8) {
             Image(systemName: state == .granted ? "checkmark.circle.fill" : (optional ? "minus.circle" : "exclamationmark.triangle.fill"))
                 .foregroundStyle(state == .granted ? .green : (optional ? .secondary : .orange))
             Text(title)
             Spacer()
-            Text(state == .granted ? "Granted" : (optional ? "Skipped" : "Not granted"))
+            Text(state == .granted ? String(localized: "Granted") : (optional ? String(localized: "Skipped") : String(localized: "Not granted")))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -305,9 +305,9 @@ struct OnboardingView: View {
 
     private var primaryButtonTitle: String {
         switch step {
-        case .welcome: return "Get Started"
-        case .done: return "Start Using ControllerKeys"
-        default: return "Continue"
+        case .welcome: return String(localized: "Get Started")
+        case .done: return String(localized: "Start Using ControllerKeys")
+        default: return String(localized: "Continue")
         }
     }
 
@@ -356,7 +356,7 @@ struct OnboardingView: View {
     private func statusPill(for state: PermissionState) -> some View {
         let granted = state == .granted
         let denied = state == .denied
-        let title = granted ? "Granted" : (denied ? "Denied — turn it on in Settings" : "Waiting for permission\u{2026}")
+        let title = granted ? String(localized: "Granted") : (denied ? String(localized: "Denied — turn it on in Settings") : String(localized: "Waiting for permission\u{2026}"))
         let symbol = granted ? "checkmark.circle.fill" : (denied ? "xmark.circle.fill" : "clock.fill")
         let color: Color = granted ? .green : (denied ? .red : .orange)
         return Label(title, systemImage: symbol)
@@ -364,14 +364,14 @@ struct OnboardingView: View {
             .foregroundStyle(color)
     }
 
-    private func instructionList(_ lines: [String], font: Font = .callout) -> some View {
+    private func instructionList(_ lines: [LocalizedStringKey], font: Font = .callout) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text("\(index + 1).")
                         .font(font.weight(.semibold))
                         .foregroundStyle(.secondary)
-                    Text(.init(line))
+                    Text(line)
                         .font(font)
                         .fixedSize(horizontal: false, vertical: true)
                 }

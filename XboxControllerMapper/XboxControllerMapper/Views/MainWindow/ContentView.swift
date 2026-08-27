@@ -35,6 +35,10 @@ struct ContentView: View {
     @State private var showingSettingsSheet = false
     @State private var showingCommandPalette = false
     @AppStorage("hasShownTrialWelcome") private var hasShownTrialWelcome = false
+    // One-shot: the trial-expired sheet at the moment (or first window-open
+    // after) the trial ends — the peak-intent conversion moment.
+    @AppStorage("hasShownExpirySheet") private var hasShownExpirySheet = false
+    @ObservedObject private var license = LicenseManager.shared
     @State private var showingWelcome = false
     @AppStorage("hasCompletedPermissionsOnboarding") private var hasCompletedOnboarding = false
     // Decoupled from the permissions wizard: tracks whether the user has seen the
@@ -360,9 +364,12 @@ struct ContentView: View {
             guard AppRuntime.screenshotVariant == nil else { return }
             if !hasCompletedOnboarding {
                 // Existing users updating from a prior version already granted the
-                // required permissions — skip the permission prompts, but still
-                // show the one-time interactive controller intro.
-                if SystemPermission.accessibilityGranted, SystemPermission.inputMonitoringGranted {
+                // required permission — skip the permission prompts, but still
+                // show the one-time interactive controller intro. Accessibility
+                // alone qualifies: Input Monitoring is optional (GCController
+                // pads don't need it), so its absence shouldn't re-trigger the
+                // full wizard for an established install.
+                if SystemPermission.accessibilityGranted {
                     hasCompletedOnboarding = true
                     onboardingStartStep = .controllerTest
                     showingOnboarding = true
@@ -385,6 +392,33 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .reopenPermissionsOnboarding)) { _ in
             onboardingStartStep = .welcome
             showingOnboarding = true
+        }
+        // Menu-bar "Buy…"/"Enter License…" → settings sheet (license section).
+        .onReceive(NotificationCenter.default.publisher(for: .openLicenseSettings)) { _ in
+            LicenseUIRequest.pending = false
+            showingSettingsSheet = true
+        }
+        .onAppear {
+            // The menu bar may have requested the license UI while this window
+            // was still opening — the notification fires before we subscribe.
+            if LicenseUIRequest.pending {
+                LicenseUIRequest.pending = false
+                showingSettingsSheet = true
+            }
+        }
+        // Trial expiry is the peak-intent moment: surface the license sheet
+        // exactly once, whether the transition happens live (hourly refresh
+        // while the window is open) or is discovered at the next window open.
+        // First-run users are excluded — the onboarding → trial-welcome chain
+        // already shows the same sheet with the expired headline.
+        .onReceive(license.$status) { status in
+            guard case .expired = status,
+                  !hasShownExpirySheet,
+                  hasShownTrialWelcome,
+                  !showingWelcome, !showingOnboarding,
+                  AppRuntime.screenshotVariant == nil else { return }
+            hasShownExpirySheet = true
+            showingWelcome = true
         }
         // Returning from System Settings re-activates the window; refresh so the
         // revoked-permission banner clears (and grant hooks fire) without a relaunch.
@@ -670,8 +704,10 @@ struct MappingActiveToggle: View {
     }
 
     private var label: String {
-        if locked { return "Trial ended" }
-        return isEnabled ? "Mapping On" : "Mapping Off"
+        if locked { return String(localized: "Trial ended") }
+        return isEnabled
+            ? String(localized: "Mapping On")
+            : String(localized: "Mapping Off")
     }
 
     // White on a filled capsule reads clearly against the glass toolbar —
@@ -728,10 +764,14 @@ struct MappingActiveToggle: View {
                 NSCursor.pop()
             }
         }
-        .help(locked ? "Your free trial has ended — click to enter a license" : "")
+        .help(locked ? String(localized: "Your free trial has ended — click to enter a license") : "")
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(locked ? "Trial ended" : "Mapping")
-        .accessibilityValue(locked ? "Locked" : (isEnabled ? "Active" : "Disabled"))
+        .accessibilityLabel(locked ? String(localized: "Trial ended") : String(localized: "Mapping"))
+        .accessibilityValue(
+            locked
+                ? String(localized: "Locked")
+                : (isEnabled ? String(localized: "Active") : String(localized: "Disabled"))
+        )
         .accessibilityAddTraits(.isToggle)
     }
 }
