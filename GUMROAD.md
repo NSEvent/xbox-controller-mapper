@@ -96,8 +96,8 @@ Three real workflows from real customers:
 
 ## How you get it
 
-1. **Buy here** — your license key is on the receipt page and in your email, and the signed DMG is attached to this purchase (lifetime downloads).
-2. **Install** — open the DMG and drag ControllerKeys to Applications. The official binary is signed with my Apple Developer ID and notarized by Apple, so it opens without warnings.
+1. **Buy here** — your license key is on the receipt page and in your email.
+2. **Install** — download the signed DMG from [kevintang.xyz/apps/controller-keys](https://kevintang.xyz/apps/controller-keys) (same download as the free trial — your key unlocks it), then drag ControllerKeys to Applications. The official binary is signed with my Apple Developer ID and notarized by Apple, so it opens without warnings.
 3. **Activate** — the app walks you through macOS Accessibility permission on first launch; then paste your license key when prompted, or any time in **Settings → General → License**.
 
 Already trialing? Just paste your key — your profiles and settings carry over exactly as they are.
