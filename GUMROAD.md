@@ -6,7 +6,11 @@ I built this because I wanted to vibe code with a controller and keep all my reg
 
 Pair any button with a voice transcription app (mine is the open-source VoiceInk) and you can "type" anything by talking — controller in one hand, coffee in the other.
 
-**One-time purchase. No subscription.** Every update since launch has been free to all customers.
+## Try it free before you buy
+
+ControllerKeys has a **full-featured 14-day free trial** — no account, no credit card. Download it from [kevintang.xyz/apps/controller-keys](https://kevintang.xyz/apps/controller-keys) (or `brew install --cask nsevent/tap/controllerkeys`) and use everything for two weeks. That's why sales are final: you can try the entire app before paying a cent.
+
+**One-time purchase. No subscription. One license covers all your Macs.** Every update since launch has been free to all customers.
 
 ## What people use it for
 
@@ -16,6 +20,16 @@ Pair any button with a voice transcription app (mine is the open-source VoiceInk
 - **Streaming** — trigger OBS scenes, mute/unmute, fire webhooks, and show a button overlay on stream
 - **Presentations** — laser pointer overlay, app switching, and clicker-style navigation with any gamepad
 
+## What $19.99 actually buys you
+
+Three real workflows from real customers:
+
+**Anki & flashcard review.** A med student reviews an entire AnKing deck from the couch — Again/Hard/Good/Easy on the face buttons, undo and bury on the bumpers, card audio on a trigger. One reviewer: *"exactly what I was looking for to review Anki decks with my 8BitDo controller."* There's a ready-made Anki profile in the built-in community library.
+
+**Layers nobody else has.** Hold a trigger and your entire layout swaps to a second set of mappings — up to **12 additional layers per profile**, each with its own stick behavior and light-bar color, with Hold or Toggle activation. One customer tested *"10+ different"* macOS mappers hunting for exactly this before finding ControllerKeys: *"Not only does this have extra features I didn't even know I needed…"*
+
+**One-handed creative work.** A digital artist holds a Wacom pen in one hand and the controller in the other — brush, lasso, eyedropper, brush-resize, and modifier holds on the pad, so the pen never leaves the canvas. The same pattern works for photo culling in Lightroom and transport control in your DAW.
+
 ## Where it gets interesting
 
 **Need to type?** Hold a trigger and an on-screen keyboard appears. Swipe the stick across the letters in one motion and it predicts the word — spaces are automatic. It's the same class of algorithm (SHARK2) your phone keyboard uses. You can write full sentences without pecking one letter at a time.
@@ -24,7 +38,7 @@ Pair any button with a voice transcription app (mine is the open-source VoiceInk
 
 **Want precision?** On DualSense, DualShock 4, and Steam Controller, the gyroscope becomes a precision mouse. Tilt the controller and the cursor follows your hand, with a smoothing filter that kills hand tremor but lets fast flicks through. You can hit a 10-pixel close button on the first try.
 
-**Want more buttons?** Press two buttons together for chord shortcuts. Enter button sequences (Up-Up-Down-Down). Hold a button to swap your entire layout to an alternate layer — that triples your button count. All 8 directions of each stick can be mapped as buttons too.
+**Want more buttons?** Press two buttons together for chord shortcuts. Enter button sequences (Up-Up-Down-Down). Hold a button to swap your entire layout to an alternate layer — up to 12 of them per profile. All 8 directions of each stick can be mapped as buttons too.
 
 **Want automation?** Record macros that chain key presses, typed text, app launches, shell commands, and webhooks into a single button press. Control OBS scenes directly. Or write JavaScript for fully custom automation — clipboard access, app detection, notifications, window screenshots, persistent state, with a built-in example gallery and editor.
 
@@ -45,7 +59,7 @@ Pair any button with a voice transcription app (mine is the open-source VoiceInk
 **Mapping**
 - Buttons → shortcuts, with long-hold, double-tap, and repeat-while-held variants
 - Chords (multi-button), sequences (ordered combos), and motion gestures (tilt/steer)
-- Layers: alternate mapping sets with per-layer Hold or Toggle activation and stick modes
+- Layers: up to 12 additional mapping sets per profile, with per-layer Hold or Toggle activation and stick modes
 - Custom stick directions — WASD/arrow presets or bind anything to any of 8 directions
 - Left/right modifier distinction (left ⌘ vs right ⌘)
 - Realtime input mode: low-latency key-down/key-up passthrough for games
@@ -80,6 +94,16 @@ Pair any button with a voice transcription app (mine is the open-source VoiceInk
 - VoiceOver support, full compatibility with macOS Accessibility Zoom, gyro aiming for tremor-resistant precision
 - Localized in English, Simplified & Traditional Chinese, German, and Japanese
 
+## How you get it
+
+1. **Buy here** — your license key is on the receipt page and in your email, and the signed DMG is attached to this purchase (lifetime downloads).
+2. **Install** — open the DMG and drag ControllerKeys to Applications. The official binary is signed with my Apple Developer ID and notarized by Apple, so it opens without warnings.
+3. **Activate** — the app walks you through macOS Accessibility permission on first launch; then paste your license key when prompted, or any time in **Settings → General → License**.
+
+Already trialing? Just paste your key — your profiles and settings carry over exactly as they are.
+
+**One license, all your Macs.** Two Macs on your desk? The cross-Mac handoff (above) is exactly for you.
+
 ## Actively developed
 
 Nearly 40 releases since January, with new features shipping monthly — Steam Controller and Apple TV Remote support, Mac-to-Mac handoff, and realtime input mode all landed in the last few weeks. See the [full changelog on GitHub](https://github.com/NSEvent/xbox-controller-mapper/blob/main/CHANGELOG.md), and join the [Discord community](https://discord.gg/WsZJkRsPPg) for profiles, support, and feature requests.
@@ -94,4 +118,4 @@ ControllerKeys needs macOS Accessibility permissions to simulate input, so the [
 - Any supported controller (see list above)
 - Accessibility permission (the app walks you through it)
 
-Questions before buying? Ask in the [Discord](https://discord.gg/WsZJkRsPPg).
+Questions before buying? Ask in the [Discord](https://discord.gg/WsZJkRsPPg) — I usually answer the same day, and most reported bugs are fixed within a release or two.
