@@ -178,6 +178,10 @@ struct ScriptRow: View {
     var onEdit: () -> Void
     var onDelete: () -> Void
 
+    private var scriptName: String {
+        script.name.isEmpty ? "Untitled Script" : script.name
+    }
+
     var body: some View {
         HStack {
             // Drag handle
@@ -195,7 +199,7 @@ struct ScriptRow: View {
                     .frame(width: 20)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(script.name.isEmpty ? "Untitled Script" : script.name)
+                    Text(scriptName)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.white.opacity(0.9))
 
@@ -222,16 +226,16 @@ struct ScriptRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
-                .help("Edit")
-                .accessibilityLabel("Edit")
+                .help("Edit \(scriptName)")
+                .accessibilityLabel("Edit \(scriptName)")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
-                .help("Delete")
-                .accessibilityLabel("Delete")
+                .help("Delete \(scriptName)")
+                .accessibilityLabel("Delete \(scriptName)")
             }
         }
         .padding(.horizontal, 12)
