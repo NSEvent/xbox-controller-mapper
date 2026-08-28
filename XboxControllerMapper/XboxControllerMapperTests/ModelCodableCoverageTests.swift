@@ -136,10 +136,12 @@ final class ModelCodableCoverageTests: XCTestCase {
         let obs = SystemCommand.obsWebSocket(url: "ws://127.0.0.1:4455", password: nil, requestType: "VeryLongRequestTypeNameThatShouldTruncate", requestData: nil)
 		let profileId = UUID()
 		let profile = SystemCommand.switchProfile(profileId: profileId, profileName: "Gaming")
+		let lastProfile = SystemCommand.navigateProfile(.lastUsed)
 		let centerRing = SystemCommand.centerOuraRing
 		let toggleRing = SystemCommand.toggleOuraMotion
 
 		XCTAssertEqual(profile.category, .profile)
+		XCTAssertEqual(lastProfile.category, .profile)
         XCTAssertEqual(launch.category, .app)
         XCTAssertEqual(shell.category, .shell)
         XCTAssertEqual(link.category, .link)
@@ -149,6 +151,7 @@ final class ModelCodableCoverageTests: XCTestCase {
 		XCTAssertEqual(toggleRing.category, .ring)
 
 		XCTAssertEqual(profile.displayName, "Switch to Gaming")
+		XCTAssertEqual(lastProfile.displayName, "Last Used Profile")
         XCTAssertEqual(launch.displayName, "com.fake.app (New Window)")
         XCTAssertTrue(shell.displayName.hasSuffix("..."))
         XCTAssertTrue(link.displayName.hasSuffix("..."))

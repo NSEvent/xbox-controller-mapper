@@ -218,11 +218,11 @@ final class LicenseManager: ObservableObject {
 
         let key = rawKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else {
-            return VerifyResult(success: false, message: "Enter your license key.")
+            return VerifyResult(success: false, message: String(localized: "Enter your license key."))
         }
 
         guard let url = URL(string: "https://api.gumroad.com/v2/licenses/verify") else {
-            return VerifyResult(success: false, message: "Internal error building the request.")
+            return VerifyResult(success: false, message: String(localized: "Internal error building the request."))
         }
 
         var request = URLRequest(url: url)
@@ -245,13 +245,13 @@ final class LicenseManager: ObservableObject {
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else {
-                return VerifyResult(success: false, message: "No response from Gumroad.")
+                return VerifyResult(success: false, message: String(localized: "No response from Gumroad."))
             }
             let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
 
             // Gumroad returns 404 when the key/product isn't found.
             guard http.statusCode == 200, (json?["success"] as? Bool) == true else {
-                let message = (json?["message"] as? String) ?? "That license key wasn't recognized."
+                let message = (json?["message"] as? String) ?? String(localized: "That license key wasn't recognized.")
                 return VerifyResult(success: false, message: message)
             }
 
@@ -262,7 +262,7 @@ final class LicenseManager: ObservableObject {
                 if refunded || disputed || chargebacked {
                     return VerifyResult(
                         success: false,
-                        message: "This license is no longer valid (the purchase was refunded or disputed)."
+                        message: String(localized: "This license is no longer valid (the purchase was refunded or disputed).")
                     )
                 }
             }
@@ -274,11 +274,11 @@ final class LicenseManager: ObservableObject {
             // backend can tie this anonymous install to its purchase.
             let saleID = (json?["purchase"] as? [String: Any])?["sale_id"] as? String
             TelemetryService.shared.licenseActivated(saleID: saleID)
-            return VerifyResult(success: true, message: "License activated — thank you for your support!")
+            return VerifyResult(success: true, message: String(localized: "License activated — thank you for your support!"))
         } catch {
             return VerifyResult(
                 success: false,
-                message: "Couldn't reach Gumroad. Check your connection and try again."
+                message: String(localized: "Couldn't reach Gumroad. Check your connection and try again.")
             )
         }
     }
@@ -311,4 +311,19 @@ final class LicenseManager: ObservableObject {
         refresh()
     }
 #endif
+}
+
+extension Notification.Name {
+    /// Posted (e.g. from the menu bar) to surface the license UI in the main
+    /// window. ContentView listens and opens the settings sheet.
+    static let openLicenseSettings = Notification.Name("openLicenseSettings")
+}
+
+/// Bridges "show the license UI" requests from surfaces outside the main window
+/// (the menu bar) to ContentView. The notification handles the window-already-
+/// open case; the flag handles the window-just-opening race — ContentView
+/// consumes it in `onAppear`, after the notification would have been missed.
+@MainActor
+enum LicenseUIRequest {
+    static var pending = false
 }

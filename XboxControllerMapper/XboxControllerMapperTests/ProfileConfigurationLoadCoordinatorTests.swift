@@ -25,7 +25,7 @@ final class ProfileConfigurationLoadCoordinatorTests: XCTestCase {
         try super.tearDownWithError()
     }
 
-    func testLoadAppliesSortingActiveProfileAndUiScale() throws {
+    func testLoadPreservesStoredOrderActiveProfileAndUiScale() throws {
         var older = Profile(id: UUID(), name: "Older")
         older.createdAt = Date(timeIntervalSince1970: 10)
         var newer = Profile(id: UUID(), name: "Newer")
@@ -34,14 +34,16 @@ final class ProfileConfigurationLoadCoordinatorTests: XCTestCase {
         let data = try makeConfigData(
             profiles: [newer, older],
             activeProfileId: newer.id,
+			lastActiveProfileId: older.id,
             uiScale: 1.25
         )
 
         let result = try ProfileConfigurationLoadCoordinator.load(data: data)
 
-        XCTAssertEqual(result.profiles.map(\.id), [older.id, newer.id])
+		XCTAssertEqual(result.profiles.map(\.id), [newer.id, older.id])
         XCTAssertEqual(result.activeProfile?.id, newer.id)
         XCTAssertEqual(result.activeProfileId, newer.id)
+		XCTAssertEqual(result.lastActiveProfileId, older.id)
         XCTAssertEqual(result.uiScale ?? 0, 1.25, accuracy: 0.0001)
         XCTAssertFalse(result.didMigrate)
     }
@@ -156,12 +158,14 @@ final class ProfileConfigurationLoadCoordinatorTests: XCTestCase {
     private func makeConfigData(
         profiles: [Profile],
         activeProfileId: UUID?,
+		lastActiveProfileId: UUID? = nil,
         uiScale: CGFloat?,
         legacyKeyboard: OnScreenKeyboardSettings? = nil
     ) throws -> Data {
         var config = ProfileConfiguration(
             profiles: profiles,
             activeProfileId: activeProfileId,
+			lastActiveProfileId: lastActiveProfileId,
             uiScale: uiScale
         )
         config.onScreenKeyboardSettings = legacyKeyboard

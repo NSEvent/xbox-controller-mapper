@@ -51,12 +51,14 @@ struct ProfileImportSafetySheet: View {
     private var summaryLine: String {
         var parts: [String] = []
         if !report.shellCommands.isEmpty {
-            parts.append("\(report.shellCommands.count) shell command\(report.shellCommands.count == 1 ? "" : "s")")
+            let count = report.shellCommands.count
+            parts.append(count == 1 ? String(localized: "1 shell command") : String(localized: "\(count) shell commands"))
         }
         if !report.scripts.isEmpty {
-            parts.append("\(report.scripts.count) script\(report.scripts.count == 1 ? "" : "s")")
+            let count = report.scripts.count
+            parts.append(count == 1 ? String(localized: "1 script") : String(localized: "\(count) scripts"))
         }
-        return parts.joined(separator: " and ")
+        return parts.joined(separator: String(localized: " and "))
     }
 
     // MARK: - Body content
@@ -88,7 +90,7 @@ struct ProfileImportSafetySheet: View {
     }
 
     @ViewBuilder
-    private func section<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func section<Content: View>(title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.system(size: 11, weight: .semibold))
@@ -131,7 +133,7 @@ struct ProfileImportSafetySheet: View {
             Text(item.name)
                 .font(.system(size: 12, weight: .medium))
             Spacer()
-            Text("\(item.lineCount) line\(item.lineCount == 1 ? "" : "s") of JavaScript")
+            Text(item.lineCount == 1 ? String(localized: "1 line of JavaScript") : String(localized: "\(item.lineCount) lines of JavaScript"))
                 .font(.system(size: 11))
                 .foregroundColor(.secondary)
         }

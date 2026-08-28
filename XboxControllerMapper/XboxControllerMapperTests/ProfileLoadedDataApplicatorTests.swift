@@ -2,7 +2,7 @@ import XCTest
 @testable import ControllerKeys
 
 final class ProfileLoadedDataApplicatorTests: XCTestCase {
-    func testApplyFiltersInvalidProfilesSortsByCreationDateAndKeepsMatchingActiveProfile() {
+    func testApplyFiltersInvalidProfilesPreservesStoredOrderAndKeepsMatchingActiveProfile() {
         let now = Date()
         let older = now.addingTimeInterval(-60)
 
@@ -17,12 +17,14 @@ final class ProfileLoadedDataApplicatorTests: XCTestCase {
 
         let result = ProfileLoadedDataApplicator.apply(
             loadedProfiles: [newerProfile, invalidProfile, olderProfile],
-            activeProfileId: newerProfile.id
+			activeProfileId: newerProfile.id,
+			lastActiveProfileId: olderProfile.id
         )
 
-        XCTAssertEqual(result?.profiles.map(\.id), [olderProfile.id, newerProfile.id])
+		XCTAssertEqual(result?.profiles.map(\.id), [newerProfile.id, olderProfile.id])
         XCTAssertEqual(result?.activeProfile?.id, newerProfile.id)
         XCTAssertEqual(result?.activeProfileId, newerProfile.id)
+		XCTAssertEqual(result?.lastActiveProfileId, olderProfile.id)
     }
 
     func testApplyClearsActiveProfileWhenActiveIdMissing() {
@@ -36,7 +38,27 @@ final class ProfileLoadedDataApplicatorTests: XCTestCase {
         XCTAssertEqual(result?.profiles.count, 1)
         XCTAssertNil(result?.activeProfile)
         XCTAssertNil(result?.activeProfileId)
+		XCTAssertNil(result?.lastActiveProfileId)
     }
+
+	func testApplyClearsSameOrMissingLastActiveProfile() {
+		let first = Profile(id: UUID(), name: "First")
+		let second = Profile(id: UUID(), name: "Second")
+
+		let sameAsActive = ProfileLoadedDataApplicator.apply(
+			loadedProfiles: [first, second],
+			activeProfileId: first.id,
+			lastActiveProfileId: first.id
+		)
+		let missing = ProfileLoadedDataApplicator.apply(
+			loadedProfiles: [first, second],
+			activeProfileId: first.id,
+			lastActiveProfileId: UUID()
+		)
+
+		XCTAssertNil(sameAsActive?.lastActiveProfileId)
+		XCTAssertNil(missing?.lastActiveProfileId)
+	}
 
     func testApplyReturnsNilWhenNoValidProfilesRemain() {
         var invalidProfile = Profile(id: UUID(), name: "Invalid")

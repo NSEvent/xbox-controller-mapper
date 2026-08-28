@@ -59,9 +59,11 @@ final class ProfileConfigurationSaveServiceTests: XCTestCase {
         let service = makeSynchronousService()
 
         let profile = Profile(id: UUID(), name: "Saved")
+		let previous = Profile(id: UUID(), name: "Previous")
         let config = ProfileConfiguration(
-            profiles: [profile],
+			profiles: [profile, previous],
             activeProfileId: profile.id,
+			lastActiveProfileId: previous.id,
             uiScale: 1.3
         )
 
@@ -69,9 +71,10 @@ final class ProfileConfigurationSaveServiceTests: XCTestCase {
 
         let writtenData = try Data(contentsOf: configURL)
         let decoded = try ProfileConfigurationCodec.decode(from: writtenData)
-        XCTAssertEqual(decoded.profiles.count, 1)
+		XCTAssertEqual(decoded.profiles.count, 2)
         XCTAssertEqual(decoded.profiles.first?.id, profile.id)
         XCTAssertEqual(decoded.activeProfileId, profile.id)
+		XCTAssertEqual(decoded.lastActiveProfileId, previous.id)
         XCTAssertEqual(decoded.uiScale ?? 0, 1.3, accuracy: 0.0001)
 
         let backupDirectory = tempDirectory.appendingPathComponent("backups", isDirectory: true)

@@ -177,7 +177,7 @@ struct TouchpadRegionMappingSheet: View {
 
             switch slot.wrappedValue.systemCommandCategory {
 			case .profile:
-				ProfileSelectionPicker(selection: slot.selectedProfileId, selectedName: slot.selectedProfileName)
+				ProfileCommandPicker(selection: slot.profileCommand)
             case .app:
                 AppSelectionButton(
                     bundleId: slot.wrappedValue.appBundleIdentifier,
@@ -265,8 +265,7 @@ struct ActionSlot {
 
     // System command sub-state
     var systemCommandCategory: SystemCommandCategory = .app
-	var selectedProfileId: UUID?
-	var selectedProfileName: String?
+	var profileCommand = ProfileCommandSelection()
     var appBundleIdentifier: String = ""
     var appNewWindow: Bool = false
     var shellCommand: String = ""
@@ -290,9 +289,8 @@ struct ActionSlot {
             kind = .systemCommand
             systemCommandCategory = cmd.category
             switch cmd {
-			case .switchProfile(let profileId, let profileName):
-				selectedProfileId = profileId
-				selectedProfileName = profileName
+			case .switchProfile, .navigateProfile:
+				profileCommand.load(cmd)
             case .launchApp(let id, let newWindow):
                 appBundleIdentifier = id
                 appNewWindow = newWindow
@@ -320,8 +318,7 @@ struct ActionSlot {
     func buildSystemCommand() -> SystemCommand? {
         switch systemCommandCategory {
 		case .profile:
-			guard let selectedProfileId else { return nil }
-			return .switchProfile(profileId: selectedProfileId, profileName: selectedProfileName)
+			return profileCommand.systemCommand
         case .app:
             guard !appBundleIdentifier.isEmpty else { return nil }
             return .launchApp(bundleIdentifier: appBundleIdentifier, newWindow: appNewWindow)

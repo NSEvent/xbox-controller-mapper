@@ -10,7 +10,10 @@ final class OnboardingFlowTests: XCTestCase {
 
     func testRequiredSteps() {
         XCTAssertTrue(OnboardingStep.accessibility.isRequired)
-        XCTAssertTrue(OnboardingStep.inputMonitoring.isRequired)
+        XCTAssertFalse(
+            OnboardingStep.inputMonitoring.isRequired,
+            "Input Monitoring is optional — GCController pads (Xbox/PS/Switch) work without it, so it must not force a second System Settings trip"
+        )
         XCTAssertFalse(OnboardingStep.bluetooth.isRequired, "Bluetooth is optional/skippable")
         XCTAssertFalse(OnboardingStep.controllerTest.isRequired, "The interactive controller test is skippable")
         XCTAssertFalse(OnboardingStep.welcome.isRequired)
@@ -53,22 +56,23 @@ final class OnboardingFlowTests: XCTestCase {
     func testRequiredStepBlocksAdvanceUntilGranted() {
         let notGranted = OnboardingStepState(accessibility: .notDetermined, inputMonitoring: .notDetermined, bluetooth: .notDetermined)
         XCTAssertFalse(notGranted.canAdvance(from: .accessibility))
-        XCTAssertFalse(notGranted.canAdvance(from: .inputMonitoring))
 
         let denied = OnboardingStepState(accessibility: .denied, inputMonitoring: .denied, bluetooth: .denied)
         XCTAssertFalse(denied.canAdvance(from: .accessibility), "denied should still block the primary CTA")
-        XCTAssertFalse(denied.canAdvance(from: .inputMonitoring))
     }
 
     func testRequiredStepAllowsAdvanceWhenGranted() {
         let granted = OnboardingStepState(accessibility: .granted, inputMonitoring: .granted, bluetooth: .notDetermined)
         XCTAssertTrue(granted.canAdvance(from: .accessibility))
-        XCTAssertTrue(granted.canAdvance(from: .inputMonitoring))
     }
 
     func testOptionalAndNonPermissionStepsAlwaysAdvance() {
         let nothing = OnboardingStepState(accessibility: .notDetermined, inputMonitoring: .notDetermined, bluetooth: .notDetermined)
         XCTAssertTrue(nothing.canAdvance(from: .welcome))
+        XCTAssertTrue(
+            nothing.canAdvance(from: .inputMonitoring),
+            "Input Monitoring never gates Continue — most controllers don't need it"
+        )
         XCTAssertTrue(nothing.canAdvance(from: .bluetooth), "Bluetooth is skippable regardless of grant")
         XCTAssertTrue(nothing.canAdvance(from: .controllerTest), "The controller test never gates advancement")
         XCTAssertTrue(nothing.canAdvance(from: .done))
@@ -76,6 +80,8 @@ final class OnboardingFlowTests: XCTestCase {
 
     // MARK: - firstIncompleteStep (resume position)
 
+    // Input Monitoring is optional but still a resume target: a user re-walking
+    // the wizard from Settings is usually there to fix a missing grant.
     func testFirstIncompleteStepWalksRequiredPermissionsInOrder() {
         XCTAssertEqual(
             OnboardingStepState(accessibility: .notDetermined, inputMonitoring: .notDetermined, bluetooth: .notDetermined).firstIncompleteStep,

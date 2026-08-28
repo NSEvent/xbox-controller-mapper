@@ -152,9 +152,9 @@ struct OnboardingControllerTestView: View {
     private func progressMessage(for count: Int) -> String {
         switch count {
         case 0: return ""
-        case 1: return "1 button tried — go ahead, try a few more."
-        case 2...4: return "\(count) buttons tried — nice."
-        default: return "\(count) buttons tried. You've got the idea — hit Continue when you're ready."
+        case 1: return String(localized: "1 button tried — go ahead, try a few more.")
+        case 2...4: return String(localized: "\(count) buttons tried — nice.")
+        default: return String(localized: "\(count) buttons tried. You've got the idea — hit Continue when you're ready.")
         }
     }
 
@@ -203,7 +203,7 @@ struct OnboardingControllerTestView: View {
     private func bindingLabel(for button: ControllerButton) -> String {
         guard let profile = profileManager.activeProfile,
               let mapping = profile.buttonMappings[button] else {
-            return "Not mapped"
+            return String(localized: "Not mapped")
         }
         return mapping.hint ?? mapping.displayString
     }

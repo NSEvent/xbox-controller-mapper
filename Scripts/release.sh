@@ -118,13 +118,20 @@ GUMROAD_LINK="---
 
 **[Download on Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper)**"
 
+# Also attach a stable-named copy so
+# releases/latest/download/ControllerKeys.dmg always resolves — the marketing
+# site's /download direct link depends on this asset name existing every release.
+STABLE_DMG="$RELEASE_DIR/ControllerKeys.dmg"
+cp "$APP_DMG" "$STABLE_DMG"
+
 gh release create "$TAG" \
     --title "ControllerKeys ${MARKETING_VERSION}" \
     --notes "${RELEASE_NOTES}
 ${GUMROAD_LINK}" \
-    "$APP_DMG"
+    "$APP_DMG" \
+    "$STABLE_DMG"
 
-echo "GitHub release created: $TAG (DMG attached for Sparkle auto-update)"
+echo "GitHub release created: $TAG (DMG attached for Sparkle auto-update, plus stable-named ControllerKeys.dmg)"
 
 # Publish the appcast so Sparkle clients see the new version. SUFeedURL points
 # at raw.githubusercontent .../main/appcast.xml, so this commit must land on the

@@ -108,7 +108,7 @@ struct MappingExecutor {
         // System command
         if let command = action.systemCommand {
             switch command {
-			case .switchProfile:
+			case .switchProfile, .navigateProfile:
 				break
             case .httpRequest:
                 service.recordWebhook()

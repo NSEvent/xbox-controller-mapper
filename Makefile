@@ -180,6 +180,13 @@ app-path:
 test-regressions:
 	xcodebuild test -project $(PROJECT) -scheme $(SCHEME) -derivedDataPath $(TEST_DERIVED_DATA) -destination 'platform=macOS' \
 		-only-testing:XboxControllerMapperTests/ProfileAutoSwitchResolverTests \
+		-only-testing:XboxControllerMapperTests/ProfileNavigationTests \
+		-only-testing:XboxControllerMapperTests/ProfileCommandSelectionTests \
+		-only-testing:XboxControllerMapperTests/ProfileNavigationCodableTests \
+		-only-testing:XboxControllerMapperTests/ProfileNavigationLocalizationTests \
+		-only-testing:XboxControllerMapperTests/ProfileSnapshotIntegrationTests/testRestoreSnapshotRestoresLastUsedProfileHistory \
+		-only-testing:XboxControllerMapperTests/SystemCommandExecutorBranchTests/testNavigateProfileExecutesLastNextAndPreviousActions \
+		-only-testing:XboxControllerMapperTests/MappingEngineCoreTests/testChordCanToggleLastUsedProfile \
 		-only-testing:XboxControllerMapperTests/MouseClickLocationPolicyTests \
 		-only-testing:XboxControllerMapperTests/TouchpadGestureTests/testTouchpadTapGesture \
 		-only-testing:XboxControllerMapperTests/TouchpadGestureTests/testTouchpadTwoFingerTap \

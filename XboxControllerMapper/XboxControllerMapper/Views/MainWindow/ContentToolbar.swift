@@ -75,7 +75,7 @@ struct ContentToolbar: View {
                     HStack(spacing: 5) {
                         Image(systemName: "hourglass")
                             .font(.system(size: 10, weight: .semibold))
-                        Text("Trial · \(days)d")
+                        Text(String(format: String(localized: "Trial · %lldd"), days))
                             .font(.caption.bold())
                     }
                     .foregroundStyle(days <= 3 ? Color.orange : Color.white.opacity(0.7))
@@ -88,8 +88,8 @@ struct ContentToolbar: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .help("Free trial: \(days) day\(days == 1 ? "" : "s") left — click for license options")
-                .accessibilityLabel("Free trial: \(days) day\(days == 1 ? "" : "s") left")
+                .help(String(format: String(localized: "%@ — click for license options"), trialDaysDescription(days)))
+                .accessibilityLabel(trialDaysDescription(days))
             }
 
             // Enable/disable toggle
@@ -111,6 +111,14 @@ struct ContentToolbar: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         // Transparent toolbar to let glass show through
+    }
+
+    /// Full-sentence singular/plural variants — .strings has no plural rules,
+    /// and composing fragments breaks word order in other languages.
+    private func trialDaysDescription(_ days: Int) -> String {
+        days == 1
+            ? String(localized: "Free trial: 1 day left")
+            : String(format: String(localized: "Free trial: %lld days left"), days)
     }
 }
 

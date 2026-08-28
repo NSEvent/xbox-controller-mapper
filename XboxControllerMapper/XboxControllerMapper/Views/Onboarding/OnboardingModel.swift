@@ -8,9 +8,13 @@ extension Notification.Name {
 
 /// The ordered steps of the first-run permissions wizard.
 ///
-/// Input Monitoring and Accessibility are *required* for the app to do anything
-/// useful and are requested first. Input Monitoring intentionally comes before
-/// Accessibility: once Accessibility is granted, macOS can report listen access
+/// Accessibility is *required* for the app to do anything useful. Input
+/// Monitoring is *optional for most controllers* — plain `GCController` pads
+/// (Xbox, PlayStation, Switch) work without it; only Steam controllers, generic
+/// HID gamepads, the Apple TV remote, and the Xbox guide button need it — so it
+/// no longer gates Continue, sparing the majority a second System Settings
+/// round-trip. It still intentionally comes before Accessibility for users who
+/// do grant it: once Accessibility is granted, macOS can report listen access
 /// as granted without having separately registered the app in the Input
 /// Monitoring list. Bluetooth is *optional* (wireless battery %) and is
 /// skippable. Local Network is deliberately **absent** — it's requested lazily
@@ -29,8 +33,8 @@ enum OnboardingStep: Int, CaseIterable, Identifiable {
     /// Steps that gate the primary "Continue" button on an actual grant.
     var isRequired: Bool {
         switch self {
-        case .accessibility, .inputMonitoring: return true
-        case .welcome, .bluetooth, .controllerTest, .done: return false
+        case .accessibility: return true
+        case .welcome, .inputMonitoring, .bluetooth, .controllerTest, .done: return false
         }
     }
 
@@ -62,8 +66,8 @@ struct OnboardingStepState: Equatable {
     func canAdvance(from step: OnboardingStep) -> Bool {
         switch step {
         case .accessibility: return accessibility == .granted
-        case .inputMonitoring: return inputMonitoring == .granted
-        case .welcome, .bluetooth, .controllerTest, .done: return true
+        // Optional: GCController pads work without it (see OnboardingStep docs).
+        case .welcome, .inputMonitoring, .bluetooth, .controllerTest, .done: return true
         }
     }
 
@@ -76,9 +80,11 @@ struct OnboardingStepState: Equatable {
         }
     }
 
-    /// First step the user still has to act on, scanning from the top. Returns
-    /// `.done` when every required permission is granted — used to resume the
-    /// wizard at the right place rather than always starting at `.welcome`.
+    /// First permission step the user hasn't granted, scanning in wizard order.
+    /// Used to resume a re-walk (Settings ▸ "Set Up Permissions…") at the right
+    /// place rather than always starting at `.welcome`. Input Monitoring is
+    /// optional, but a user re-walking the wizard is usually here to fix a
+    /// missing grant — so it still counts as a resume target.
     var firstIncompleteStep: OnboardingStep {
         if inputMonitoring != .granted { return .inputMonitoring }
 	if accessibility != .granted { return .accessibility }

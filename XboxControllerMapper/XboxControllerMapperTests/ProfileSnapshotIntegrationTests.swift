@@ -71,6 +71,28 @@ final class ProfileSnapshotIntegrationTests: XCTestCase {
                       "Newest snapshot should be the pre-restore checkpoint, got: \(snapshotsAfter.first?.reason ?? "nil")")
     }
 
+	func testRestoreSnapshotRestoresLastUsedProfileHistory() throws {
+		let original = try XCTUnwrap(profileManager.activeProfile)
+		let previous = profileManager.createProfile(name: "Previous")
+		let snapshotTrigger = profileManager.createProfile(name: "Snapshot Trigger")
+		profileManager.setActiveProfile(previous)
+		profileManager.setActiveProfile(original)
+		profileManager.deleteProfile(snapshotTrigger)
+		let snapshot = try XCTUnwrap(
+			profileManager.availableSnapshots().first { $0.reason.contains("Snapshot Trigger") }
+		)
+
+		let later = profileManager.createProfile(name: "Later")
+		profileManager.setActiveProfile(later)
+		XCTAssertEqual(profileManager.lastActiveProfileId, original.id)
+
+		XCTAssertTrue(profileManager.restoreSnapshot(snapshot))
+		XCTAssertEqual(profileManager.activeProfileId, original.id)
+		XCTAssertEqual(profileManager.lastActiveProfileId, previous.id)
+		XCTAssertTrue(profileManager.navigateProfile(.lastUsed))
+		XCTAssertEqual(profileManager.activeProfileId, previous.id)
+	}
+
     // MARK: - snapshotsRevision (drives the History tab's reactive refresh)
 
     func testSnapshotsRevision_startsAtZero() {

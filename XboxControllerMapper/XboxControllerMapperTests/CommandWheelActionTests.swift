@@ -247,6 +247,11 @@ final class CommandWheelActionTests: XCTestCase {
 		XCTAssertEqual(action.defaultIconName, "person.crop.circle")
     }
 
+	func testDefaultIconName_NavigateProfile() {
+		let action = CommandWheelAction(systemCommand: .navigateProfile(.next))
+		XCTAssertEqual(action.defaultIconName, "person.crop.circle")
+	}
+
     func testDefaultIconName_OpenLink() {
         let action = CommandWheelAction(systemCommand: .openLink(url: "https://example.com"))
         XCTAssertEqual(action.defaultIconName, "globe")

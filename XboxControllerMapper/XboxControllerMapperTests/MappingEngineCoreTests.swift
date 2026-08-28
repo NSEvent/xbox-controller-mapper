@@ -175,6 +175,53 @@ final class MappingEngineCoreTests: MappingEngineTestCase {
 			XCTAssertEqual(profileManager.activeProfileId, gamingId)
         }
     }
+
+	func testChordCanToggleLastUsedProfile() async throws {
+		let gamingId = UUID()
+		let desktopId = UUID()
+
+		await MainActor.run {
+			let toggleChord = ChordMapping(
+				buttons: [.leftThumbstick, .rightThumbstick],
+				systemCommand: .navigateProfile(.lastUsed)
+			)
+			let gaming = Profile(id: gamingId, name: "Gaming", isDefault: true, chordMappings: [toggleChord])
+			let desktop = Profile(id: desktopId, name: "Desktop", chordMappings: [toggleChord])
+			profileManager.profiles = [desktop, gaming]
+			profileManager.setActiveProfile(desktop)
+			profileManager.setActiveProfile(gaming)
+			profileManager.flushPendingSaves()
+
+			mappingEngine.disable()
+			mappingEngine = nil
+			profileManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
+			mappingEngine = MappingEngine(
+				controllerService: controllerService,
+				profileManager: profileManager,
+				appMonitor: appMonitor,
+				inputSimulator: mockInputSimulator,
+				midiService: mockMIDIService
+			)
+			mappingEngine.enable()
+			XCTAssertEqual(profileManager.activeProfileId, gamingId)
+			XCTAssertEqual(profileManager.lastActiveProfileId, desktopId)
+		}
+
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		await MainActor.run {
+			controllerService.emitInputEvent(.chordDetected([.leftThumbstick, .rightThumbstick]))
+		}
+		await waitForTasks()
+		await MainActor.run {
+			XCTAssertEqual(profileManager.activeProfileId, desktopId)
+			controllerService.emitInputEvent(.chordDetected([.leftThumbstick, .rightThumbstick]))
+		}
+		await waitForTasks()
+		await MainActor.run {
+			XCTAssertEqual(profileManager.activeProfileId, gamingId)
+		}
+	}
     
     func testLongHold() async throws {
         await MainActor.run {

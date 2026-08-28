@@ -270,7 +270,7 @@ struct GestureMappingSheet: View {
 
             switch editorState.systemCommandCategory {
 			case .profile:
-				ProfileSelectionPicker(selection: $editorState.selectedProfileId, selectedName: $editorState.selectedProfileName)
+				ProfileCommandPicker(selection: $editorState.profileCommand)
             case .app:
                 AppSelectionButton(bundleId: editorState.appBundleIdentifier, showingPicker: $editorState.showingAppPicker)
                     .sheet(isPresented: $editorState.showingAppPicker) {

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-08-27
+
+### Added
+
+- **Profile navigation actions**: map any button to Switch to a specific profile, Next/Previous Profile (sidebar order), or Last Used Profile
+- **Trial status in the menu bar**: the popover now shows days remaining with a Buy shortcut, and when the trial ends it shows a clear "Trial ended" row with a license path instead of stopping silently
+- **Trial-expiry reminder**: a one-time sheet appears when the trial ends, with direct buy and activate-license paths
+
+### Changed
+
+- **Faster first-run setup**: Input Monitoring is now optional — standard Xbox, PlayStation, and Switch controllers work without it, so most users make one System Settings trip instead of two. It remains one click away for the controllers that need it (Steam Controller, generic HID gamepads, Apple TV Remote).
+- **First-run and licensing screens localized**: the setup wizard, trial welcome, license settings, and profile-import safety sheet now appear in German, Japanese, and Simplified/Traditional Chinese
+
+### Fixed
+
+- **Profile order stability**: sidebar profile order is preserved reliably across profile-navigation actions and relaunches
+
 ## [2.6.5] - 2026-08-15
 
 ### Fixed

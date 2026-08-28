@@ -28,8 +28,13 @@ struct TrialWelcomeSheet: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Label("Full access during your free trial — no account needed.", systemImage: "checkmark.circle.fill")
-                Label("Map any controller to keys, mouse, macros, scripts, and more.", systemImage: "gamecontroller.fill")
+                if isExpired {
+                    Label("Your profiles and settings are untouched — activate to pick up where you left off.", systemImage: "checkmark.circle.fill")
+                    Label("One-time purchase, no subscription. Use it on all your Macs.", systemImage: "laptopcomputer.and.iphone")
+                } else {
+                    Label("Full access during your free trial — no account needed.", systemImage: "checkmark.circle.fill")
+                    Label("Map any controller to keys, mouse, macros, scripts, and more.", systemImage: "gamecontroller.fill")
+                }
             }
             .font(.callout)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -76,28 +81,54 @@ struct TrialWelcomeSheet: View {
             .frame(maxWidth: .infinity)
             .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.06)))
 
-            Button {
-                onDone()
-            } label: {
-                Text(license.isLicensed ? "Continue" : "Start Free Trial")
-                    .frame(maxWidth: .infinity)
+            if isExpired {
+                // Expired: buying is the primary action; dismissing is quiet.
+                Button {
+                    if let url = URL(string: Config.updateCheckGumroadURL) {
+                        NSWorkspace.shared.open(url)
+                    }
+                } label: {
+                    Text("Buy ControllerKeys on Gumroad")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+
+                Button("Not Now") {
+                    onDone()
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            } else {
+                Button {
+                    onDone()
+                } label: {
+                    Text(license.isLicensed ? "Continue" : "Start Free Trial")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .keyboardShortcut(.defaultAction)
         }
         .padding(24)
         .frame(width: 460)
     }
 
+    private var isExpired: Bool {
+        if case .expired = license.status { return true }
+        return false
+    }
+
     private var headline: String {
         switch license.status {
         case .licensed:
-            return "Your license is active — you're all set."
+            return String(localized: "Your license is active — you're all set.")
         case .trial(let days):
-            return "You're on a \(days)-day free trial with full access."
+            return String(format: String(localized: "You're on a %lld-day free trial with full access."), days)
         case .expired:
-            return "Your free trial has ended. Enter a license key to keep using ControllerKeys."
+            return String(localized: "Your free trial has ended. Enter a license key to keep using ControllerKeys.")
         }
     }
 

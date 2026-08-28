@@ -232,8 +232,9 @@ struct SettingsSheet: View {
             )
             permissionRow(
                 "Input Monitoring",
-                detail: "Read every controller type",
+                detail: "Steam Controller, HID gamepads, Apple TV Remote",
                 state: permissions.inputMonitoring,
+                optional: true,
                 openSettings: permissions.openInputMonitoringSettings
             )
             permissionRow(
@@ -373,22 +374,24 @@ struct SettingsSheet: View {
     private var licenseStatusTitle: String {
         switch license.status {
         case .licensed:
-            return "Licensed"
+            return String(localized: "Licensed")
         case .trial(let days):
-            return "Free Trial — \(days) day\(days == 1 ? "" : "s") left"
+            return days == 1
+                ? String(localized: "Free Trial — 1 day left")
+                : String(format: String(localized: "Free Trial — %lld days left"), days)
         case .expired:
-            return "Trial Ended"
+            return String(localized: "Trial Ended")
         }
     }
 
     private var licenseStatusSubtitle: String? {
         switch license.status {
         case .licensed:
-            return "Thanks for supporting ControllerKeys."
+            return String(localized: "Thanks for supporting ControllerKeys.")
         case .trial:
-            return "Enter a license key any time to unlock permanently."
+            return String(localized: "Enter a license key any time to unlock permanently.")
         case .expired:
-            return "Controller mapping is paused. Enter a license to re-enable it."
+            return String(localized: "Controller mapping is paused. Enter a license to re-enable it.")
         }
     }
 

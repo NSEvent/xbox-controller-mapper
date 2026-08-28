@@ -68,6 +68,7 @@ struct MenuBarView: View {
     @Environment(\.openWindow) private var openWindow
 
     @StateObject private var dockPreference = DockMenuPreferenceObserver()
+    @ObservedObject private var license = LicenseManager.shared
     @State private var streamOverlayEnabled: Bool = StreamOverlayManager.isEnabled
 
     var body: some View {
@@ -172,13 +173,57 @@ struct MenuBarView: View {
 
     private var quickControlsSection: some View {
         VStack(spacing: 8) {
-            Toggle(isOn: $mappingEngine.isEnabled) {
-                HStack {
-                    Image(systemName: "keyboard")
-                    Text("Mapping Enabled")
+            if license.isActive {
+                Toggle(isOn: $mappingEngine.isEnabled) {
+                    HStack {
+                        Image(systemName: "keyboard")
+                        Text("Mapping Enabled")
+                    }
                 }
+                .toggleStyle(.switch)
+            } else {
+                // Trial expired: the engine stays off and the toggle is replaced
+                // by the license path, so expiry is visible (and not bypassable)
+                // from the surface most users actually see.
+                Button(action: openLicenseSettings) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "lock.fill")
+                            .foregroundColor(.orange)
+                        Text("Trial ended — mapping is off")
+                            .foregroundColor(.orange)
+                        Spacer()
+                        Text("Enter License…")
+                            .font(.caption)
+                    }
+                }
+                .buttonStyle(.plain)
+                .help("Your free trial has ended — click to buy or enter a license key")
             }
-            .toggleStyle(.switch)
+
+            if case let .trial(days) = license.status {
+                Button(action: openLicenseSettings) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "hourglass")
+                            .font(.caption)
+                        // Full singular/plural variants — .strings has no plural
+                        // rules, and fragment composition breaks other languages.
+                        Group {
+                            if days == 1 {
+                                Text("Free trial · 1 day left")
+                            } else {
+                                Text("Free trial · \(days) days left")
+                            }
+                        }
+                        .font(.caption)
+                        Spacer()
+                        Text("Buy…")
+                            .font(.caption)
+                    }
+                    .foregroundColor(days <= 3 ? .orange : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Click for license options")
+            }
 
             Toggle(isOn: $streamOverlayEnabled) {
                 HStack {
@@ -293,6 +338,15 @@ struct MenuBarView: View {
         // worked while the window was still in NSApp.windows.
         openWindow(id: "main")
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Opens the main window with the settings sheet (license section) showing.
+    /// The pending flag covers the window-just-opening case where the
+    /// notification would fire before ContentView subscribes.
+    private func openLicenseSettings() {
+        LicenseUIRequest.pending = true
+        openMainWindow()
+        NotificationCenter.default.post(name: .openLicenseSettings, object: nil)
     }
 
     private func openConnectionGuides() {
