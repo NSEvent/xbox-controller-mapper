@@ -50,6 +50,10 @@ enum DualSenseHIDConstants {
 @MainActor
 extension ControllerService {
 
+    /// Fires on every LED settings apply when no PS controller is connected — once per
+    /// process is enough signal, and unguarded it floods test logs (~1k lines per CI run).
+    private static var didLogNoPlayStationController = false
+
     func detectConnectionType(device: IOHIDDevice) {
         if let transport = IOHIDDeviceGetProperty(device, kIOHIDTransportKey as CFString) as? String {
             let isBluetooth = (transport.lowercased() == "bluetooth")
@@ -129,7 +133,10 @@ extension ControllerService {
             }
         } else {
             #if DEBUG
-            print("[LED] No PlayStation controller available (isDualSense=\(isDualSense), isDualShock=\(isDualShock))")
+            if !Self.didLogNoPlayStationController {
+                Self.didLogNoPlayStationController = true
+                print("[LED] No PlayStation controller available (isDualSense=\(isDualSense), isDualShock=\(isDualShock))")
+            }
             #endif
             return
         }

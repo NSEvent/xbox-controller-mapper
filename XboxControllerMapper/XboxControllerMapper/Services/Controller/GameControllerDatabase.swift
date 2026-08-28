@@ -101,6 +101,11 @@ struct SDLControllerMapping {
 class GameControllerDatabase {
     static let shared = GameControllerDatabase()
 
+    /// Once-per-process guard for the missing-database log line; tests construct many
+    /// instances and the repeated print pads CI logs. Benign race — worst case is one
+    /// duplicate line.
+    nonisolated(unsafe) private static var didLogMissingDatabase = false
+
     /// Guards `mappings` and `allPlatformMappings`. `refreshFromGitHub()` can
     /// rebuild the dictionaries on a background thread while lookups run from
     /// the main thread / generic HID setup queue, so every read and the swap-in
@@ -373,7 +378,10 @@ class GameControllerDatabase {
 
 	guard loadedAnyDatabase else {
             #if DEBUG
-		print("[GameControllerDB] No database file found")
+            if !Self.didLogMissingDatabase {
+                Self.didLogMissingDatabase = true
+                print("[GameControllerDB] No database file found")
+            }
             #endif
             return
         }
