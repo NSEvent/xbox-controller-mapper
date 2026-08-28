@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Review prompt**: a one-time, dismissible sheet invites long-time licensed users to leave a Gumroad review, with "Not Now" (asks once more later) and "Don't Ask Again" options
+
 ## [2.7.0] - 2026-08-27
 
 ### Added

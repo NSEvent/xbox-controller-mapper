@@ -40,6 +40,10 @@ struct ContentView: View {
     @AppStorage("hasShownExpirySheet") private var hasShownExpirySheet = false
     @ObservedObject private var license = LicenseManager.shared
     @State private var showingWelcome = false
+    // One-time, dismissible "leave a review" nudge for long-time licensed users.
+    // Timing/one-shot logic lives in ReviewRequestManager; this only drives the
+    // sheet.
+    @State private var showingReviewRequest = false
     @AppStorage("hasCompletedPermissionsOnboarding") private var hasCompletedOnboarding = false
     // Decoupled from the permissions wizard: tracks whether the user has seen the
     // one-time interactive controller intro. Lets existing users who already
@@ -268,6 +272,25 @@ struct ContentView: View {
             }
             .interactiveDismissDisabled()
         }
+        .isolatedSheet(isPresented: $showingReviewRequest) {
+            ReviewRequestSheet(
+                onLeaveReview: {
+                    ReviewRequestManager.shared.apply(.leaveReview)
+                    if let url = URL(string: Config.updateCheckGumroadURL) {
+                        NSWorkspace.shared.open(url)
+                    }
+                    showingReviewRequest = false
+                },
+                onNotNow: {
+                    ReviewRequestManager.shared.apply(.notNow)
+                    showingReviewRequest = false
+                },
+                onDontAskAgain: {
+                    ReviewRequestManager.shared.apply(.dontAskAgain)
+                    showingReviewRequest = false
+                }
+            )
+        }
         .isolatedSheet(isPresented: $showingOnboarding) {
             OnboardingView(startStep: onboardingStartStep) {
                 hasCompletedOnboarding = true
@@ -419,6 +442,24 @@ struct ContentView: View {
                   AppRuntime.screenshotVariant == nil else { return }
             hasShownExpirySheet = true
             showingWelcome = true
+        }
+        // Start the review-request clock the moment the app becomes licensed, so
+        // the 7-day wait is anchored to activation rather than the next relaunch.
+        .onReceive(license.$status) { status in
+            guard case .licensed = status, AppRuntime.screenshotVariant == nil else { return }
+            ReviewRequestManager.shared.recordLicensedSightingIfNeeded()
+        }
+        // One-time review nudge for established licensed users. Evaluated on
+        // window open (no timer), and only when no first-run/expiry sheet is
+        // contending — those take precedence over the ask.
+        .onAppear {
+            guard AppRuntime.screenshotVariant == nil,
+                  license.isLicensed,
+                  !showingOnboarding, !showingWelcome, !showingReviewRequest else { return }
+            if ReviewRequestManager.shared.evaluateForLicensedLaunch() {
+                ReviewRequestManager.shared.markShown()
+                showingReviewRequest = true
+            }
         }
         // Returning from System Settings re-activates the window; refresh so the
         // revoked-permission banner clears (and grant hooks fire) without a relaunch.

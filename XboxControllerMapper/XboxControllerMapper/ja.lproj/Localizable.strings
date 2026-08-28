@@ -865,3 +865,9 @@
 " and " = "、";
 "1 line of JavaScript" = "JavaScript 1 行";
 "%lld lines of JavaScript" = "JavaScript %lld 行";
+
+/* Review request (added 2026-08-28) */
+"Enjoying ControllerKeys?" = "ControllerKeys を気に入っていただけましたか？";
+"A short review on Gumroad helps other controller people find it — and genuinely helps an indie app grow." = "Gumroad に短いレビューを書いていただくと、ほかのコントローラーユーザーが見つけやすくなり、個人開発のアプリの成長にも本当に役立ちます。";
+"Leave a Review" = "レビューを書く";
+"Don't Ask Again" = "今後表示しない";

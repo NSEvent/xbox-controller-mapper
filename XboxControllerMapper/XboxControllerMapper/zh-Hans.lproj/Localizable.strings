@@ -865,3 +865,9 @@
 " and " = "和";
 "1 line of JavaScript" = "1 行 JavaScript";
 "%lld lines of JavaScript" = "%lld 行 JavaScript";
+
+/* Review request (added 2026-08-28) */
+"Enjoying ControllerKeys?" = "喜欢 ControllerKeys 吗？";
+"A short review on Gumroad helps other controller people find it — and genuinely helps an indie app grow." = "在 Gumroad 上留下简短的评价，能帮助更多手柄玩家发现它——也确实能帮助一款独立应用成长。";
+"Leave a Review" = "撰写评价";
+"Don't Ask Again" = "不再询问";

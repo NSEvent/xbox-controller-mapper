@@ -865,3 +865,9 @@
 " and " = " und ";
 "1 line of JavaScript" = "1 Zeile JavaScript";
 "%lld lines of JavaScript" = "%lld Zeilen JavaScript";
+
+/* Review request (added 2026-08-28) */
+"Enjoying ControllerKeys?" = "Gefällt dir ControllerKeys?";
+"A short review on Gumroad helps other controller people find it — and genuinely helps an indie app grow." = "Eine kurze Bewertung auf Gumroad hilft anderen Controller-Fans, die App zu finden – und hilft einer Indie-App wirklich beim Wachsen.";
+"Leave a Review" = "Bewertung schreiben";
+"Don't Ask Again" = "Nicht mehr fragen";
