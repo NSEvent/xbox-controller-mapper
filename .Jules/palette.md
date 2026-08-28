@@ -25,3 +25,7 @@
 ## 2026-06-23 - [SwiftUI Button Accessibility]
 **Learning:** Found a pattern where SwiftUI icon-only buttons or minimal UI elements were given `.help()` modifiers for hover tooltips but lacked `.accessibilityLabel()` modifiers for screen readers.
 **Action:** When adding `.help()` to buttons, always pair it with a corresponding `.accessibilityLabel()` to ensure full accessibility.
+
+## 2024-05-18 - [Accessibility context in generic list rows]
+**Learning:** Found that generic icon-only buttons (like Edit/Delete) inside lists lacked specific context for screen readers. Using variables from the list loop in string interpolation (`"Edit \(item.name)"`) makes them significantly more navigable.
+**Action:** Always include item-specific properties inside `accessibilityLabel` modifiers on buttons inside `ForEach` loops, and ensure fallbacks exist for empty string cases (e.g. `macro.name.isEmpty ? "Unnamed Macro" : macro.name`).

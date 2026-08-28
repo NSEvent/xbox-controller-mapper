@@ -116,7 +116,7 @@ struct ChordRow: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Edit")
-                .accessibilityLabel("Edit")
+                .accessibilityLabel("Edit \(chord.actionDisplayString.isEmpty ? "Unnamed Chord" : chord.actionDisplayString)")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
@@ -124,7 +124,7 @@ struct ChordRow: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Delete")
-                .accessibilityLabel("Delete")
+                .accessibilityLabel("Delete \(chord.actionDisplayString.isEmpty ? "Unnamed Chord" : chord.actionDisplayString)")
             }
         }
         .padding(.horizontal, 12)
@@ -262,7 +262,7 @@ struct SequenceRow: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Edit")
-                .accessibilityLabel("Edit")
+                .accessibilityLabel("Edit \(sequence.actionDisplayString.isEmpty ? "Unnamed Sequence" : sequence.actionDisplayString)")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
@@ -270,7 +270,7 @@ struct SequenceRow: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Delete")
-                .accessibilityLabel("Delete")
+                .accessibilityLabel("Delete \(sequence.actionDisplayString.isEmpty ? "Unnamed Sequence" : sequence.actionDisplayString)")
             }
         }
         .padding(.horizontal, 12)
