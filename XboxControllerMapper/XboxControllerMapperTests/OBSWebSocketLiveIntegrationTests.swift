@@ -166,10 +166,14 @@ private enum OBSMediaMTXManager {
         let outPipe = Pipe()
         which.standardOutput = outPipe
         which.standardError = Pipe()
-        try? which.run()
+        do {
+            try which.run()
+        } catch {
+            throw XCTSkip("mediamtx not found. Install with `brew install mediamtx` or set MEDIAMTX_BIN")
+        }
+        let data = outPipe.fileHandleForReading.readDataToEndOfFile()
         which.waitUntilExit()
         if which.terminationStatus == 0 {
-            let data = outPipe.fileHandleForReading.readDataToEndOfFile()
             if let path = String(data: data, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
                !path.isEmpty,
