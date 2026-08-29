@@ -263,7 +263,8 @@ struct CommandPaletteView: View {
 
     private func row(_ destination: CommandPaletteDestination, index: Int) -> some View {
         let isSelected = index == selectedIndex
-        return HStack(spacing: 12) {
+        return Button(action: { onSelect(destination); dismiss() }) {
+            HStack(spacing: 12) {
             Image(systemName: destination.systemImage)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(isSelected ? Color.white : .secondary)
@@ -300,7 +301,8 @@ struct CommandPaletteView: View {
                 .fill(isSelected ? Color.accentColor.opacity(0.16) : Color.clear)
         )
         .contentShape(Rectangle())
-        .onTapGesture { onSelect(destination); dismiss() }
+        }
+        .buttonStyle(.plain)
         .onHover { hovering in if hovering { model.selectedIndex = index } }
     }
 
