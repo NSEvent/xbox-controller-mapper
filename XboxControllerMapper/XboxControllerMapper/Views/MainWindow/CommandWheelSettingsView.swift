@@ -130,19 +130,21 @@ struct CommandWheelSettingsView: View {
                     }
                 } else {
                     ForEach(actions) { action in
-                        CommandWheelActionRow(
-                            action: action,
-                            isSelected: selectedItemId == action.id,
-                            onEdit: { editingAction = action },
-							onDelete: {
-								profileManager.removeCommandWheelAction(action, layerId: selectedLayerId)
-							}
-                        )
-						.allowsHitTesting(canEdit)
-                        .onTapGesture {
+                        Button(action: {
                             selectedItemId = action.id
                             editingAction = action
+                        }) {
+                            CommandWheelActionRow(
+                                action: action,
+                                isSelected: selectedItemId == action.id,
+                                onEdit: { editingAction = action },
+                                onDelete: {
+                                    profileManager.removeCommandWheelAction(action, layerId: selectedLayerId)
+                                }
+                            )
+                            .allowsHitTesting(canEdit)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
 
