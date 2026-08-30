@@ -36,3 +36,6 @@
 ## 2024-05-18 - [SwiftUI Button Accessibility]
 **Learning:** Using `.onTapGesture` on generic views like `HStack` prevents interactive elements from properly supporting keyboard focus and VoiceOver accessibility.
 **Action:** Always wrap interactive list rows in a `Button` with `.buttonStyle(.plain)` instead of attaching `.onTapGesture` to views, ensuring `.contentShape(Rectangle())` is applied within the button to maintain the clickable area.
+## 2024-08-30 - Replace .onTapGesture with Button for A11y
+**Learning:** Using `.onTapGesture` prevents interactive UI elements from being focusable by VoiceOver and keyboard navigation. Wrapping them in a `Button` with `.buttonStyle(.plain)` restores full accessibility and interactive traits.
+**Action:** When making custom views tappable (like custom rows or list items), use `Button(action:)` combined with `.buttonStyle(.plain)` instead of `.onTapGesture`. Ensure `.contentShape(Rectangle())` is applied to maintain the hit area.
