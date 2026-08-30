@@ -106,6 +106,8 @@ struct MacroEditorSheet: View {
                         .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
                         .cornerRadius(6)
                         .contentShape(Rectangle())
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityLabel("Edit step \(index + 1)")
                         .onTapGesture {
                             editingStepIndex = index
                             showingStepEditor = true
@@ -223,18 +225,21 @@ struct AddStepRow: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "plus.circle.fill")
-                .font(.system(size: 16))
-                .foregroundColor(.accentColor)
-            Text("Add Step")
-                .font(.system(size: 13))
+        Button(action: onTap) {
+            HStack(spacing: 8) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(.accentColor)
+                Text("Add Step")
+                    .font(.system(size: 13))
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, 8)
+            .background(isHovered ? Color.accentColor.opacity(0.15) : Color(nsColor: .controlBackgroundColor).opacity(0.3))
+            .cornerRadius(6)
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.vertical, 8)
-        .background(isHovered ? Color.accentColor.opacity(0.15) : Color(nsColor: .controlBackgroundColor).opacity(0.3))
-        .cornerRadius(6)
-        .contentShape(Rectangle())
+        .buttonStyle(.plain)
         .onHover { hovering in
             isHovered = hovering
             if hovering {
@@ -242,9 +247,6 @@ struct AddStepRow: View {
             } else {
                 NSCursor.pop()
             }
-        }
-        .onTapGesture {
-            onTap()
         }
     }
 }
