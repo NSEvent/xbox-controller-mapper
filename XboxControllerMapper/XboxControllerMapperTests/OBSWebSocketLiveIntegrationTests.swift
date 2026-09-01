@@ -179,7 +179,8 @@ private enum OBSMediaMTXManager {
                 }
             }
         } catch {
-            // Fall through if launch fails
+            // If the process fails to launch, we don't block.
+            try? outPipe.fileHandleForReading.close()
         }
 
         throw XCTSkip("mediamtx not found. Install with `brew install mediamtx` or set MEDIAMTX_BIN")
