@@ -82,7 +82,7 @@ enum GyroActivationResolver {
         guard !pauseButtonsDown else { return false }   // ratchet always wins
         let base: Bool
         switch mode {
-        case .focusModifier: base = isFocusActive
+        case .focusModifier: base = isFocusActive || toggledOn  // toggle is additive here
         case .alwaysOn:      base = toggledOn           // starts true; Toggle can park it off
         case .gyroButton:    base = toggledOn           // starts false; Toggle/Hold turn it on
         }
