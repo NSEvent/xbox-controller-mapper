@@ -130,6 +130,16 @@ On profile switch or enable/disable, `gyroToggledOn = (mode == .alwaysOn)`.
   covers both). Without some physical confirmation a silent toggle on the mute button
   is guess-and-check.
 
+**Idle bias recalibration (always-on drift).** Today calibration runs only at
+activation edges, which is fine when activations are short focus-mode bursts. In
+always-on mode the edge fires once per profile load, and gyro bias drifts with
+temperature over a session — the cursor would slowly creep. Add an idle
+recalibration: when the filtered rates stay below the deadzone continuously for
+`Config.gyroIdleRecalibrationWindow` (~2s), re-zero the accumulated bias (Steam: rerun
+the bias frames; GCController-path: clear accumulated rates). The controller resting
+on a desk is exactly the calibration opportunity. Device pass must include a
+resting-drift check after 15+ minutes of always-on use.
+
 `ControllerMotionActivationPolicy` already enables motion whenever
 `gyroAimingEnabled` is true, so always-on needs no policy change. Battery note for the
 docs: always-on keeps the DualSense IMU streaming whenever the profile is active —
