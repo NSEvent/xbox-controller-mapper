@@ -178,6 +178,7 @@ extension ControllerService {
             storage.lock.unlock()
         }
 		controllerMappingSource = mapping.platform == "Mac OS X" ? nil : "SDL \(mapping.platform) fallback"
+        reportControllerConnectionForTelemetry(fallback: .generic)
         startDisplayUpdateTimer()
 
         #if DEBUG

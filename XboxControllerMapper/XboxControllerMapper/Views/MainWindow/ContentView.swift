@@ -293,6 +293,7 @@ struct ContentView: View {
         }
         .isolatedSheet(isPresented: $showingOnboarding) {
             OnboardingView(startStep: onboardingStartStep) {
+                TelemetryService.shared.onboardingCompleted()
                 hasCompletedOnboarding = true
                 hasSeenControllerIntro = true
                 showingOnboarding = false

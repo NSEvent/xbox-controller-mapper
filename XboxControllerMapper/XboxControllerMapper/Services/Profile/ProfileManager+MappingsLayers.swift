@@ -11,6 +11,7 @@ extension ProfileManager {
         targetProfile.buttonMappings[button] = mapping
 		targetProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: button)
         updateProfile(targetProfile)
+        TelemetryService.shared.firstMappingReady(origin: .manual, workflow: .button)
     }
 
     func removeMapping(for button: ControllerButton, in profile: Profile? = nil) {
@@ -67,6 +68,7 @@ extension ProfileManager {
 			afterChanging: ControllerButton.joystickDirectionButton(side: side, direction: .up)
 		)
         updateProfile(targetProfile)
+        TelemetryService.shared.firstMappingReady(origin: .manual, workflow: .button)
     }
 
     func stickDirectionPreset(side: JoystickSide, in profile: Profile? = nil) -> StickDirectionPreset? {
@@ -158,6 +160,7 @@ extension ProfileManager {
 
         targetProfile.chordMappings.append(chord)
         updateProfile(targetProfile)
+        TelemetryService.shared.firstMappingReady(origin: .manual, workflow: .chord)
     }
 
     func removeChord(_ chord: ChordMapping, in profile: Profile? = nil) {
@@ -190,6 +193,7 @@ extension ProfileManager {
 
         targetProfile.sequenceMappings.append(sequence)
         updateProfile(targetProfile)
+        TelemetryService.shared.firstMappingReady(origin: .manual, workflow: .sequence)
     }
 
     func removeSequence(_ sequence: SequenceMapping, in profile: Profile? = nil) {
@@ -222,6 +226,7 @@ extension ProfileManager {
 
         targetProfile.gestureMappings.append(gesture)
         updateProfile(targetProfile)
+        TelemetryService.shared.firstMappingReady(origin: .manual, workflow: .gesture)
     }
 
     func removeGesture(_ gesture: GestureMapping, in profile: Profile? = nil) {
@@ -313,6 +318,7 @@ extension ProfileManager {
 
         targetProfile.layers[layerIndex].buttonMappings[button] = mapping
         updateProfile(targetProfile)
+        TelemetryService.shared.firstMappingReady(origin: .manual, workflow: .layer)
     }
 
     /// Removes a button mapping from a specific layer

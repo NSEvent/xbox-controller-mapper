@@ -65,8 +65,11 @@ struct TrialWelcomeSheet: View {
                     .disabled(isVerifying || licenseKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
 
-                if let url = URL(string: Config.updateCheckGumroadURL) {
-                    Link("Get your license key on Gumroad", destination: url)
+                if URL(string: Config.updateCheckGumroadURL) != nil {
+                    Button("Get your license key on Gumroad") {
+                        openCheckout(surface: "trial_welcome_link")
+                    }
+                        .buttonStyle(.link)
                         .font(.caption)
                 }
 
@@ -84,9 +87,7 @@ struct TrialWelcomeSheet: View {
             if isExpired {
                 // Expired: buying is the primary action; dismissing is quiet.
                 Button {
-                    if let url = URL(string: Config.updateCheckGumroadURL) {
-                        NSWorkspace.shared.open(url)
-                    }
+                    openCheckout(surface: "expired_sheet")
                 } label: {
                     Text("Buy ControllerKeys on Gumroad")
                         .frame(maxWidth: .infinity)
@@ -114,6 +115,11 @@ struct TrialWelcomeSheet: View {
         }
         .padding(24)
         .frame(width: 460)
+        .onAppear {
+            TelemetryService.shared.paywallViewed(
+                surface: isExpired ? "expired_sheet" : "trial_welcome"
+            )
+        }
     }
 
     private var isExpired: Bool {
@@ -146,5 +152,11 @@ struct TrialWelcomeSheet: View {
                 onDone()
             }
         }
+    }
+
+    private func openCheckout(surface: String) {
+        guard let url = URL(string: Config.updateCheckGumroadURL) else { return }
+        TelemetryService.shared.checkoutOpened(surface: surface)
+        NSWorkspace.shared.open(url)
     }
 }

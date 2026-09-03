@@ -88,6 +88,11 @@ struct MappingExecutor {
 
         // Record output action category
         recordOutputAction(action, profile: profile)
+        let telemetry = telemetryCategory(for: action)
+        TelemetryService.shared.recordSuccessfulAction(
+            category: telemetry.category,
+            isComplex: telemetry.isComplex
+        )
     }
 
     /// Executes any action mapping and returns feedback text without logging.
@@ -159,5 +164,26 @@ struct MappingExecutor {
                 service.recordKeyPress()
             }
         }
+    }
+
+    /// Privacy-safe category for aggregate product telemetry. Deliberately
+    /// excludes the button, key code, target app, URL, script, and profile.
+    private func telemetryCategory(
+        for action: any ExecutableAction
+    ) -> (category: TelemetryService.FeatureCategory, isComplex: Bool) {
+        if let command = action.systemCommand {
+            switch command {
+            case .switchProfile, .navigateProfile, .centerOuraRing, .toggleOuraMotion:
+                return (.profileControl, false)
+            case .httpRequest, .launchApp, .obsWebSocket, .openLink, .shellCommand:
+                return (.automation, true)
+            }
+        }
+        if action.macroId != nil || action.scriptId != nil { return (.macro, true) }
+        if action.midiControlChange != nil { return (.midi, false) }
+        if let keyCode = action.keyCode {
+            return (KeyCodeMapping.isMouseButton(keyCode) ? .pointer : .keyboard, false)
+        }
+        return (.other, false)
     }
 }

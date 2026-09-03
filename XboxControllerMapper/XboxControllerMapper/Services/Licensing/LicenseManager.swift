@@ -218,10 +218,12 @@ final class LicenseManager: ObservableObject {
 
         let key = rawKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else {
+            TelemetryService.shared.licenseActivationFailed(.emptyKey)
             return VerifyResult(success: false, message: String(localized: "Enter your license key."))
         }
 
         guard let url = URL(string: "https://api.gumroad.com/v2/licenses/verify") else {
+            TelemetryService.shared.licenseActivationFailed(.server)
             return VerifyResult(success: false, message: String(localized: "Internal error building the request."))
         }
 
@@ -245,12 +247,16 @@ final class LicenseManager: ObservableObject {
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else {
+                TelemetryService.shared.licenseActivationFailed(.network)
                 return VerifyResult(success: false, message: String(localized: "No response from Gumroad."))
             }
             let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
 
             // Gumroad returns 404 when the key/product isn't found.
             guard http.statusCode == 200, (json?["success"] as? Bool) == true else {
+                TelemetryService.shared.licenseActivationFailed(
+                    http.statusCode >= 500 ? .server : .invalidKey
+                )
                 let message = (json?["message"] as? String) ?? String(localized: "That license key wasn't recognized.")
                 return VerifyResult(success: false, message: message)
             }
@@ -260,6 +266,7 @@ final class LicenseManager: ObservableObject {
                 let disputed = (purchase["disputed"] as? Bool) ?? false
                 let chargebacked = (purchase["chargebacked"] as? Bool) ?? false
                 if refunded || disputed || chargebacked {
+                    TelemetryService.shared.licenseActivationFailed(.revokedPurchase)
                     return VerifyResult(
                         success: false,
                         message: String(localized: "This license is no longer valid (the purchase was refunded or disputed).")
@@ -276,6 +283,7 @@ final class LicenseManager: ObservableObject {
             TelemetryService.shared.licenseActivated(saleID: saleID)
             return VerifyResult(success: true, message: String(localized: "License activated — thank you for your support!"))
         } catch {
+            TelemetryService.shared.licenseActivationFailed(.network)
             return VerifyResult(
                 success: false,
                 message: String(localized: "Couldn't reach Gumroad. Check your connection and try again.")

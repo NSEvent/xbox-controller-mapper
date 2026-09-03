@@ -729,7 +729,7 @@ class ProfileManager: ObservableObject {
 
     /// Imports a profile that was previously fetched (e.g., from preview cache)
     func importFetchedProfile(_ profile: Profile) -> Profile {
-        persistImportedProfile(ProfileTransferService.prepareForImport(profile))
+        persistImportedProfile(ProfileTransferService.prepareForImport(profile), origin: .community)
     }
 
     /// Imports a profile built from a Stream Deck profile
@@ -742,14 +742,18 @@ class ProfileManager: ObservableObject {
         let downloadedProfile = try await CommunityProfileClient.fetchProfile(from: urlString)
         return await MainActor.run {
             let importedProfile = ProfileTransferService.prepareForImport(downloadedProfile)
-            return persistImportedProfile(importedProfile)
+            return persistImportedProfile(importedProfile, origin: .community)
         }
     }
 
-    private func persistImportedProfile(_ profile: Profile) -> Profile {
+    private func persistImportedProfile(
+        _ profile: Profile,
+        origin: TelemetryService.ProfileOrigin = .import
+    ) -> Profile {
         snapshotCurrentState(reason: "Before importing '\(profile.name)'")
         profiles.append(profile)
         saveConfiguration()
+        TelemetryService.shared.firstMappingReady(origin: origin, workflow: .import)
         return profile
     }
 }

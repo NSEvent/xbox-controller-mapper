@@ -477,6 +477,7 @@ extension ControllerService {
 			storage.lock.unlock()
 
         isConnected = true
+        reportControllerConnectionForTelemetry(fallback: .steam)
 
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)

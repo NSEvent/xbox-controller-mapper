@@ -1096,6 +1096,7 @@ class ControllerService: ObservableObject {
         // Publish connection only after controller-specific handlers have populated
         // storage flags like isDualSense/isXboxElite. MappingEngine reacts to this publisher.
         isConnected = true
+        reportControllerConnectionForTelemetry()
 
         // Force SwiftUI to re-read computed properties (threadSafeIsXboxElite, etc.)
         // that depend on storage flags set during setupInputHandlers.
@@ -1335,6 +1336,7 @@ class ControllerService: ObservableObject {
 		currentControllerIdentity = nil
 		controllerName = "Oura Ring"
 		controllerMappingSource = "Oura Ring"
+		reportControllerConnectionForTelemetry(fallback: .wearable)
 		if !AppRuntime.isRunningTests {
 			startDisplayUpdateTimer()
 		}
@@ -1346,6 +1348,7 @@ class ControllerService: ObservableObject {
 		currentControllerIdentity = nil
 		controllerName = "Beamdesk Hands"
 		controllerMappingSource = "Beamdesk Hands"
+		reportControllerConnectionForTelemetry(fallback: .handTracking)
 		if !AppRuntime.isRunningTests {
 			startDisplayUpdateTimer()
 		}

@@ -908,6 +908,7 @@ extension ControllerService {
 		controllerName = "Apple TV Remote"
 		isGenericController = false
 		isConnected = true
+		reportControllerConnectionForTelemetry(fallback: .appleTVRemote)
 		batteryMonitor.allowsSerialNamedPeripherals = true
 		batteryMonitor.refreshBatteryLevel()
 		updateBatteryInfo()

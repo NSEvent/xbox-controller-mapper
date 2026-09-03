@@ -213,6 +213,7 @@ struct SettingsSheet: View {
             }
 			.onChange(of: shareUsageData) { _, enabled in
 				updater.setUsageAnalyticsEnabled(enabled)
+				TelemetryService.shared.preferenceChanged(enabled: enabled)
 			}
         } header: {
             Text("Privacy")
@@ -335,8 +336,12 @@ struct SettingsSheet: View {
                     .disabled(isVerifyingLicense || licenseKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
 
-                if let url = URL(string: Config.updateCheckGumroadURL) {
-                    Link("Buy a license", destination: url)
+				if let url = URL(string: Config.updateCheckGumroadURL) {
+                    Button("Buy a license") {
+                        TelemetryService.shared.checkoutOpened(surface: "settings")
+                        NSWorkspace.shared.open(url)
+                    }
+                        .buttonStyle(.link)
                         .font(.callout)
                 }
             }
@@ -352,6 +357,11 @@ struct SettingsSheet: View {
             }
         } header: {
             Text("License")
+        }
+        .onAppear {
+            if !license.isLicensed {
+                TelemetryService.shared.paywallViewed(surface: "settings")
+            }
         }
     }
 
