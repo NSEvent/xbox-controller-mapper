@@ -173,18 +173,19 @@ final class GyroActionInterceptTests: MappingEngineTestCase {
 
         await MainActor.run { controllerService.buttonPressed(.micMute) }
         await waitForTasks(0.2)
-        XCTAssertTrue(
-            mappingEngine.state.lock.withLock { mappingEngine.state.gyroHoldButtons.contains(.micMute) },
-            "Press should register the hold button"
-        )
+        let heldAfterPress = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.gyroHoldButtons.contains(.micMute) }
+        }
+        XCTAssertTrue(heldAfterPress, "Press should register the hold button")
 
         await MainActor.run { controllerService.buttonReleased(.micMute) }
         await waitForTasks(0.2)
-        XCTAssertFalse(
-            mappingEngine.state.lock.withLock { mappingEngine.state.gyroHoldButtons.contains(.micMute) },
-            "Release should clear the hold button"
-        )
-        XCTAssertTrue(noGyroKeyEventsEmitted(), "Gyro actions must not emit key events")
+        let heldAfterRelease = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.gyroHoldButtons.contains(.micMute) }
+        }
+        XCTAssertFalse(heldAfterRelease, "Release should clear the hold button")
+        let cleanEvents = noGyroKeyEventsEmitted()
+        XCTAssertTrue(cleanEvents, "Gyro actions must not emit key events")
     }
 
     func testGyroPauseTracksPressAndRelease() async throws {
@@ -201,16 +202,19 @@ final class GyroActionInterceptTests: MappingEngineTestCase {
 
         await MainActor.run { controllerService.buttonPressed(.micMute) }
         await waitForTasks(0.2)
-        XCTAssertTrue(
+        let pausedAfterPress = await MainActor.run {
             mappingEngine.state.lock.withLock { mappingEngine.state.gyroPauseButtons.contains(.micMute) }
-        )
+        }
+        XCTAssertTrue(pausedAfterPress)
 
         await MainActor.run { controllerService.buttonReleased(.micMute) }
         await waitForTasks(0.2)
-        XCTAssertFalse(
+        let pausedAfterRelease = await MainActor.run {
             mappingEngine.state.lock.withLock { mappingEngine.state.gyroPauseButtons.contains(.micMute) }
-        )
-        XCTAssertTrue(noGyroKeyEventsEmitted())
+        }
+        XCTAssertFalse(pausedAfterRelease)
+        let cleanEvents = noGyroKeyEventsEmitted()
+        XCTAssertTrue(cleanEvents)
     }
 
     func testGyroToggleFlipsLatch() async throws {
@@ -226,22 +230,32 @@ final class GyroActionInterceptTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         // gyroButton mode starts with the latch off.
-        XCTAssertFalse(mappingEngine.state.lock.withLock { mappingEngine.state.gyroToggledOn })
+        let initialLatch = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.gyroToggledOn }
+        }
+        XCTAssertFalse(initialLatch)
 
         await MainActor.run {
             controllerService.buttonPressed(.y)
             controllerService.buttonReleased(.y)
         }
         await waitForTasks(0.2)
-        XCTAssertTrue(mappingEngine.state.lock.withLock { mappingEngine.state.gyroToggledOn })
+        let latchAfterFirstTap = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.gyroToggledOn }
+        }
+        XCTAssertTrue(latchAfterFirstTap)
 
         await MainActor.run {
             controllerService.buttonPressed(.y)
             controllerService.buttonReleased(.y)
         }
         await waitForTasks(0.2)
-        XCTAssertFalse(mappingEngine.state.lock.withLock { mappingEngine.state.gyroToggledOn })
-        XCTAssertTrue(noGyroKeyEventsEmitted())
+        let latchAfterSecondTap = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.gyroToggledOn }
+        }
+        XCTAssertFalse(latchAfterSecondTap)
+        let cleanEvents = noGyroKeyEventsEmitted()
+        XCTAssertTrue(cleanEvents)
     }
 
     func testAlwaysOnProfileStartsLatchedOn() async throws {
@@ -254,9 +268,9 @@ final class GyroActionInterceptTests: MappingEngineTestCase {
             )
         }
         try? await Task.sleep(nanoseconds: 50_000_000)
-        XCTAssertTrue(
-            mappingEngine.state.lock.withLock { mappingEngine.state.gyroToggledOn },
-            "Switching to an always-on profile must arm the latch"
-        )
+        let latch = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.gyroToggledOn }
+        }
+        XCTAssertTrue(latch, "Switching to an always-on profile must arm the latch")
     }
 }
