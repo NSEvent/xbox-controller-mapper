@@ -27,6 +27,8 @@ struct OnboardingView: View {
     @State private var step: OnboardingStep = .welcome
     @State private var showAccessibilityHelp = false
     @State private var bluetoothRequested = false
+    @State private var startedAt = Date()
+    @State private var selectedUseCase: TelemetryService.ProductUseCase?
 
     private var stepState: OnboardingStepState {
         OnboardingStepState(
@@ -54,9 +56,12 @@ struct OnboardingView: View {
         .padding(24)
         .frame(width: 480, height: 580)
         .onAppear {
+            startedAt = Date()
             permissions.startPolling()
             step = resolvedInitialStep()
+            recordStepReached(step)
         }
+        .onChange(of: step) { _, newStep in recordStepReached(newStep) }
         .onChange(of: permissions.accessibility) { _, _ in advancePastGrantedRequiredStepIfNeeded() }
         .onChange(of: permissions.inputMonitoring) { _, _ in advancePastGrantedRequiredStepIfNeeded() }
         .onDisappear { permissions.stopPolling() }
@@ -258,6 +263,14 @@ struct OnboardingView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
+
+            Picker("What will you mainly use ControllerKeys for?", selection: $selectedUseCase) {
+                Text("Prefer not to say").tag(nil as TelemetryService.ProductUseCase?)
+                ForEach(TelemetryService.ProductUseCase.allCases) { useCase in
+                    Text(useCaseTitle(useCase)).tag(Optional(useCase))
+                }
+            }
+            .accessibilityHint("Optional anonymous product feedback")
         }
     }
 
@@ -294,7 +307,7 @@ struct OnboardingView: View {
             }
 
             Button(primaryButtonTitle) {
-                if step == .done { onComplete() } else { goNext() }
+                if step == .done { finishOnboarding() } else { goNext() }
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
@@ -394,8 +407,47 @@ struct OnboardingView: View {
     }
 
     private func goNext() {
-        guard let next = step.next else { onComplete(); return }
+        guard let next = step.next else { finishOnboarding(); return }
         withAnimation { step = next }
+    }
+
+    private func finishOnboarding() {
+        TelemetryService.shared.onboardingCompleted(
+            elapsedSeconds: Date().timeIntervalSince(startedAt),
+            accessibilityGranted: permissions.accessibility == .granted,
+            inputMonitoringGranted: permissions.inputMonitoring == .granted,
+            useCase: selectedUseCase
+        )
+        onComplete()
+    }
+
+    private func recordStepReached(_ step: OnboardingStep) {
+        let stage: TelemetryService.OnboardingStage
+        switch step {
+        case .welcome: stage = .welcome
+        case .inputMonitoring: stage = .inputMonitoring
+        case .accessibility: stage = .accessibility
+        case .bluetooth: stage = .bluetooth
+        case .controllerTest: stage = .controllerTest
+        case .done: stage = .done
+        }
+        TelemetryService.shared.onboardingStepReached(
+            stage,
+            accessibilityGranted: permissions.accessibility == .granted,
+            inputMonitoringGranted: permissions.inputMonitoring == .granted
+        )
+    }
+
+    private func useCaseTitle(_ useCase: TelemetryService.ProductUseCase) -> String {
+        switch useCase {
+        case .study: return "Study or flashcards"
+        case .couchControl: return "Couch or media control"
+        case .presentations: return "Presentations"
+        case .creativeTools: return "Creative tools"
+        case .accessibility: return "Accessibility"
+        case .gaming: return "Gaming"
+        case .other: return "Other"
+        }
     }
 
     /// When the user grants a required permission while sitting on its step, flip

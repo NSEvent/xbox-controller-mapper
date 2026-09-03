@@ -17,9 +17,45 @@ extension TelemetryService {
         case `import`, `default`
     }
 
-    enum MappingWorkflow: String, Codable {
+    enum MappingKind: String, Codable {
         case button, chord, sequence, gesture, layer
         case `import`
+    }
+
+    enum ProductUseCase: String, Codable, CaseIterable, Identifiable {
+        case study, presentations, accessibility, gaming, other
+        case couchControl = "couch_control"
+        case creativeTools = "creative_tools"
+
+        var id: String { rawValue }
+    }
+
+    enum OnboardingStage: String, Codable {
+        case welcome, accessibility, bluetooth, done
+        case inputMonitoring = "input_monitoring"
+        case controllerTest = "controller_test"
+    }
+
+    enum ElapsedTimeBucket: String, Codable {
+        case under30Seconds = "under_30s"
+        case thirtyTo59Seconds = "30_to_59s"
+        case oneToTwoMinutes = "1_to_2m"
+        case threeMinutesPlus = "3m_plus"
+
+        init(seconds: TimeInterval) {
+            switch seconds {
+            case ..<30: self = .under30Seconds
+            case ..<60: self = .thirtyTo59Seconds
+            case ..<180: self = .oneToTwoMinutes
+            default: self = .threeMinutesPlus
+            }
+        }
+    }
+
+    enum PermissionStateBucket: String, Codable {
+        case accessibilityMissing = "accessibility_missing"
+        case accessibilityOnly = "accessibility_only"
+        case accessibilityAndInput = "accessibility_and_input"
     }
 
     enum ActivationErrorCategory: String, Codable {
@@ -50,7 +86,11 @@ extension TelemetryService {
         let surface: String?
         let controllerFamily: String?
         let profileOrigin: String?
-        let workflow: String?
+        let mappingKind: String?
+        let useCase: String?
+        let onboardingStage: String?
+        let elapsedTimeBucket: String?
+        let permissionState: String?
         let actionCountBucket: String?
         let featureCategories: [String]?
         let complexActionUsed: Bool?
@@ -58,7 +98,7 @@ extension TelemetryService {
         let errorCategory: String?
 
         enum CodingKeys: String, CodingKey {
-            case event, build, arch, locale, status, channel, surface, workflow, result
+            case event, build, arch, locale, status, channel, surface, result
             case eventID = "event_id"
             case occurredAt = "occurred_at"
             case schemaVersion = "schema_version"
@@ -72,6 +112,11 @@ extension TelemetryService {
             case clientDay = "client_day"
             case controllerFamily = "controller_family"
             case profileOrigin = "profile_origin"
+            case mappingKind = "mapping_kind"
+            case useCase = "use_case"
+            case onboardingStage = "onboarding_stage"
+            case elapsedTimeBucket = "elapsed_time_bucket"
+            case permissionState = "permission_state"
             case actionCountBucket = "action_count_bucket"
             case featureCategories = "feature_categories"
             case complexActionUsed = "complex_action_used"
@@ -101,8 +146,8 @@ extension TelemetryService {
     }
 
     static let defaultEndpoint = URL(string: "https://analytics.kevintang.app/controllerkeys/e")!
-    static let schemaVersion = 2
-    static let funnelVersion = "trial-v2-2026-09"
+    static let schemaVersion = 3
+    static let funnelVersion = "trial-v3-2026-09"
     static let offerVersion = "gumroad-19.99-v1"
     static let maximumOutboxCount = 100
     static let batchSize = 25

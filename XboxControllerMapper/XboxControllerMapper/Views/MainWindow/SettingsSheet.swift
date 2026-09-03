@@ -206,7 +206,7 @@ struct SettingsSheet: View {
             Toggle(isOn: $shareUsageData) {
                 VStack(alignment: .leading, spacing: 2) {
 					Text("Share Usage Analytics")
-					Text("Shares a random install ID, app and Mac details, locale, install channel, and trial/license events. License activation includes its Gumroad sale ID. Never shares controller input, mappings, scripts, or text. Turning this off also disables Sparkle system profiling; update and license checks still connect. [Privacy details](https://www.kevintang.xyz/apps/controller-keys/privacy-policy.html#analytics)")
+					Text("Shares a random install ID; app, Mac, locale, and install-channel details; trial/license events; coarse setup progress, permission state, completion time, and optional use case; and aggregate action categories. License activation includes its Gumroad sale ID. Never shares controller input, mappings, scripts, or text. Raw usage events are retained for 120 days. Turning this off also disables Sparkle system profiling; update and license checks still connect. [Privacy details](https://www.kevintang.xyz/apps/controller-keys/privacy-policy.html#analytics)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -338,11 +338,15 @@ struct SettingsSheet: View {
 
 				if let url = URL(string: Config.updateCheckGumroadURL) {
                     Button("Buy a license") {
-                        TelemetryService.shared.checkoutOpened(surface: "settings")
-                        NSWorkspace.shared.open(url)
+                        if NSWorkspace.shared.open(url) {
+                            TelemetryService.shared.checkoutOpened(surface: "settings")
+                        }
                     }
-                        .buttonStyle(.link)
-                        .font(.callout)
+                    .buttonStyle(.link)
+                    .font(.callout)
+                    .onAppear {
+                        TelemetryService.shared.paywallViewed(surface: "settings")
+                    }
                 }
             }
 
@@ -357,11 +361,6 @@ struct SettingsSheet: View {
             }
         } header: {
             Text("License")
-        }
-        .onAppear {
-            if !license.isLicensed {
-                TelemetryService.shared.paywallViewed(surface: "settings")
-            }
         }
     }
 

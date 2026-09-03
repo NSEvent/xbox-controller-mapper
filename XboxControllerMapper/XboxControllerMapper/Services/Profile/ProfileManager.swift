@@ -753,7 +753,7 @@ class ProfileManager: ObservableObject {
         snapshotCurrentState(reason: "Before importing '\(profile.name)'")
         profiles.append(profile)
         saveConfiguration()
-        TelemetryService.shared.firstMappingReady(origin: origin, workflow: .import)
+        TelemetryService.shared.firstMappingReady(origin: origin, mappingKind: .import)
         return profile
     }
 }

@@ -76,8 +76,14 @@ struct MappingExecutor {
         case .doubleTap: pressType = .doubleTap
         default: pressType = .press
         }
-        let feedback = executeAction(action, profile: profile, button: button, pressType: pressType)
-        inputLogService?.log(buttons: buttons, type: logType, action: feedback)
+        let command = commandFactory.makeCommand(
+            for: action,
+            profile: profile,
+            button: button,
+            pressType: pressType
+        )
+        let outcome = command.executeWithOutcome()
+        inputLogService?.log(buttons: buttons, type: logType, action: outcome.feedback)
 
         // Record button/action type stats
         if buttons.count > 1 {
@@ -86,13 +92,15 @@ struct MappingExecutor {
             usageStatsService?.record(button: button, type: logType)
         }
 
-        // Record output action category
-        recordOutputAction(action, profile: profile)
-        let telemetry = telemetryCategory(for: action)
-        TelemetryService.shared.recordSuccessfulAction(
-            category: telemetry.category,
-            isComplex: telemetry.isComplex
-        )
+        if outcome.didDispatch {
+            // Count only configured output that actually reached its executor.
+            recordOutputAction(action, profile: profile)
+            let telemetry = telemetryCategory(for: action)
+            TelemetryService.shared.recordSuccessfulAction(
+                category: telemetry.category,
+                isComplex: telemetry.isComplex
+            )
+        }
     }
 
     /// Executes any action mapping and returns feedback text without logging.

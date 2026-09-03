@@ -116,9 +116,11 @@ struct TrialWelcomeSheet: View {
         .padding(24)
         .frame(width: 460)
         .onAppear {
-            TelemetryService.shared.paywallViewed(
-                surface: isExpired ? "expired_sheet" : "trial_welcome"
-            )
+            if isExpired {
+                TelemetryService.shared.paywallViewed(surface: "expired_sheet")
+            } else if !license.isLicensed {
+                TelemetryService.shared.trialWelcomeViewed()
+            }
         }
     }
 
@@ -156,7 +158,8 @@ struct TrialWelcomeSheet: View {
 
     private func openCheckout(surface: String) {
         guard let url = URL(string: Config.updateCheckGumroadURL) else { return }
-        TelemetryService.shared.checkoutOpened(surface: surface)
-        NSWorkspace.shared.open(url)
+        if NSWorkspace.shared.open(url) {
+            TelemetryService.shared.checkoutOpened(surface: surface)
+        }
     }
 }

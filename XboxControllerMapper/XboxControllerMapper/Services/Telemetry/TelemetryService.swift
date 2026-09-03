@@ -17,6 +17,7 @@ final class TelemetryService: @unchecked Sendable {
         static let lastLaunchDay = "telemetryLastLaunchDay"
         static let didReportInstall = "telemetryDidReportInstall"
         static let didReportTrialStarted = "telemetryDidReportTrialStarted"
+        static let didReportTrialWelcome = "telemetryDidReportTrialWelcome"
         static let didReportOnboarding = "telemetryDidReportOnboarding"
         static let didReportController = "telemetryDidReportController"
         static let didReportMapping = "telemetryDidReportMapping"
@@ -28,6 +29,27 @@ final class TelemetryService: @unchecked Sendable {
         static let failureCount = "telemetryFailureCount"
         static let retryAfter = "telemetryRetryAfter"
         static let dailyUsage = "telemetryDailyUsageV2"
+    }
+
+    private struct DeliveryMarker: Equatable {
+        enum Value: Equatable { case flag, string(String) }
+
+        let key: String
+        let value: Value
+
+        func isDelivered(in defaults: UserDefaults) -> Bool {
+            switch value {
+            case .flag: return defaults.bool(forKey: key)
+            case .string(let expected): return defaults.string(forKey: key) == expected
+            }
+        }
+
+        func markDelivered(in defaults: UserDefaults) {
+            switch value {
+            case .flag: defaults.set(true, forKey: key)
+            case .string(let value): defaults.set(value, forKey: key)
+            }
+        }
     }
 
     private let endpoint: URL
@@ -78,8 +100,42 @@ final class TelemetryService: @unchecked Sendable {
         }
     }
 
-    func onboardingCompleted() {
-        enqueueMilestoneAsync(event: "onboarding_completed", marker: Key.didReportOnboarding)
+    func onboardingStepReached(
+        _ stage: OnboardingStage,
+        accessibilityGranted: Bool,
+        inputMonitoringGranted: Bool
+    ) {
+        enqueueMilestoneAsync(
+            event: "onboarding_step_reached",
+            marker: "telemetryOnboardingStep.\(stage.rawValue)",
+            onboardingStage: stage.rawValue,
+            permissionState: permissionState(
+                accessibilityGranted: accessibilityGranted,
+                inputMonitoringGranted: inputMonitoringGranted
+            ).rawValue
+        )
+    }
+
+    func onboardingCompleted(
+        elapsedSeconds: TimeInterval,
+        accessibilityGranted: Bool,
+        inputMonitoringGranted: Bool,
+        useCase: ProductUseCase?
+    ) {
+        enqueueMilestoneAsync(
+            event: "onboarding_completed",
+            marker: Key.didReportOnboarding,
+            useCase: useCase?.rawValue,
+            elapsedTimeBucket: ElapsedTimeBucket(seconds: elapsedSeconds).rawValue,
+            permissionState: permissionState(
+                accessibilityGranted: accessibilityGranted,
+                inputMonitoringGranted: inputMonitoringGranted
+            ).rawValue
+        )
+    }
+
+    func trialWelcomeViewed() {
+        enqueueMilestoneAsync(event: "trial_welcome_viewed", marker: Key.didReportTrialWelcome)
     }
 
     func controllerConnected(family: ControllerFamily) {
@@ -90,23 +146,24 @@ final class TelemetryService: @unchecked Sendable {
         )
     }
 
-    func firstMappingReady(origin: ProfileOrigin, workflow: MappingWorkflow) {
+    func firstMappingReady(origin: ProfileOrigin, mappingKind: MappingKind) {
         enqueueMilestoneAsync(
             event: "first_mapping_ready",
             marker: Key.didReportMapping,
             profileOrigin: origin.rawValue,
-            workflow: workflow.rawValue
+            mappingKind: mappingKind.rawValue
         )
     }
 
     func paywallViewed(surface: String) {
         stateQueue.async { [weak self] in
             guard let self, self.canCollect else { return }
-            let marker = "telemetryPaywallDay.\(Self.safeDimension(surface))"
-            let today = Self.dayStamp(self.now())
-            guard self.defaults.string(forKey: marker) != today else { return }
-            if self.enqueue(event: "paywall_viewed", surface: Self.safeDimension(surface)) {
-                self.defaults.set(today, forKey: marker)
+            let safeSurface = Self.safeDimension(surface)
+            let marker = DeliveryMarker(
+                key: "telemetryPaywallDay.\(safeSurface)",
+                value: .string(Self.dayStamp(self.now()))
+            )
+            if self.enqueueTracked(event: "paywall_viewed", marker: marker, surface: safeSurface) {
                 self.flushOutboxIfNeeded()
             }
         }
@@ -149,7 +206,7 @@ final class TelemetryService: @unchecked Sendable {
         let currentDate = now()
         let currentDay = Self.dayStamp(currentDate)
         var completedDay: DailyUsage?
-        var shouldCheckFirstAction = false
+        let shouldCheckFirstAction = !defaults.bool(forKey: Key.didReportFirstAction)
 
         usageLock.lock()
         if dailyUsage.day != currentDay {
@@ -159,7 +216,6 @@ final class TelemetryService: @unchecked Sendable {
         let previousBucket = dailyUsage.actionCountBucket
         let insertedCategory = dailyUsage.categories.insert(category.rawValue).inserted
         let enabledComplex = isComplex && !dailyUsage.usedComplexAction
-        shouldCheckFirstAction = dailyUsage.actionCount == 0
         dailyUsage.actionCount = min(101, dailyUsage.actionCount + 1)
         dailyUsage.usedComplexAction = dailyUsage.usedComplexAction || isComplex
         let changedBucket = previousBucket != dailyUsage.actionCountBucket
@@ -211,16 +267,19 @@ final class TelemetryService: @unchecked Sendable {
             _ = enqueueMilestone(event: "trial_started", marker: Key.didReportTrialStarted, status: status)
         }
 
-        if defaults.string(forKey: Key.lastReportedVersion) != Self.appVersion,
-           enqueue(event: "app_version_first_seen", status: status) {
-            defaults.set(Self.appVersion, forKey: Key.lastReportedVersion)
-        }
+        _ = enqueueTracked(
+            event: "app_version_first_seen",
+            marker: DeliveryMarker(key: Key.lastReportedVersion, value: .string(Self.appVersion)),
+            status: status
+        )
 
         let today = Self.dayStamp(now())
-        if defaults.string(forKey: Key.lastLaunchDay) != today,
-           enqueue(event: "launch", status: status, clientDay: today) {
-            defaults.set(today, forKey: Key.lastLaunchDay)
-        }
+        _ = enqueueTracked(
+            event: "launch",
+            marker: DeliveryMarker(key: Key.lastLaunchDay, value: .string(today)),
+            status: status,
+            clientDay: today
+        )
 
         reportStatusTransitionLocked(status)
         flushOutboxIfNeeded()
@@ -228,15 +287,18 @@ final class TelemetryService: @unchecked Sendable {
 
     private func reportStatusTransitionLocked(_ status: String) {
         defaults.set(status, forKey: Key.lastKnownStatus)
-        guard defaults.string(forKey: Key.lastReportedStatus) != status else { return }
         let event: String?
         switch status {
         case "expired": event = "trial_expired"
         case "licensed": event = "license_valid"
         default: event = nil
         }
-        guard let event, enqueue(event: event, status: status) else { return }
-        defaults.set(status, forKey: Key.lastReportedStatus)
+        guard let event else { return }
+        _ = enqueueTracked(
+            event: event,
+            marker: DeliveryMarker(key: Key.lastReportedStatus, value: .string(status)),
+            status: status
+        )
     }
 
     private func enqueueMilestoneAsync(
@@ -244,7 +306,11 @@ final class TelemetryService: @unchecked Sendable {
         marker: String,
         controllerFamily: String? = nil,
         profileOrigin: String? = nil,
-        workflow: String? = nil
+        mappingKind: String? = nil,
+        useCase: String? = nil,
+        onboardingStage: String? = nil,
+        elapsedTimeBucket: String? = nil,
+        permissionState: String? = nil
     ) {
         stateQueue.async { [weak self] in
             guard let self, self.canCollect else { return }
@@ -253,7 +319,11 @@ final class TelemetryService: @unchecked Sendable {
                 marker: marker,
                 controllerFamily: controllerFamily,
                 profileOrigin: profileOrigin,
-                workflow: workflow
+                mappingKind: mappingKind,
+                useCase: useCase,
+                onboardingStage: onboardingStage,
+                elapsedTimeBucket: elapsedTimeBucket,
+                permissionState: permissionState
             ) {
                 self.flushOutboxIfNeeded()
             }
@@ -267,18 +337,56 @@ final class TelemetryService: @unchecked Sendable {
         status: String? = nil,
         controllerFamily: String? = nil,
         profileOrigin: String? = nil,
-        workflow: String? = nil
+        mappingKind: String? = nil,
+        useCase: String? = nil,
+        onboardingStage: String? = nil,
+        elapsedTimeBucket: String? = nil,
+        permissionState: String? = nil
     ) -> Bool {
-        guard !defaults.bool(forKey: marker) else { return false }
-        guard enqueue(
+        enqueueTracked(
             event: event,
+            marker: DeliveryMarker(key: marker, value: .flag),
             status: status,
             controllerFamily: controllerFamily,
             profileOrigin: profileOrigin,
-            workflow: workflow
-        ) else { return false }
-        defaults.set(true, forKey: marker)
-        return true
+            mappingKind: mappingKind,
+            useCase: useCase,
+            onboardingStage: onboardingStage,
+            elapsedTimeBucket: elapsedTimeBucket,
+            permissionState: permissionState
+        )
+    }
+
+    @discardableResult
+    private func enqueueTracked(
+        event: String,
+        marker: DeliveryMarker,
+        status: String? = nil,
+        clientDay: String? = nil,
+        surface: String? = nil,
+        controllerFamily: String? = nil,
+        profileOrigin: String? = nil,
+        mappingKind: String? = nil,
+        useCase: String? = nil,
+        onboardingStage: String? = nil,
+        elapsedTimeBucket: String? = nil,
+        permissionState: String? = nil
+    ) -> Bool {
+        guard !marker.isDelivered(in: defaults) else { return false }
+        guard !loadOutbox().contains(where: { deliveryMarker(for: $0) == marker }) else { return false }
+        return enqueue(
+            event: event,
+            status: status,
+            clientDay: clientDay,
+            surface: surface,
+            controllerFamily: controllerFamily,
+            profileOrigin: profileOrigin,
+            mappingKind: mappingKind,
+            useCase: useCase,
+            onboardingStage: onboardingStage,
+            elapsedTimeBucket: elapsedTimeBucket,
+            permissionState: permissionState
+        )
     }
 
     private func enqueueAsync(
@@ -343,7 +451,11 @@ final class TelemetryService: @unchecked Sendable {
         surface: String? = nil,
         controllerFamily: String? = nil,
         profileOrigin: String? = nil,
-        workflow: String? = nil,
+        mappingKind: String? = nil,
+        useCase: String? = nil,
+        onboardingStage: String? = nil,
+        elapsedTimeBucket: String? = nil,
+        permissionState: String? = nil,
         actionCountBucket: String? = nil,
         featureCategories: [String]? = nil,
         complexActionUsed: Bool? = nil,
@@ -373,7 +485,11 @@ final class TelemetryService: @unchecked Sendable {
             surface: surface,
             controllerFamily: controllerFamily,
             profileOrigin: profileOrigin,
-            workflow: workflow,
+            mappingKind: mappingKind,
+            useCase: useCase,
+            onboardingStage: onboardingStage,
+            elapsedTimeBucket: elapsedTimeBucket,
+            permissionState: permissionState,
             actionCountBucket: actionCountBucket,
             featureCategories: featureCategories,
             complexActionUsed: complexActionUsed,
@@ -426,6 +542,9 @@ final class TelemetryService: @unchecked Sendable {
         isSending = false
         guard canCollect else { return }
         if let statusCode, (200..<300).contains(statusCode) {
+            for event in batch {
+                deliveryMarker(for: event)?.markDelivered(in: defaults)
+            }
             let sentIDs = Set(batch.map(\.eventID))
             var outbox = loadOutbox()
             outbox.removeAll { sentIDs.contains($0.eventID) }
@@ -455,6 +574,42 @@ final class TelemetryService: @unchecked Sendable {
         scheduleRetry(after: delay)
     }
 
+    private func deliveryMarker(for event: QueuedEvent) -> DeliveryMarker? {
+        let flagKey: String?
+        switch event.event {
+        case "install": flagKey = Key.didReportInstall
+        case "trial_started": flagKey = Key.didReportTrialStarted
+        case "trial_welcome_viewed": flagKey = Key.didReportTrialWelcome
+        case "onboarding_completed": flagKey = Key.didReportOnboarding
+        case "controller_connected_first": flagKey = Key.didReportController
+        case "first_mapping_ready": flagKey = Key.didReportMapping
+        case "first_action_succeeded": flagKey = Key.didReportFirstAction
+        default: flagKey = nil
+        }
+        if let flagKey { return DeliveryMarker(key: flagKey, value: .flag) }
+
+        switch event.event {
+        case "app_version_first_seen":
+            return DeliveryMarker(key: Key.lastReportedVersion, value: .string(event.appVersion))
+        case "launch":
+            guard let day = event.clientDay else { return nil }
+            return DeliveryMarker(key: Key.lastLaunchDay, value: .string(day))
+        case "trial_expired", "license_valid":
+            return DeliveryMarker(key: Key.lastReportedStatus, value: .string(event.status))
+        case "paywall_viewed":
+            guard let surface = event.surface else { return nil }
+            return DeliveryMarker(
+                key: "telemetryPaywallDay.\(surface)",
+                value: .string(String(event.occurredAt.prefix(10)))
+            )
+        case "onboarding_step_reached":
+            guard let stage = event.onboardingStage else { return nil }
+            return DeliveryMarker(key: "telemetryOnboardingStep.\(stage)", value: .flag)
+        default:
+            return nil
+        }
+    }
+
     private func scheduleRetry(after delay: TimeInterval) {
         guard schedulesRetries else { return }
         retryWorkItem?.cancel()
@@ -475,6 +630,14 @@ final class TelemetryService: @unchecked Sendable {
         guard let data = try? JSONEncoder().encode(events) else { return false }
         defaults.set(data, forKey: Key.outbox)
         return true
+    }
+
+    private func permissionState(
+        accessibilityGranted: Bool,
+        inputMonitoringGranted: Bool
+    ) -> PermissionStateBucket {
+        guard accessibilityGranted else { return .accessibilityMissing }
+        return inputMonitoringGranted ? .accessibilityAndInput : .accessibilityOnly
     }
 
     // MARK: - Pseudonymous environment

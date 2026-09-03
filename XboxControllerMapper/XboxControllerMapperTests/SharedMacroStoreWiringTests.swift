@@ -110,9 +110,10 @@ final class SharedMacroStoreWiringTests: XCTestCase {
         let profile = Profile(name: "P")
 
         let command = factory.makeCommand(for: KeyMapping(macroId: macro.id), profile: profile)
-        let feedback = command.execute()
+        let outcome = command.executeWithOutcome()
 
-        XCTAssertEqual(feedback, "Library Macro")
+        XCTAssertEqual(outcome.feedback, "Library Macro")
+        XCTAssertTrue(outcome.didDispatch)
         let completed = await waitUntil { self.mockInputSimulator.events.count >= 1 }
         XCTAssertTrue(completed)
         XCTAssertEqual(mockInputSimulator.events, [.pressKey(5, [])])
@@ -141,17 +142,19 @@ final class SharedMacroStoreWiringTests: XCTestCase {
         profile.sharedMacroSnapshots[macroId] = keyPressProgram(name: "Old Snapshot", keyCode: 7)
 
         let command = factory.makeCommand(for: KeyMapping(macroId: macroId), profile: profile)
-        _ = command.execute()
+        let outcome = command.executeWithOutcome()
 
+        XCTAssertFalse(outcome.didDispatch)
         try? await Task.sleep(nanoseconds: 200_000_000)
         XCTAssertTrue(mockInputSimulator.events.isEmpty, "Empty live macro should not run the stale snapshot")
     }
 
     func testUnresolvableMacroReferenceNoOps() async {
         let command = factory.makeCommand(for: KeyMapping(macroId: UUID()), profile: Profile(name: "P"))
-        let feedback = command.execute()
+        let outcome = command.executeWithOutcome()
 
-        XCTAssertEqual(feedback, "Macro")
+        XCTAssertEqual(outcome.feedback, "Macro")
+        XCTAssertFalse(outcome.didDispatch)
         try? await Task.sleep(nanoseconds: 100_000_000)
         XCTAssertTrue(mockInputSimulator.events.isEmpty)
     }

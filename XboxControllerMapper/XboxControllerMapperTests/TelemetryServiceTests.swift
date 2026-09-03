@@ -81,7 +81,7 @@ final class TelemetryServiceTests: XCTestCase {
             "install", "trial_started", "app_version_first_seen", "launch",
         ])
         for event in events {
-            XCTAssertEqual(event["schema_version"] as? Int, 2)
+            XCTAssertEqual(event["schema_version"] as? Int, 3)
             XCTAssertNotNil(event["event_id"] as? String)
             XCTAssertNotNil(event["occurred_at"] as? String)
             XCTAssertNil(event["key_code"])
@@ -92,6 +92,27 @@ final class TelemetryServiceTests: XCTestCase {
         recorder.respondNext(200)
         service.synchronizeForTesting()
         XCTAssertEqual(service.pendingEventCountForTesting(), 0)
+
+        service.appLaunched(status: "trial")
+        service.synchronizeForTesting()
+        XCTAssertEqual(service.pendingEventCountForTesting(), 0)
+        XCTAssertEqual(recorder.requestBodies().count, 1, "Acknowledged markers must suppress duplicates")
+    }
+
+    func testRejectedMilestonesCanBeQueuedAgain() {
+        let recorder = TransportRecorder()
+        let service = makeService(recorder: recorder)
+
+        service.appLaunched(status: "trial")
+        service.synchronizeForTesting()
+        recorder.respondNext(400)
+        service.synchronizeForTesting()
+        XCTAssertEqual(service.pendingEventCountForTesting(), 0)
+
+        service.appLaunched(status: "trial")
+        service.synchronizeForTesting()
+        XCTAssertEqual(service.pendingEventCountForTesting(), 4)
+        XCTAssertEqual(recorder.requestBodies().count, 2)
     }
 
     func testFailedDeliverySurvivesServiceRecreationAndRetriesWithSameEventIDs() throws {
@@ -144,6 +165,36 @@ final class TelemetryServiceTests: XCTestCase {
         XCTAssertEqual(usefulDay["action_count_bucket"] as? String, "6-25")
         XCTAssertEqual(usefulDay["feature_categories"] as? [String], ["keyboard", "macro"])
         XCTAssertEqual(usefulDay["complex_action_used"] as? Bool, true)
+    }
+
+    func testOnboardingUsesOnlyCoarseOptionalDimensions() throws {
+        let recorder = TransportRecorder()
+        let service = makeService(recorder: recorder)
+
+        service.onboardingStepReached(
+            .inputMonitoring,
+            accessibilityGranted: false,
+            inputMonitoringGranted: false
+        )
+        service.onboardingCompleted(
+            elapsedSeconds: 75,
+            accessibilityGranted: true,
+            inputMonitoringGranted: false,
+            useCase: .couchControl
+        )
+        service.synchronizeForTesting()
+        recorder.respondNext(200)
+        service.synchronizeForTesting()
+
+        let events = try eventPayloads(in: recorder.requestBodies()).flatMap { $0 }
+        let step = try XCTUnwrap(events.first { ($0["event"] as? String) == "onboarding_step_reached" })
+        XCTAssertEqual(step["onboarding_stage"] as? String, "input_monitoring")
+        XCTAssertEqual(step["permission_state"] as? String, "accessibility_missing")
+
+        let completed = try XCTUnwrap(events.first { ($0["event"] as? String) == "onboarding_completed" })
+        XCTAssertEqual(completed["elapsed_time_bucket"] as? String, "1_to_2m")
+        XCTAssertEqual(completed["permission_state"] as? String, "accessibility_only")
+        XCTAssertEqual(completed["use_case"] as? String, "couch_control")
     }
 
     func testOptOutDeletesPendingEvents() {

@@ -11,11 +11,19 @@ import TriggerKitLibrary
 /// with polymorphic dispatch. Each concrete command knows how to execute
 /// itself and provide feedback text.
 ///
-/// `execute()` returns the feedback string because some commands (scripts)
-/// compute feedback during execution.
+struct ActionCommandOutcome {
+    let feedback: String
+    let didDispatch: Bool
+}
+
 protocol ActionCommand {
-    /// Executes the action and returns feedback text for the HUD/log.
-    func execute() -> String
+    /// Executes the action and reports whether any configured output dispatched.
+    func executeWithOutcome() -> ActionCommandOutcome
+}
+
+extension ActionCommand {
+    /// Compatibility path for callers that only need HUD/log feedback.
+    func execute() -> String { executeWithOutcome().feedback }
 }
 
 // MARK: - Concrete Commands
@@ -26,10 +34,10 @@ struct SystemCommandActionCommand: ActionCommand {
     let systemCommandExecutor: SystemCommandExecutor
     let hint: String?
 
-    func execute() -> String {
+    func executeWithOutcome() -> ActionCommandOutcome {
         systemCommandExecutor.execute(systemCommand)
-        if let hint = hint, !hint.isEmpty { return hint }
-        return systemCommand.displayName
+        let feedback = (hint?.isEmpty == false) ? hint! : systemCommand.displayName
+        return ActionCommandOutcome(feedback: feedback, didDispatch: true)
     }
 }
 
@@ -39,13 +47,13 @@ struct MacroActionCommand: ActionCommand {
     let macroExecutor: MacroExecutor
     let hint: String?
 
-    func execute() -> String {
-        if let macro = macro {
+    func executeWithOutcome() -> ActionCommandOutcome {
+        let didDispatch = macro?.steps.isEmpty == false
+        if let macro, didDispatch {
             macroExecutor.execute(macro)
         }
-        if let hint = hint, !hint.isEmpty { return hint }
-        if let macro = macro { return macro.name }
-        return "Macro"
+        let feedback = (hint?.isEmpty == false) ? hint! : (macro?.name ?? "Macro")
+        return ActionCommandOutcome(feedback: feedback, didDispatch: didDispatch)
     }
 }
 
@@ -58,13 +66,14 @@ struct SharedMacroActionCommand: ActionCommand {
     let macroExecutor: MacroExecutor
     let hint: String?
 
-    func execute() -> String {
-        if let program {
+    func executeWithOutcome() -> ActionCommandOutcome {
+        let didDispatch = program?.steps.isEmpty == false
+        if let program, didDispatch {
             macroExecutor.execute(program: program)
         }
-        if let hint = hint, !hint.isEmpty { return hint }
-        if let program = program, !program.name.isEmpty { return program.name }
-        return "Macro"
+        let fallback = program?.name.isEmpty == false ? program!.name : "Macro"
+        let feedback = (hint?.isEmpty == false) ? hint! : fallback
+        return ActionCommandOutcome(feedback: feedback, didDispatch: didDispatch)
     }
 }
 
@@ -80,23 +89,26 @@ struct ScriptActionCommand: ActionCommand {
         (hint?.isEmpty == false) ? hint! : fallback
     }
 
-    func execute() -> String {
+    func executeWithOutcome() -> ActionCommandOutcome {
         guard let scriptEngine = scriptEngine else {
-            return effectiveHint()
+            return ActionCommandOutcome(feedback: effectiveHint(), didDispatch: false)
         }
 
         guard let script = script else {
-            return effectiveHint()
+            return ActionCommandOutcome(feedback: effectiveHint(), didDispatch: false)
         }
 
         let result = scriptEngine.execute(script: script, trigger: trigger)
 
         switch result {
         case .success(let hintOverride):
-            return hintOverride ?? effectiveHint(fallback: script.name)
+            return ActionCommandOutcome(
+                feedback: hintOverride ?? effectiveHint(fallback: script.name),
+                didDispatch: true
+            )
         case .error(let message):
             NSLog("[ScriptActionCommand] Error: %@", message)
-            return "Script Error"
+            return ActionCommandOutcome(feedback: "Script Error", didDispatch: false)
         }
     }
 }
@@ -107,10 +119,10 @@ struct MIDIControlChangeActionCommand: ActionCommand {
     let midiService: any MIDIControlChangeSending
     let hint: String?
 
-    func execute() -> String {
+    func executeWithOutcome() -> ActionCommandOutcome {
 		midiService.pulse(message)
-		if let hint, !hint.isEmpty { return hint }
-		return message.displayString
+		let feedback = (hint?.isEmpty == false) ? hint! : message.displayString
+        return ActionCommandOutcome(feedback: feedback, didDispatch: true)
     }
 }
 
@@ -121,7 +133,7 @@ struct KeyPressActionCommand: ActionCommand {
     let inputSimulator: InputSimulatorProtocol
     let action: any ExecutableAction
 
-    func execute() -> String {
+    func executeWithOutcome() -> ActionCommandOutcome {
         inputSimulator.pressKey(keyCode, modifiers: modifiers)
         if !UniversalControlMouseRelay.shared.isRoutingToRemote {
             // Notify on-screen keyboard of controller key press
@@ -129,7 +141,7 @@ struct KeyPressActionCommand: ActionCommand {
                 keyCode: keyCode, modifiers: modifiers.cgEventFlags
             )
         }
-        return action.feedbackString
+        return ActionCommandOutcome(feedback: action.feedbackString, didDispatch: true)
     }
 }
 
@@ -140,12 +152,12 @@ struct ModifierTapActionCommand: ActionCommand {
     let inputQueue: DispatchQueue
     let action: any ExecutableAction
 
-    func execute() -> String {
+    func executeWithOutcome() -> ActionCommandOutcome {
 		inputSimulator.holdModifiers(modifiers)
         inputQueue.asyncAfter(deadline: .now() + Config.modifierReleaseCheckDelay) { [inputSimulator] in
 			inputSimulator.releaseModifiers(modifiers)
         }
-        return action.feedbackString
+        return ActionCommandOutcome(feedback: action.feedbackString, didDispatch: true)
     }
 }
 
@@ -153,8 +165,8 @@ struct ModifierTapActionCommand: ActionCommand {
 struct NoOpActionCommand: ActionCommand {
     let action: any ExecutableAction
 
-    func execute() -> String {
-        action.feedbackString
+    func executeWithOutcome() -> ActionCommandOutcome {
+        ActionCommandOutcome(feedback: action.feedbackString, didDispatch: false)
     }
 }
 
