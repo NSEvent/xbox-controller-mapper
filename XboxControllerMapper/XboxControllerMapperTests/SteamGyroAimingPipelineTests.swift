@@ -97,7 +97,7 @@ final class SteamGyroAimingPipelineTests: XCTestCase {
 		mappingEngine.processGyroAiming(
 			settings: settings,
 			now: now,
-			isFocusActive: true,
+			isGyroActive: true,
 			hasMotion: true,
 			isSteamController: isSteamController
 		)
