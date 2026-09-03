@@ -69,16 +69,18 @@ extension MappingEngine {
         let isFocusActive = focusFlags.rawValue != 0 && inputSimulator.isHoldingModifiers(focusFlags)
         updateFocusModeState(isFocusActive: isFocusActive, settings: settings, now: now, deferring: &deferredIO)
 
-        // Gyro activation is resolved per tick from the mode + engine gyro state.
-        // (state.lock is held here, so the gyro fields are read directly.)
-        let isGyroActive = settings.gyroAimingEnabled && GyroActivationResolver.isActive(
-            mode: settings.gyroActivationMode,
-            isFocusActive: isFocusActive,
-            toggledOn: state.gyroToggledOn,
-            holdButtonsDown: !state.gyroHoldButtons.isEmpty,
-            pauseButtonsDown: !state.gyroPauseButtons.isEmpty
+        // Gyro activation is resolved per tick by the shared helper (state.lock
+        // is held here). focusEdge is captured before updateFocusModeState
+        // mutates wasFocusActive, so the gyro haptic can tell a latch-driven
+        // edge from one the focus handler already announced.
+        let focusEdge = isFocusActive != state.wasFocusActive
+        let isGyroActive = state.gyroActiveLocked(isFocusActive: isFocusActive)
+        updateGyroActivationState(
+            isGyroActive: isGyroActive,
+            settings: settings,
+            focusEdgeThisTick: focusEdge,
+            deferring: &deferredIO
         )
-        updateGyroActivationState(isGyroActive: isGyroActive, settings: settings, deferring: &deferredIO)
 
         // Single lock acquisition for all controller input state (cache-friendly snapshot)
         let controllerSnapshot = controllerService.snapshot()
@@ -457,12 +459,16 @@ extension MappingEngine {
 
 	/// Tracks gyro activation edges: calibration prep + filter resets on any
 	/// activation (focus entry, toggle-on, hold-press, pause-release, profile load
-	/// in always-on), plus an activation haptic when gyro is not tied to the focus
-	/// modifier (the focus handler already plays enter/exit haptics in legacy mode).
+	/// in always-on), plus an activation haptic. The haptic plays on every gyro
+	/// edge in every mode — including latch-driven edges in legacy focusModifier
+	/// mode (a silent toggle would be guess-and-check) — except when the edge IS
+	/// this tick's focus edge in legacy mode, which the focus handler already
+	/// announced.
 	/// - Precondition: caller holds `state.lock` (invoked from the poll tick).
 	nonisolated func updateGyroActivationState(
 		isGyroActive: Bool,
 		settings: JoystickSettings,
+		focusEdgeThisTick: Bool,
 		deferring deferredIO: inout [() -> Void]
 	) {
 		guard isGyroActive != state.wasGyroActive else { return }
@@ -477,12 +483,12 @@ extension MappingEngine {
 			state.gyroFilterX.reset()
 			state.gyroFilterY.reset()
 			state.lastGyroTime = 0
-			state.gyroIdleQuietStart = 0
 		}
 
-		if settings.gyroActivationMode != .focusModifier {
+		let focusHandlerCoversThisEdge = settings.gyroActivationMode == .focusModifier && focusEdgeThisTick
+		if settings.focusModeHapticsEnabled && !focusHandlerCoversThisEdge {
 			deferredIO.append { [self] in
-				performFocusModeHaptic(entering: isGyroActive, enabled: settings.focusModeHapticsEnabled)
+				performFocusModeHaptic(entering: isGyroActive, enabled: true)
 			}
 		}
 	}
@@ -502,23 +508,12 @@ extension MappingEngine {
             if pitchRate != 0 || rollRate != 0 {
                 let gyroDeadzone = settings.gyroAimingDeadzone
                 let mult = settings.gyroAimingMultiplier
-
-                // Idle bias recalibration: gyro bias drifts with temperature, and in
-                // always-on mode the activation-edge calibration may be a session old.
-                // A controller resting below the deadzone IS the calibration opportunity.
-                if abs(rollRate) < gyroDeadzone && abs(pitchRate) < gyroDeadzone {
-                    if state.gyroIdleQuietStart == 0 {
-                        state.gyroIdleQuietStart = now
-                    } else if now - state.gyroIdleQuietStart >= Config.gyroIdleRecalibrationWindow {
-                        controllerService.recalibrateGyroBias()
-                        state.gyroFilterX.reset()
-                        state.gyroFilterY.reset()
-                        state.lastGyroTime = 0
-                        state.gyroIdleQuietStart = 0
-                    }
-                } else {
-                    state.gyroIdleQuietStart = 0
-                }
+                // Bias drift while gyro stays active is handled at the sensor
+                // layer: both the Steam and DS4 paths continuously recenter
+                // their bias while the controller rests (see SteamGyroBias /
+                // DS4GyroRecenter). The engine deliberately does no idle
+                // recalibration here — an engine-level quiet-window reset would
+                // wipe converged calibrations and misread slow pans as rest.
 
                 // Smooth deadzone ramp: quadratic ease-in over a transition zone
                 // avoids the hard cutoff discontinuity that causes stutter at the boundary
@@ -563,7 +558,6 @@ extension MappingEngine {
                 state.gyroFilterY.reset()
                 state.lastGyroTime = 0
             }
-            state.gyroIdleQuietStart = 0
         }
     }
 

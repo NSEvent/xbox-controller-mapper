@@ -188,6 +188,10 @@ final class ControllerStorage: @unchecked Sendable {
     var ds4GyroBiasSampleCount: Int = 0
     var ds4GyroPitchBias: Double = 0
     var ds4GyroRollBias: Double = 0
+    // Last raw DS4 gyro sample, for the bias-independent rest detection that
+    // gates continuous idle recentering (mirrors the Steam recenter pattern).
+    var ds4GyroLastRawPitch: Double?
+    var ds4GyroLastRawRoll: Double?
     var steamGyroPitchBiasSum: Double = 0
     var steamGyroRollBiasSum: Double = 0
     var steamGyroYawBiasSum: Double = 0

@@ -401,6 +401,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 			codexMicroOutput.tap(control)
 			return
 		}
+        // Special-action markers (gyro, laser, OSK, lock, navigator, wheel) are
+        // app-level actions handled by MappingEngine intercepts — never post them
+        // as raw key events, and never relay them to a remote Mac (checked BEFORE
+        // the relay, mirroring the CodexMicroControl intercept above).
+        if KeyCodeMapping.isSpecialAction(keyCode) { return }
         if shouldRelayUniversalControlAction(),
 		   sendUniversalControlKeyPress(keyCode, modifiers: modifiers, modifierSides: modifierSides) {
             return
@@ -423,10 +428,6 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             pressMediaKey(keyCode)
             return
         }
-
-        // Gyro-control markers are engine-level actions (handled by MappingEngine
-        // intercepts); never post them as raw key events.
-        if KeyCodeMapping.isGyroAction(keyCode) { return }
 
         guard checkAccessibility() else { return }
 
@@ -549,6 +550,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 			codexMicroOutput.press(control)
 			return
 		}
+        // Special-action markers never post or relay as key events (see pressKeyInternal).
+        if KeyCodeMapping.isSpecialAction(keyCode) { return }
         if shouldRelayUniversalControlAction(),
            UniversalControlMouseRelay.shared.sendKeyDown(keyCode, modifiers: modifiers) {
             return
@@ -595,6 +598,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 			codexMicroOutput.release(control)
 			return
 		}
+        // Special-action markers never post or relay as key events (see pressKeyInternal).
+        if KeyCodeMapping.isSpecialAction(keyCode) { return }
         if shouldRelayUniversalControlAction(),
            UniversalControlMouseRelay.shared.sendKeyUp(keyCode) {
             return

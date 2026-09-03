@@ -161,6 +161,33 @@ struct ModifierTapActionCommand: ActionCommand {
     }
 }
 
+/// Executes a gyro-control marker that reaches the executor path (gestures,
+/// touchpad regions, command wheel — contexts without the engine's button
+/// press/release intercepts). Toggle works everywhere via the engine's gyro
+/// hook; Hold/Pause need a press/release pair, so here they only report that
+/// honestly instead of silently doing nothing.
+struct GyroActionCommand: ActionCommand {
+    let gyroAction: GyroButtonAction
+    let gyroControl: ScriptEngine.GyroControl?
+    let action: any ExecutableAction
+
+    func executeWithOutcome() -> ActionCommandOutcome {
+        switch gyroAction {
+        case .toggle:
+            guard let gyroControl else {
+                return ActionCommandOutcome(feedback: "Gyro Toggle (unavailable)", didDispatch: false)
+            }
+            let latchedOn = gyroControl.toggle()
+            return ActionCommandOutcome(feedback: latchedOn ? "Gyro On" : "Gyro Off", didDispatch: true)
+        case .hold, .pause:
+            return ActionCommandOutcome(
+                feedback: "\(action.feedbackString) (needs press & release)",
+                didDispatch: false
+            )
+        }
+    }
+}
+
 /// No-op command for empty/unconfigured mappings
 struct NoOpActionCommand: ActionCommand {
     let action: any ExecutableAction
@@ -240,6 +267,17 @@ struct ActionCommandFactory {
 				message: midiControlChange,
 				midiService: midiService,
 				hint: action.hint
+			)
+		}
+
+		// Priority 5a: Gyro-control markers — never posted as key events; toggle
+		// routes through the engine's gyro hook so it works from any executor
+		// path (gestures, touchpad regions, command wheel).
+		if let keyCode = action.keyCode, let gyroAction = GyroButtonAction(keyCode: keyCode) {
+			return GyroActionCommand(
+				gyroAction: gyroAction,
+				gyroControl: scriptEngine?.gyroControl,
+				action: action
 			)
 		}
 

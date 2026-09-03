@@ -3,6 +3,20 @@ import GameController
 import IOKit
 import IOKit.hid
 
+/// Continuous idle recentering for the DS4 raw-HID gyro bias (units: rad/s after
+/// the /1024 scale). Rest is detected by the raw sample-to-sample delta, which is
+/// independent of accumulated bias — so drift beyond any threshold stays
+/// recoverable. Mirrors `SteamGyroBias` in ControllerService+Motion.swift.
+private enum DS4GyroRecenter {
+	/// Max per-sample raw delta that still counts as "at rest".
+	static let stableDeltaThreshold = 0.05
+	/// Max corrected residual folded into the bias — bounds absorption of very
+	/// slow real rotation (comparable to the Steam recenter residual cap).
+	static let residualThreshold = 0.05
+	/// EMA rate per sample; at ~250Hz reports this converges in well under a second.
+	static let alpha = 0.02
+}
+
 // MARK: - PlayStation HID Monitoring (PS button, mic, Edge paddles)
 
 /// Weak callback context for the PlayStation HID input report callback.
@@ -387,7 +401,32 @@ extension ControllerService {
                 // Don't feed motion through the pipeline during calibration.
                 return (0, 0)
             }
-            return (rawPitch - storage.ds4GyroPitchBias, rawRoll - storage.ds4GyroRollBias)
+
+            // Continuous idle recentering (mirrors the Steam recenterAlpha EMA):
+            // rest is detected via the raw sample-to-sample delta, which stays
+            // small at rest regardless of how far the bias has drifted — so
+            // temperature drift can always be recovered. The residual cap bounds
+            // how much real (slow, steady) rotation could ever be absorbed, and
+            // the small alpha makes that absorption negligible.
+            let lastRawPitch = storage.ds4GyroLastRawPitch
+            let lastRawRoll = storage.ds4GyroLastRawRoll
+            storage.ds4GyroLastRawPitch = rawPitch
+            storage.ds4GyroLastRawRoll = rawRoll
+
+            var pitch = rawPitch - storage.ds4GyroPitchBias
+            var roll = rawRoll - storage.ds4GyroRollBias
+            if let lastRawPitch, let lastRawRoll {
+                let rawDelta = max(abs(rawPitch - lastRawPitch), abs(rawRoll - lastRawRoll))
+                if rawDelta <= DS4GyroRecenter.stableDeltaThreshold,
+                   abs(pitch) <= DS4GyroRecenter.residualThreshold,
+                   abs(roll) <= DS4GyroRecenter.residualThreshold {
+                    storage.ds4GyroPitchBias += pitch * DS4GyroRecenter.alpha
+                    storage.ds4GyroRollBias += roll * DS4GyroRecenter.alpha
+                    pitch = rawPitch - storage.ds4GyroPitchBias
+                    roll = rawRoll - storage.ds4GyroRollBias
+                }
+            }
+            return (pitch, roll)
         }
         if pitch == 0 && roll == 0 { return }
 

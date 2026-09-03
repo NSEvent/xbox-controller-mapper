@@ -3,8 +3,20 @@ import Carbon.HIToolbox
 
 /// A visual keyboard display for selecting keyboard shortcuts
 struct KeyboardVisualView: View {
+    /// Which gyro-control keys this picker context can meaningfully bind.
+    /// Gyro Hold/Pause need a real button press/release pair, so only the
+    /// primary button-mapping editor offers them; Gyro Toggle works from any
+    /// engine or executor path. Macro steps support neither (steps bypass the
+    /// engine and the executor's gyro routing).
+    enum GyroKeyVisibility {
+        case all        // primary button mappings
+        case toggleOnly // chords, sequences, gestures, touchpad regions, alternates
+        case none       // macro steps
+    }
+
     @Binding var selectedKeyCode: CGKeyCode?
     @Binding var modifiers: ModifierFlags
+    var gyroKeys: GyroKeyVisibility = .toggleOnly
 
     @State private var hoveredKey: CGKeyCode?
 
@@ -320,12 +332,16 @@ struct KeyboardVisualView: View {
                 KeyButton(keyCode: KeyCodeMapping.showDirectoryNavigator, label: "📁 Nav", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.showCommandWheel, label: "◎ Wheel", width: 60, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
 
-                Spacer().frame(width: 20)
+                if gyroKeys != .none {
+                    Spacer().frame(width: 20)
 
-                // Gyro control (virtual — no key events sent)
-                KeyButton(keyCode: KeyCodeMapping.gyroToggle, label: "🔄 Gyro", width: 60, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-                KeyButton(keyCode: KeyCodeMapping.gyroHold, label: "Gyro Hold", width: 70, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-                KeyButton(keyCode: KeyCodeMapping.gyroPause, label: "Gyro Pause", width: 75, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                    // Gyro control (virtual — no key events sent)
+                    KeyButton(keyCode: KeyCodeMapping.gyroToggle, label: "🔄 Gyro", width: 60, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                    if gyroKeys == .all {
+                        KeyButton(keyCode: KeyCodeMapping.gyroHold, label: "Gyro Hold", width: 70, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                        KeyButton(keyCode: KeyCodeMapping.gyroPause, label: "Gyro Pause", width: 75, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                    }
+                }
                 Spacer()
             }
         }

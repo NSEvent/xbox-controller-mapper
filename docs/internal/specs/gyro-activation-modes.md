@@ -3,6 +3,20 @@
 > **Status: implemented 2026-09-02** (same-day as spec). Decisions taken: legacy
 > default everywhere (new enables included), scripting API in v1, idle
 > recalibration in v1. Device verification on kmacstudio pending.
+>
+> **Revised 2026-09-03 after adversarial review** (10 confirmed findings):
+> engine-level idle recalibration replaced by sensor-layer continuous bias
+> recentering (Steam already had it; DS4 gained a mirrored recenter EMA;
+> DualSense/GCMotion needs none app-side); gyro latch/hold state reclassified
+> as user-facing modal state (survives settings republishes, app-layer
+> transitions, and layer toggles; re-derived only on profile switch/mode
+> change/full reset); gyro sets joined the Universal Control local-state check
+> and release cleanup moved ahead of all early returns; release-side and
+> InputSimulator suppression generalized to ALL special-action markers (also
+> fixing a pre-existing toggle-mode laser double-execution); latch-driven
+> activation edges now play the haptic in every mode; Gyro Toggle works from
+> gestures/touchpad regions/command wheel via a GyroActionCommand in the
+> executor; Hold/Pause are offered only in the primary button editor.
 
 Make gyro aiming a first-class pointing device: always-on gyro, ratcheting, and bindable
 gyro on/off actions that emit no keystrokes — instead of the current "hold the focus-mode

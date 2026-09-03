@@ -155,6 +155,7 @@ JoystickSettings (CUSTOM decoder - see JoystickSettings.swift)
 ├── focusModeSensitivity: Double                 decodeIfPresent ?? 0.1
 ├── focusModeModifier: ModifierFlags             decodeIfPresent ?? .command
 ├── gyroAimingEnabled: Bool                      decodeIfPresent ?? false
+├── gyroActivationMode: GyroActivationMode       decodeLenient ?? .focusModifier
 └── gyroAimingSensitivity: Double                decodeIfPresent ?? 0.3
 
 OnScreenKeyboardSettings (CUSTOM decoder - see QuickText.swift)

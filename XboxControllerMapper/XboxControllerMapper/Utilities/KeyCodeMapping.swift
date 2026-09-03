@@ -501,9 +501,10 @@ enum KeyCodeMapping {
         keyCode == showOnScreenKeyboard || keyCode == showLaserPointer || keyCode == controllerLock || keyCode == showDirectoryNavigator || keyCode == showCommandWheel || isGyroAction(keyCode)
     }
 
-    /// Checks if a key code represents a gyro-control action (toggle/hold/pause)
+    /// Checks if a key code represents a gyro-control action (toggle/hold/pause).
+    /// Delegates to GyroButtonAction so the keycode set has one source of truth.
     static func isGyroAction(_ keyCode: CGKeyCode) -> Bool {
-        keyCode == gyroToggle || keyCode == gyroHold || keyCode == gyroPause
+        GyroButtonAction(keyCode: keyCode) != nil
     }
 
     /// Checks if a key code represents a media key

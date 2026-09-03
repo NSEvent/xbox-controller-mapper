@@ -122,7 +122,6 @@ final class GyroEngineStateResetTests: XCTestCase {
         state.gyroHoldButtons = [.a, .micMute]
         state.gyroPauseButtons = [.b]
         state.wasGyroActive = true
-        state.gyroIdleQuietStart = 42
         state.reset()
         state.lock.unlock()
 
@@ -131,7 +130,6 @@ final class GyroEngineStateResetTests: XCTestCase {
         XCTAssertTrue(state.gyroHoldButtons.isEmpty)
         XCTAssertTrue(state.gyroPauseButtons.isEmpty)
         XCTAssertFalse(state.wasGyroActive)
-        XCTAssertEqual(state.gyroIdleQuietStart, 0)
     }
 
     func testResetReDerivesLatchFromAlwaysOnMode() {
@@ -144,7 +142,49 @@ final class GyroEngineStateResetTests: XCTestCase {
         state.reset()
         state.lock.unlock()
 
-        XCTAssertTrue(state.gyroToggledOn, "Always-on re-arms across a routing boundary")
+        XCTAssertTrue(state.gyroToggledOn, "Always-on re-arms across a full reset")
+    }
+
+    func testPreservingGyroStateSurvivesIntraSessionBoundary() {
+        let state = MappingEngine.EngineState()
+        state.lock.lock()
+        state.gyroToggledOn = true
+        state.gyroHoldButtons = [.micMute]
+        state.gyroPauseButtons = [.b]
+        state.wasGyroActive = true
+        state.resetTransientInputState(
+            preservingManualLayers: true,
+            preservingUIOverlays: true,
+            preservingGyroState: true
+        )
+        state.lock.unlock()
+
+        XCTAssertTrue(state.gyroToggledOn, "Latch survives app-layer/layer-toggle boundaries")
+        XCTAssertTrue(state.gyroHoldButtons.contains(.micMute), "Held gyro button survives the boundary")
+        XCTAssertTrue(state.gyroPauseButtons.contains(.b))
+        XCTAssertTrue(state.wasGyroActive, "No manufactured activation edge")
+    }
+
+    func testGyroActiveLockedGatesOnEnabledAndLocked() {
+        let state = MappingEngine.EngineState()
+        var settings = JoystickSettings.default
+        settings.gyroAimingEnabled = true
+        settings.gyroActivationMode = .alwaysOn
+        state.lock.lock()
+        defer { state.lock.unlock() }
+        state.joystickSettings = settings
+        state.gyroToggledOn = true
+
+        state.isEnabled = true
+        state.isLocked = false
+        XCTAssertTrue(state.gyroActiveLocked(isFocusActive: false))
+
+        state.isLocked = true
+        XCTAssertFalse(state.gyroActiveLocked(isFocusActive: false), "Controller Lock must gate gyroIsActive()")
+
+        state.isLocked = false
+        state.isEnabled = false
+        XCTAssertFalse(state.gyroActiveLocked(isFocusActive: false), "Disabled mappings must gate gyroIsActive()")
     }
 }
 
@@ -272,5 +312,89 @@ final class GyroActionInterceptTests: MappingEngineTestCase {
             mappingEngine.state.lock.withLock { mappingEngine.state.gyroToggledOn }
         }
         XCTAssertTrue(latch, "Switching to an always-on profile must arm the latch")
+    }
+
+    func testSettingsRepublishPreservesLatchAndModeChangeRederives() async throws {
+        await MainActor.run {
+            var settings = JoystickSettings.default
+            settings.gyroAimingEnabled = true
+            settings.gyroActivationMode = .gyroButton
+            let mapping = KeyMapping(keyCode: KeyCodeMapping.gyroToggle)
+            profileManager.setActiveProfile(
+                Profile(name: "LatchLifecycle", buttonMappings: [.y: mapping], joystickSettings: settings)
+            )
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        // Latch gyro ON via the toggle button.
+        await MainActor.run {
+            controllerService.buttonPressed(.y)
+            controllerService.buttonReleased(.y)
+        }
+        await waitForTasks(0.2)
+        var latch = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.gyroToggledOn }
+        }
+        XCTAssertTrue(latch)
+
+        // A same-profile settings edit (slider tick) must NOT reset the latch.
+        await MainActor.run {
+            guard var settings = profileManager.activeProfile?.joystickSettings else {
+                return XCTFail("missing settings")
+            }
+            settings.gyroAimingSensitivity = 0.7
+            profileManager.updateJoystickSettings(settings)
+        }
+        await waitForTasks(0.2)
+        latch = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.gyroToggledOn }
+        }
+        XCTAssertTrue(latch, "Settings republish for the same profile must preserve the toggle latch")
+
+        // Changing the activation mode re-derives the latch from the new mode.
+        await MainActor.run {
+            guard var settings = profileManager.activeProfile?.joystickSettings else {
+                return XCTFail("missing settings")
+            }
+            settings.gyroActivationMode = .focusModifier
+            profileManager.updateJoystickSettings(settings)
+        }
+        await waitForTasks(0.2)
+        latch = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.gyroToggledOn }
+        }
+        XCTAssertFalse(latch, "Mode change re-derives the latch from the new mode's initial state")
+    }
+
+    func testSpecialActionReleaseDoesNotReExecute() async throws {
+        // Controller Lock in toggle mode (isHoldModifier=false): press locks,
+        // second press unlocks; neither release may re-execute the mapping and
+        // hand the marker keycode to the executor (the pre-existing laser bug
+        // generalized by the special-action release guard).
+        await MainActor.run {
+            let mapping = KeyMapping(keyCode: KeyCodeMapping.controllerLock, isHoldModifier: false)
+            profileManager.setActiveProfile(
+                Profile(name: "LockToggle", buttonMappings: [.y: mapping])
+            )
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        await MainActor.run {
+            controllerService.buttonPressed(.y)
+            controllerService.buttonReleased(.y)
+            controllerService.buttonPressed(.y)
+            controllerService.buttonReleased(.y)
+        }
+        await waitForTasks(0.3)
+
+        let markerKeyEvents = mockInputSimulator.events.contains { event in
+            if case .pressKey(let code, _) = event { return KeyCodeMapping.isSpecialAction(code) }
+            return false
+        }
+        XCTAssertFalse(markerKeyEvents, "Special-action markers must never reach pressKey via release")
+        let locked = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.isLocked }
+        }
+        XCTAssertFalse(locked, "Two presses = lock then unlock")
     }
 }

@@ -209,17 +209,13 @@ class MappingEngine: ObservableObject {
             isActive: { [weak engineState] in
                 guard let s = engineState else { return false }
                 return s.lock.withLock {
-                    guard let settings = s.joystickSettings, settings.gyroAimingEnabled else { return false }
+                    guard let settings = s.joystickSettings else { return false }
                     let focusFlags = settings.focusModeModifier.cgEventFlags
                     let isFocusActive = focusFlags.rawValue != 0
                         && engineInputSimulator.isHoldingModifiers(focusFlags)
-                    return GyroActivationResolver.isActive(
-                        mode: settings.gyroActivationMode,
-                        isFocusActive: isFocusActive,
-                        toggledOn: s.gyroToggledOn,
-                        holdButtonsDown: !s.gyroHoldButtons.isEmpty,
-                        pauseButtonsDown: !s.gyroPauseButtons.isEmpty
-                    )
+                    // gyroActiveLocked is the same source of truth the poll tick
+                    // uses (incl. the isEnabled/isLocked gates).
+                    return s.gyroActiveLocked(isFocusActive: isFocusActive)
                 }
             }
         )
@@ -227,8 +223,7 @@ class MappingEngine: ObservableObject {
         // Initial state sync
         self.state.activeProfile = profileManager.activeProfile
         self.state.joystickSettings = profileManager.activeProfile?.joystickSettings
-        self.state.gyroToggledOn = (profileManager.activeProfile?.joystickSettings ?? .default)
-            .gyroActivationMode.initialToggledOn
+        self.state.rederiveGyroLatchLocked()
 	let oskSettings = profileManager.onScreenKeyboardSettings
 	self.state.swipeTypingEnabled = oskSettings.swipeTypingEnabled
 	self.state.swipeTypingSensitivity = oskSettings.swipeTypingSensitivity
@@ -336,16 +331,29 @@ class MappingEngine: ObservableObject {
                 guard let self = self else { return }
 				let cleanup = self.state.lock.withLock {
 					let cleanup = RoutingBoundaryCleanup(state: self.state)
+					let isProfileSwitch = self.state.activeProfile?.id != profile?.id
+					let oldGyroMode = self.state.joystickSettings?.gyroActivationMode
 					self.state.resetTransientInputState(
 						preservingUIOverlays: true,
-						consumingPendingButtonReleases: true
+						consumingPendingButtonReleases: true,
+						preservingGyroState: true
 					)
                     self.state.activeProfile = profile
                     self.state.joystickSettings = profile?.joystickSettings
-                    // resetTransientInputState above derived the toggle latch from the
-                    // OUTGOING settings; re-derive from the incoming profile's mode.
-                    self.state.gyroToggledOn = (profile?.joystickSettings ?? .default)
-                        .gyroActivationMode.initialToggledOn
+                    // Gyro latch/holds are user-facing modal state. This sink fires on
+                    // EVERY profile publish — including settings edits republishing the
+                    // same profile (each slider tick) — so preserve gyro state across
+                    // those and re-derive only on an actual profile switch or an
+                    // activation-mode change.
+                    let newGyroMode = (profile?.joystickSettings ?? .default).gyroActivationMode
+                    if isProfileSwitch {
+                        self.state.gyroHoldButtons.removeAll()
+                        self.state.gyroPauseButtons.removeAll()
+                        self.state.wasGyroActive = false
+                        self.state.rederiveGyroLatchLocked()
+                    } else if oldGyroMode != newGyroMode {
+                        self.state.rederiveGyroLatchLocked()
+                    }
 					let osk = self.profileManager.onScreenKeyboardSettings
 					self.state.swipeTypingEnabled = osk.swipeTypingEnabled
 					self.state.swipeTypingSensitivity = osk.swipeTypingSensitivity
@@ -467,6 +475,7 @@ class MappingEngine: ObservableObject {
 				preservingManualLayers: true,
 				preservingUIOverlays: true,
 				consumingPendingButtonReleases: true,
+				preservingGyroState: true,
 				preservingHeldActionsFor: preservedHeldButtons
 			)
 			state.appActivatedLayerId = nextLayerId
@@ -738,6 +747,7 @@ class MappingEngine: ObservableObject {
 				preservingManualLayers: true,
 				preservingUIOverlays: true,
 				consumingPendingButtonReleases: true,
+				preservingGyroState: true,
 				preservingHeldActionsFor: preservedHeldButtons
 			)
 			state.latchedLayerId = nextLatchedLayerId
@@ -1362,6 +1372,8 @@ class MappingEngine: ObservableObject {
 					|| state.smoothScrollTimers[resolvedButtonForState] != nil
 					|| state.buttonsActingAsLayerActivators.contains(resolvedButtonForState)
 					|| state.pressConsumedByAction.contains(resolvedButtonForState)
+					|| state.gyroHoldButtons.contains(resolvedButtonForState)
+					|| state.gyroPauseButtons.contains(resolvedButtonForState)
 					|| state.cancelledPhysicalButtonReleases.contains(button)
 			}
             if !hasLocalButtonState {
@@ -1371,6 +1383,12 @@ class MappingEngine: ObservableObject {
         }
 		let physicalButton = button
 		let button = endPhysicalButtonResolution(for: physicalButton)
+
+		// Gyro hold/pause cleanup runs before ANY early return below: the physical
+		// release happened, so the set membership must clear even when the release
+		// is cancelled by a routing boundary or otherwise consumed. Idempotent.
+		handleGyroActionReleased(button)
+
 		let wasCancelledByRoutingBoundary = state.lock.withLock {
 			state.cancelledPhysicalButtonReleases.remove(physicalButton) != nil
 		}
@@ -1430,7 +1448,6 @@ class MappingEngine: ObservableObject {
         handleLaserPointerReleased(button)
         handleDirectoryNavigatorReleased(button)
         handleCommandWheelReleased(button)
-        handleGyroActionReleased(button)
 
 		if state.lock.withLock({ state.smoothScrollMappings[button] != nil }),
 		   let releaseResult = cleanupReleaseTimers(for: button) {
@@ -1470,10 +1487,12 @@ class MappingEngine: ObservableObject {
 
         guard let (mapping, profile, isLongHoldTriggered) = getReleaseContext(for: button) else { return }
 
-        // Gyro-control mappings are fully handled by the press intercept plus
-        // handleGyroActionReleased above — never execute them again on release
-        // (a single-tap here would hand the marker keycode to the executor).
-        if let keyCode = mapping.keyCode, GyroButtonAction(keyCode: keyCode) != nil {
+        // Special-action mappings (gyro, laser, OSK, lock, navigator, wheel) are
+        // fully handled by their press intercepts + dedicated release handlers —
+        // never execute them again on release. Without this, a special action
+        // with isHoldModifier=false (laser defaults to that) re-executes as a
+        // single-tap, handing a marker keycode to the executor.
+        if let keyCode = mapping.keyCode, KeyCodeMapping.isSpecialAction(keyCode) {
             return
         }
 

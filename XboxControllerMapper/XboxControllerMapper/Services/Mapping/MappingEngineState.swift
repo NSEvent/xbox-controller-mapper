@@ -169,12 +169,35 @@ extension MappingEngine {
         // Gyro activation state (see GyroActivationResolver).
         // gyroToggledOn is the latch flipped by the Gyro Toggle action; the hold/pause
         // sets track buttons currently held on Gyro Hold / Gyro Pause mappings.
+        // This is user-facing modal state (like the UI-overlay fields), NOT transient
+        // input state: it survives intra-session routing boundaries and settings
+        // republishes, and is re-derived only on profile switch, mode change, or
+        // full reset.
         var gyroToggledOn: Bool = false
         var gyroHoldButtons: Set<ControllerButton> = []
         var gyroPauseButtons: Set<ControllerButton> = []
         var wasGyroActive = false
-        /// Start of the current below-deadzone quiet span (idle bias recalibration).
-        var gyroIdleQuietStart: TimeInterval = 0
+
+        /// Re-derives the Gyro Toggle latch from the bound settings' activation mode.
+        /// Caller must hold `lock`.
+        func rederiveGyroLatchLocked() {
+            gyroToggledOn = (joystickSettings ?? .default).gyroActivationMode.initialToggledOn
+        }
+
+        /// Whether gyro aiming should drive the mouse right now — the single
+        /// source of truth shared by the joystick poll tick and the scripting
+        /// `gyroIsActive()` hook. Caller must hold `lock`.
+        func gyroActiveLocked(isFocusActive: Bool) -> Bool {
+            guard isEnabled, !isLocked,
+                  let settings = joystickSettings, settings.gyroAimingEnabled else { return false }
+            return GyroActivationResolver.isActive(
+                mode: settings.gyroActivationMode,
+                isFocusActive: isFocusActive,
+                toggledOn: gyroToggledOn,
+                holdButtonsDown: !gyroHoldButtons.isEmpty,
+                pauseButtonsDown: !gyroPauseButtons.isEmpty
+            )
+        }
 
         /// Thread-safe reset: acquires the lock, resets all transient state, and releases the lock.
         /// Use this when you are NOT already holding the lock.
@@ -197,6 +220,7 @@ extension MappingEngine {
 			preservingManualLayers: Bool = false,
 			preservingUIOverlays: Bool = false,
 			consumingPendingButtonReleases: Bool = false,
+			preservingGyroState: Bool = false,
 			preservingHeldActionsFor preservedHeldActionButtons: Set<ControllerButton> = []
 		) {
 			let preservedActiveLayerIds = preservingManualLayers ? activeLayerIds : []
@@ -379,13 +403,16 @@ extension MappingEngine {
             gyroFilterX.reset()
             gyroFilterY.reset()
             lastGyroTime = 0
-            wasGyroActive = false
-            gyroIdleQuietStart = 0
-            gyroHoldButtons.removeAll()
-            gyroPauseButtons.removeAll()
-            // Re-derive the toggle latch from the current mode so a routing boundary
-            // never leaves gyro parked in a state the mode wouldn't start in.
-            gyroToggledOn = (joystickSettings ?? .default).gyroActivationMode.initialToggledOn
+            // Gyro modal state survives intra-session boundaries (app-layer
+            // transitions, layer toggles, same-profile settings republishes) the
+            // same way UI overlays do; a full reset clears it and re-derives the
+            // latch so the mode's initial state applies on the next session.
+            if !preservingGyroState {
+                wasGyroActive = false
+                gyroHoldButtons.removeAll()
+                gyroPauseButtons.removeAll()
+                rederiveGyroLatchLocked()
+            }
 
 			if preservingManualLayers {
 				activeLayerIds = preservedActiveLayerIds

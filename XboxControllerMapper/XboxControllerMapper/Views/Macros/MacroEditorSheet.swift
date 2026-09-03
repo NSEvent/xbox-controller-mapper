@@ -473,7 +473,7 @@ struct MacroStepEditorSheet: View {
                 case .press:
                     Section {
                         if showingKeyboard {
-                            KeyboardVisualView(selectedKeyCode: $keyCode, modifiers: $modifiers)
+                            KeyboardVisualView(selectedKeyCode: $keyCode, modifiers: $modifiers, gyroKeys: .none)
                         } else {
                             KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
                         }
@@ -493,7 +493,7 @@ struct MacroStepEditorSheet: View {
                 case .hold:
                     Section {
                         if showingKeyboard {
-                            KeyboardVisualView(selectedKeyCode: $keyCode, modifiers: $modifiers)
+                            KeyboardVisualView(selectedKeyCode: $keyCode, modifiers: $modifiers, gyroKeys: .none)
                         } else {
                             KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
                         }

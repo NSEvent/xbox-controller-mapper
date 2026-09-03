@@ -141,7 +141,11 @@ struct ActionMappingEditor: View {
         if state.showingMouse {
             MouseVisualView(selectedKeyCode: $state.keyCode, modifiers: $state.modifiers)
         } else if state.showingKeyboard {
-            KeyboardVisualView(selectedKeyCode: $state.keyCode, modifiers: $state.modifiers)
+            KeyboardVisualView(
+                selectedKeyCode: $state.keyCode,
+                modifiers: $state.modifiers,
+                gyroKeys: variant == .primary ? .all : .toggleOnly
+            )
         } else {
             KeyCaptureField(keyCode: $state.keyCode, modifiers: $state.modifiers)
         }
