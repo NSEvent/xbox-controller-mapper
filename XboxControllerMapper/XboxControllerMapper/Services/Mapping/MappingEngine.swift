@@ -197,10 +197,7 @@ class MappingEngine: ObservableObject {
         engine.gyroControl = ScriptEngine.GyroControl(
             toggle: { [weak engineState] in
                 guard let s = engineState else { return false }
-                return s.lock.withLock {
-                    s.gyroToggledOn.toggle()
-                    return s.gyroToggledOn
-                }
+                return s.lock.withLock { s.toggleGyroLatchLocked() }
             },
             setActive: { [weak engineState] on in
                 guard let s = engineState else { return }
@@ -220,10 +217,13 @@ class MappingEngine: ObservableObject {
             }
         )
 
-        // Initial state sync
-        self.state.activeProfile = profileManager.activeProfile
-        self.state.joystickSettings = profileManager.activeProfile?.joystickSettings
-        self.state.rederiveGyroLatchLocked()
+        // Initial state sync (locked: setupBindings has already subscribed, so
+        // the sink's locked writes must not interleave with these)
+        self.state.lock.withLock {
+            self.state.activeProfile = profileManager.activeProfile
+            self.state.joystickSettings = profileManager.activeProfile?.joystickSettings
+            self.state.rederiveGyroLatchLocked()
+        }
 	let oskSettings = profileManager.onScreenKeyboardSettings
 	self.state.swipeTypingEnabled = oskSettings.swipeTypingEnabled
 	self.state.swipeTypingSensitivity = oskSettings.swipeTypingSensitivity
@@ -347,10 +347,7 @@ class MappingEngine: ObservableObject {
                     // activation-mode change.
                     let newGyroMode = (profile?.joystickSettings ?? .default).gyroActivationMode
                     if isProfileSwitch {
-                        self.state.gyroHoldButtons.removeAll()
-                        self.state.gyroPauseButtons.removeAll()
-                        self.state.wasGyroActive = false
-                        self.state.rederiveGyroLatchLocked()
+                        self.state.clearGyroModalStateLocked()
                     } else if oldGyroMode != newGyroMode {
                         self.state.rederiveGyroLatchLocked()
                     }
@@ -391,8 +388,13 @@ class MappingEngine: ObservableObject {
             self?.enqueueControllerInputEvent(event)
         }
 
-        // Joystick polling
+        // Joystick polling. removeDuplicates matters: isConnected republishes
+        // `true` when additional devices announce, and startJoystickPollingIfNeeded
+        // begins with a full transient reset — without the filter, a second
+        // controller connecting would wipe gyro modal state and held modifiers
+        // mid-session.
         controllerService.$isConnected
+            .removeDuplicates()
             .sink { [weak self] connected in
                 if connected {
                     self?.startJoystickPollingIfNeeded()
@@ -986,6 +988,11 @@ class MappingEngine: ObservableObject {
                 return
 
             case .interceptGyroAction(let action):
+                // Mark the press consumed so the release is suppressed from
+                // press-time state — the keycode guard in handleButtonReleased
+                // can't cover a mapping that changes between press and release
+                // (e.g. a held layer's gyro binding released after the layer).
+                state.lock.withLock { _ = state.pressConsumedByAction.insert(button) }
                 handleGyroActionPressed(button, action: action)
                 return
 

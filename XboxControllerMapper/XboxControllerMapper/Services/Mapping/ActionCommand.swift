@@ -134,6 +134,16 @@ struct KeyPressActionCommand: ActionCommand {
     let action: any ExecutableAction
 
     func executeWithOutcome() -> ActionCommandOutcome {
+        // Special-action markers (laser, OSK, lock, navigator, wheel) are
+        // engine-level actions the input simulator deliberately drops — report
+        // an honest non-dispatch instead of a false success (gyro markers never
+        // reach here; the factory routes them to GyroActionCommand first).
+        if KeyCodeMapping.isSpecialAction(keyCode) {
+            return ActionCommandOutcome(
+                feedback: "\(action.feedbackString) (not available here)",
+                didDispatch: false
+            )
+        }
         inputSimulator.pressKey(keyCode, modifiers: modifiers)
         if !UniversalControlMouseRelay.shared.isRoutingToRemote {
             // Notify on-screen keyboard of controller key press
@@ -175,6 +185,9 @@ struct GyroActionCommand: ActionCommand {
         switch gyroAction {
         case .toggle:
             guard let gyroControl else {
+                // Only the script-editor preview engine legitimately lacks the
+                // hook; a nil here in the real executor is a wiring regression.
+                assertionFailure("GyroActionCommand executed without a gyroControl hook")
                 return ActionCommandOutcome(feedback: "Gyro Toggle (unavailable)", didDispatch: false)
             }
             let latchedOn = gyroControl.toggle()

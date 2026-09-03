@@ -67,13 +67,15 @@ extension MappingEngine {
 
         let focusFlags = settings.focusModeModifier.cgEventFlags
         let isFocusActive = focusFlags.rawValue != 0 && inputSimulator.isHoldingModifiers(focusFlags)
+        // focusEdge MUST be captured before updateFocusModeState runs — it syncs
+        // wasFocusActive on an edge, which would make this comparison always
+        // false and re-enable the double-haptic the suppression exists to stop.
+        let focusEdge = isFocusActive != state.wasFocusActive
         updateFocusModeState(isFocusActive: isFocusActive, settings: settings, now: now, deferring: &deferredIO)
 
         // Gyro activation is resolved per tick by the shared helper (state.lock
-        // is held here). focusEdge is captured before updateFocusModeState
-        // mutates wasFocusActive, so the gyro haptic can tell a latch-driven
+        // is held here); focusEdge lets the gyro haptic tell a latch-driven
         // edge from one the focus handler already announced.
-        let focusEdge = isFocusActive != state.wasFocusActive
         let isGyroActive = state.gyroActiveLocked(isFocusActive: isFocusActive)
         updateGyroActivationState(
             isGyroActive: isGyroActive,

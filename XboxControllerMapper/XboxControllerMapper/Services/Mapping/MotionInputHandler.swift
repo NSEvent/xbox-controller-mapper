@@ -42,10 +42,7 @@ extension MappingEngine {
     nonisolated func handleGyroActionPressed(_ button: ControllerButton, action: GyroButtonAction) {
         switch action {
         case .toggle:
-            let latchedOn = state.lock.withLock { () -> Bool in
-                state.gyroToggledOn.toggle()
-                return state.gyroToggledOn
-            }
+            let latchedOn = state.lock.withLock { state.toggleGyroLatchLocked() }
             inputLogService?.log(buttons: [button], type: .singlePress, action: latchedOn ? "Gyro On" : "Gyro Off")
         case .hold:
             state.lock.withLock { _ = state.gyroHoldButtons.insert(button) }

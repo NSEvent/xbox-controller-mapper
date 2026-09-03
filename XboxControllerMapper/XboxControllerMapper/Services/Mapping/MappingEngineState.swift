@@ -184,6 +184,24 @@ extension MappingEngine {
             gyroToggledOn = (joystickSettings ?? .default).gyroActivationMode.initialToggledOn
         }
 
+        /// Clears all gyro modal state and re-derives the latch — the ONE
+        /// clearing site, shared by full resets and profile switches so the
+        /// two paths can never diverge. Caller must hold `lock`.
+        func clearGyroModalStateLocked() {
+            wasGyroActive = false
+            gyroHoldButtons.removeAll()
+            gyroPauseButtons.removeAll()
+            rederiveGyroLatchLocked()
+        }
+
+        /// Flips the Gyro Toggle latch and returns the new state — the ONE
+        /// flip site, shared by the button intercept, the scripting hook, and
+        /// the executor command. Caller must hold `lock`.
+        func toggleGyroLatchLocked() -> Bool {
+            gyroToggledOn.toggle()
+            return gyroToggledOn
+        }
+
         /// Whether gyro aiming should drive the mouse right now — the single
         /// source of truth shared by the joystick poll tick and the scripting
         /// `gyroIsActive()` hook. Caller must hold `lock`.
@@ -408,10 +426,7 @@ extension MappingEngine {
             // same way UI overlays do; a full reset clears it and re-derives the
             // latch so the mode's initial state applies on the next session.
             if !preservingGyroState {
-                wasGyroActive = false
-                gyroHoldButtons.removeAll()
-                gyroPauseButtons.removeAll()
-                rederiveGyroLatchLocked()
+                clearGyroModalStateLocked()
             }
 
 			if preservingManualLayers {

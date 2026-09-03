@@ -188,6 +188,46 @@ final class GyroEngineStateResetTests: XCTestCase {
     }
 }
 
+// MARK: - Executor Honest Dispatch
+
+final class SpecialMarkerDispatchTests: XCTestCase {
+
+    func testKeyPressCommandReportsNonDispatchForSpecialMarkers() {
+        let mock = MockInputSimulator()
+        let mapping = KeyMapping(keyCode: KeyCodeMapping.showLaserPointer)
+        let command = KeyPressActionCommand(
+            keyCode: KeyCodeMapping.showLaserPointer,
+            modifiers: ModifierFlags(),
+            inputSimulator: mock,
+            action: mapping
+        )
+
+        let outcome = command.executeWithOutcome()
+
+        XCTAssertFalse(outcome.didDispatch, "Swallowed special markers must not report success")
+        XCTAssertTrue(mock.events.isEmpty, "No input events for a special marker")
+    }
+
+    func testKeyPressCommandStillDispatchesRealKeys() {
+        let mock = MockInputSimulator()
+        let mapping = KeyMapping(keyCode: 6) // Z
+        let command = KeyPressActionCommand(
+            keyCode: 6,
+            modifiers: ModifierFlags(),
+            inputSimulator: mock,
+            action: mapping
+        )
+
+        let outcome = command.executeWithOutcome()
+
+        XCTAssertTrue(outcome.didDispatch)
+        XCTAssertTrue(mock.events.contains { event in
+            if case .pressKey(let code, _) = event { return code == 6 }
+            return false
+        })
+    }
+}
+
 // MARK: - Engine Integration (press/release intercepts)
 
 final class GyroActionInterceptTests: MappingEngineTestCase {
@@ -217,6 +257,10 @@ final class GyroActionInterceptTests: MappingEngineTestCase {
             mappingEngine.state.lock.withLock { mappingEngine.state.gyroHoldButtons.contains(.micMute) }
         }
         XCTAssertTrue(heldAfterPress, "Press should register the hold button")
+        let consumed = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.pressConsumedByAction.contains(.micMute) }
+        }
+        XCTAssertTrue(consumed, "Gyro press must mark pressConsumedByAction so the release is suppressed from press-time state")
 
         await MainActor.run { controllerService.buttonReleased(.micMute) }
         await waitForTasks(0.2)

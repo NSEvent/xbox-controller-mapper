@@ -257,8 +257,7 @@ extension ControllerService {
         storage.ds4GyroBiasSampleCount = 0
         storage.ds4GyroPitchBias = 0
         storage.ds4GyroRollBias = 0
-        storage.ds4GyroLastRawPitch = nil
-        storage.ds4GyroLastRawRoll = nil
+        storage.ds4GyroLastRaw = nil
 		resetSteamGyroBiasStateLocked()
 	}
 

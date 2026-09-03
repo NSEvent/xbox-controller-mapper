@@ -17,6 +17,18 @@
 > activation edges now play the haptic in every mode; Gyro Toggle works from
 > gestures/touchpad regions/command wheel via a GyroActionCommand in the
 > executor; Hold/Pause are offered only in the primary button editor.
+>
+> **Second review round 2026-09-03:** fixed a focusEdge capture-ordering
+> regression (double haptic in legacy mode), added removeDuplicates to the
+> isConnected polling sink (duplicate device announcements were full-resetting
+> gyro modal state), gyro presses now mark pressConsumedByAction (closes the
+> held-layer phantom-tap hole from release-time mapping resolution),
+> KeyPressActionCommand reports didDispatch=false for swallowed special
+> markers, the DS4 startup calibration gained Steam-style motion rejection,
+> and the gyro clear/flip logic was consolidated into single EngineState
+> helpers. Deferred by choice: same-UUID content validation on republish
+> (stuck latch is recoverable via mode change), always-on profile-switch
+> recalibration edge (semi-intentional), Steam/DS4 recenter EMA unification.
 
 Make gyro aiming a first-class pointing device: always-on gyro, ratcheting, and bindable
 gyro on/off actions that emit no keystrokes — instead of the current "hold the focus-mode
