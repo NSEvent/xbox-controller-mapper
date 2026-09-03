@@ -194,22 +194,24 @@ public struct AutomationProgramEditor: View {
 				.help(allowed ? (expanded ? "Collapse" : "Expand") : "Unavailable in this host")
 				.accessibilityLabel(allowed ? (expanded ? "Collapse" : "Expand") : "Unavailable in this host")
 
-				HStack(spacing: 8) {
-					Image(systemName: iconName(for: step))
-						.frame(width: 18)
-						.foregroundStyle(allowed ? Color.accentColor : Color.secondary)
+					Button {
+						if allowed {
+							toggleExpanded(index)
+						}
+					} label: {
+						HStack(spacing: 8) {
+							Image(systemName: iconName(for: step))
+								.frame(width: 18)
+								.foregroundStyle(allowed ? Color.accentColor : Color.secondary)
 
-					Text(step.displaySummary)
-						.font(.callout.weight(.semibold))
-						.lineLimit(1)
-						.frame(maxWidth: .infinity, alignment: .leading)
-				}
-				.contentShape(Rectangle())
-				.onTapGesture {
-					if allowed {
-						toggleExpanded(index)
+							Text(step.displaySummary)
+								.font(.callout.weight(.semibold))
+								.lineLimit(1)
+								.frame(maxWidth: .infinity, alignment: .leading)
+						}
+						.contentShape(Rectangle())
 					}
-				}
+					.buttonStyle(.plain)
 
 				Button {
 					moveStep(from: index, by: -1)
