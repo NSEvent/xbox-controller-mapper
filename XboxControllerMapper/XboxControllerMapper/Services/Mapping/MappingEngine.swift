@@ -1470,6 +1470,13 @@ class MappingEngine: ObservableObject {
 
         guard let (mapping, profile, isLongHoldTriggered) = getReleaseContext(for: button) else { return }
 
+        // Gyro-control mappings are fully handled by the press intercept plus
+        // handleGyroActionReleased above — never execute them again on release
+        // (a single-tap here would hand the marker keycode to the executor).
+        if let keyCode = mapping.keyCode, GyroButtonAction(keyCode: keyCode) != nil {
+            return
+        }
+
         switch ButtonInteractionFlowPolicy.releaseDecision(
             mapping: mapping,
             holdDuration: holdDuration,
