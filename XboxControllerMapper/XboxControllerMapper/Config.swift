@@ -458,10 +458,6 @@ struct Config {
     /// Steam already blends roll/yaw before entering the cursor pipeline, so do
     /// not apply the generic roll boost a second time.
     static let steamGyroAimingRollBoost: Double = 1.0
-    /// Continuous below-deadzone time before idle gyro bias recalibration fires.
-    /// A controller at rest for this long re-zeroes its bias (temperature drift
-    /// matters once always-on gyro keeps aiming active for whole sessions).
-    static let gyroIdleRecalibrationWindow: TimeInterval = 2.0
 
     /// Haptic feedback for gesture detection
     static let gestureHapticIntensity: Float = 0.3
