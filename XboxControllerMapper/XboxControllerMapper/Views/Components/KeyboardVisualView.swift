@@ -319,6 +319,13 @@ struct KeyboardVisualView: View {
                 KeyButton(keyCode: KeyCodeMapping.controllerLock, label: "🔒 Lock", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.showDirectoryNavigator, label: "📁 Nav", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.showCommandWheel, label: "◎ Wheel", width: 60, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+
+                Spacer().frame(width: 20)
+
+                // Gyro control (virtual — no key events sent)
+                KeyButton(keyCode: KeyCodeMapping.gyroToggle, label: "🔄 Gyro", width: 60, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                KeyButton(keyCode: KeyCodeMapping.gyroHold, label: "Gyro Hold", width: 70, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                KeyButton(keyCode: KeyCodeMapping.gyroPause, label: "Gyro Pause", width: 75, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 Spacer()
             }
         }

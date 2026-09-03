@@ -189,9 +189,46 @@ class MappingEngine: ObservableObject {
 
         setupBindings()
 
+        // Wire scripting gyro hooks (gyroToggle/gyroSetActive/gyroIsActive globals).
+        // Captures the state object, not self, to avoid a retain cycle with the
+        // engine-owned ScriptEngine.
+        let engineState = self.state
+        let engineInputSimulator = self.inputSimulator
+        engine.gyroControl = ScriptEngine.GyroControl(
+            toggle: { [weak engineState] in
+                guard let s = engineState else { return false }
+                return s.lock.withLock {
+                    s.gyroToggledOn.toggle()
+                    return s.gyroToggledOn
+                }
+            },
+            setActive: { [weak engineState] on in
+                guard let s = engineState else { return }
+                s.lock.withLock { s.gyroToggledOn = on }
+            },
+            isActive: { [weak engineState] in
+                guard let s = engineState else { return false }
+                return s.lock.withLock {
+                    guard let settings = s.joystickSettings, settings.gyroAimingEnabled else { return false }
+                    let focusFlags = settings.focusModeModifier.cgEventFlags
+                    let isFocusActive = focusFlags.rawValue != 0
+                        && engineInputSimulator.isHoldingModifiers(focusFlags)
+                    return GyroActivationResolver.isActive(
+                        mode: settings.gyroActivationMode,
+                        isFocusActive: isFocusActive,
+                        toggledOn: s.gyroToggledOn,
+                        holdButtonsDown: !s.gyroHoldButtons.isEmpty,
+                        pauseButtonsDown: !s.gyroPauseButtons.isEmpty
+                    )
+                }
+            }
+        )
+
         // Initial state sync
         self.state.activeProfile = profileManager.activeProfile
         self.state.joystickSettings = profileManager.activeProfile?.joystickSettings
+        self.state.gyroToggledOn = (profileManager.activeProfile?.joystickSettings ?? .default)
+            .gyroActivationMode.initialToggledOn
 	let oskSettings = profileManager.onScreenKeyboardSettings
 	self.state.swipeTypingEnabled = oskSettings.swipeTypingEnabled
 	self.state.swipeTypingSensitivity = oskSettings.swipeTypingSensitivity
@@ -305,6 +342,10 @@ class MappingEngine: ObservableObject {
 					)
                     self.state.activeProfile = profile
                     self.state.joystickSettings = profile?.joystickSettings
+                    // resetTransientInputState above derived the toggle latch from the
+                    // OUTGOING settings; re-derive from the incoming profile's mode.
+                    self.state.gyroToggledOn = (profile?.joystickSettings ?? .default)
+                        .gyroActivationMode.initialToggledOn
 					let osk = self.profileManager.onScreenKeyboardSettings
 					self.state.swipeTypingEnabled = osk.swipeTypingEnabled
 					self.state.swipeTypingSensitivity = osk.swipeTypingSensitivity
@@ -582,6 +623,16 @@ class MappingEngine: ObservableObject {
             }
             DispatchQueue.main.async { DirectoryNavigatorManager.shared.toggle() }
             inputLogService?.log(buttons: buttons, type: logType, action: "Directory Navigator")
+            return true
+        }
+        if keyCode == KeyCodeMapping.gyroToggle {
+            handleGyroActionPressed(buttons.first ?? .a, action: .toggle)
+            return true
+        }
+        if keyCode == KeyCodeMapping.gyroHold || keyCode == KeyCodeMapping.gyroPause {
+            // Hold/pause need a press/release pair; chords and sequences are
+            // press-only contexts, so treat as a no-op rather than a stuck state.
+            NSLog("[MappingEngine] Gyro Hold/Pause ignored in press-only context (%@)", "\(logType)")
             return true
         }
         return false
@@ -922,6 +973,10 @@ class MappingEngine: ObservableObject {
 
             case .interceptCommandWheel(let holdMode):
                 handleCommandWheelPressed(button, holdMode: holdMode)
+                return
+
+            case .interceptGyroAction(let action):
+                handleGyroActionPressed(button, action: action)
                 return
 
             case .interceptDirectoryNavigation:
@@ -1375,6 +1430,7 @@ class MappingEngine: ObservableObject {
         handleLaserPointerReleased(button)
         handleDirectoryNavigatorReleased(button)
         handleCommandWheelReleased(button)
+        handleGyroActionReleased(button)
 
 		if state.lock.withLock({ state.smoothScrollMappings[button] != nil }),
 		   let releaseResult = cleanupReleaseTimers(for: button) {
@@ -1424,6 +1480,9 @@ class MappingEngine: ObservableObject {
 
         case .executeLongHold(let longHoldMapping):
             clearTapState(for: button)
+            if handleSpecialActionIntercept(keyCode: longHoldMapping.keyCode, buttons: [button], logType: .longPress) {
+                return
+            }
             mappingExecutor.executeAction(longHoldMapping, for: button, profile: profile, logType: .longPress)
             playActionHaptic(style: longHoldMapping.hapticStyle)
             return

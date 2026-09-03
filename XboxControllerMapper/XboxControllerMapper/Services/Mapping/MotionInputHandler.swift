@@ -33,4 +33,36 @@ extension MappingEngine {
             transient: true
         )
     }
+
+    // MARK: - Gyro Control Actions (virtual — no OS key events)
+
+    /// Handles a press on a Gyro Toggle / Gyro Hold / Gyro Pause mapping.
+    /// The joystick poll loop picks up the state change via `GyroActivationResolver`
+    /// on its next tick (including calibration + haptic on the activation edge).
+    nonisolated func handleGyroActionPressed(_ button: ControllerButton, action: GyroButtonAction) {
+        switch action {
+        case .toggle:
+            let latchedOn = state.lock.withLock { () -> Bool in
+                state.gyroToggledOn.toggle()
+                return state.gyroToggledOn
+            }
+            inputLogService?.log(buttons: [button], type: .singlePress, action: latchedOn ? "Gyro On" : "Gyro Off")
+        case .hold:
+            state.lock.withLock { _ = state.gyroHoldButtons.insert(button) }
+            inputLogService?.log(buttons: [button], type: .singlePress, action: "Gyro Hold")
+        case .pause:
+            state.lock.withLock { _ = state.gyroPauseButtons.insert(button) }
+            inputLogService?.log(buttons: [button], type: .singlePress, action: "Gyro Pause")
+        }
+    }
+
+    /// Clears hold/pause membership on button release. Toggle is tap-latched, so
+    /// release is a no-op for it. Cheap enough to call unconditionally from the
+    /// release chain, mirroring the UI-overlay release handlers.
+    nonisolated func handleGyroActionReleased(_ button: ControllerButton) {
+        state.lock.withLock {
+            state.gyroHoldButtons.remove(button)
+            state.gyroPauseButtons.remove(button)
+        }
+    }
 }

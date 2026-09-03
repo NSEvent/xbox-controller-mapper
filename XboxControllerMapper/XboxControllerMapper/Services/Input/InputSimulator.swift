@@ -424,6 +424,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             return
         }
 
+        // Gyro-control markers are engine-level actions (handled by MappingEngine
+        // intercepts); never post them as raw key events.
+        if KeyCodeMapping.isGyroAction(keyCode) { return }
+
         guard checkAccessibility() else { return }
 
         // Run key simulation on dedicated queue

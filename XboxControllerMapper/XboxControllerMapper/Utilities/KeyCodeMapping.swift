@@ -141,6 +141,17 @@ enum KeyCodeMapping {
     /// Shows standalone command wheel while button is held
     static let showCommandWheel: CGKeyCode = 0xF014
 
+    // MARK: - Gyro Control Markers
+
+    /// Toggles gyro aiming on/off (no OS key event)
+    static let gyroToggle: CGKeyCode = 0xF050
+
+    /// Gyro aiming active while button is held (no OS key event)
+    static let gyroHold: CGKeyCode = 0xF051
+
+    /// Gyro aiming suppressed while button is held — ratchet (no OS key event)
+    static let gyroPause: CGKeyCode = 0xF052
+
     // MARK: - Media Key Markers
 
     // Playback controls
@@ -289,6 +300,11 @@ enum KeyCodeMapping {
 	Int(showDirectoryNavigator): "Directory Navigator",
 	Int(showCommandWheel): "Command Wheel",
 
+	// Gyro control
+	Int(gyroToggle): "Gyro Toggle",
+	Int(gyroHold): "Gyro Hold",
+	Int(gyroPause): "Gyro Pause",
+
 	// Media keys
 	Int(mediaPlayPause): "Play/Pause",
 	Int(mediaNext): "Next Track",
@@ -402,6 +418,11 @@ enum KeyCodeMapping {
         options.append(("Controller Lock", controllerLock))
         options.append(("Directory Navigator", showDirectoryNavigator))
 
+        // Gyro control
+        options.append(("Gyro Toggle", gyroToggle))
+        options.append(("Gyro Hold", gyroHold))
+        options.append(("Gyro Pause", gyroPause))
+
 		// Codex Micro hardware actions
 		options.append(contentsOf: CodexMicroControl.allCases.map { ($0.displayName, $0.keyCode) })
 
@@ -477,7 +498,12 @@ enum KeyCodeMapping {
 
     /// Checks if a key code represents a special action (on-screen keyboard, etc.)
     static func isSpecialAction(_ keyCode: CGKeyCode) -> Bool {
-        keyCode == showOnScreenKeyboard || keyCode == showLaserPointer || keyCode == controllerLock || keyCode == showDirectoryNavigator || keyCode == showCommandWheel
+        keyCode == showOnScreenKeyboard || keyCode == showLaserPointer || keyCode == controllerLock || keyCode == showDirectoryNavigator || keyCode == showCommandWheel || isGyroAction(keyCode)
+    }
+
+    /// Checks if a key code represents a gyro-control action (toggle/hold/pause)
+    static func isGyroAction(_ keyCode: CGKeyCode) -> Bool {
+        keyCode == gyroToggle || keyCode == gyroHold || keyCode == gyroPause
     }
 
     /// Checks if a key code represents a media key

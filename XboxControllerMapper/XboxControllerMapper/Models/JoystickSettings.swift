@@ -42,6 +42,33 @@ enum StickMode: String, Codable, CaseIterable {
     }
 }
 
+/// How gyro aiming activates.
+///
+/// Gyro-active is resolved every tick by `GyroActivationResolver` from this mode plus
+/// the toggle latch and any held Gyro Hold / Gyro Pause buttons. `.focusModifier` is
+/// the legacy behavior and the decode default so existing profiles are unchanged.
+enum GyroActivationMode: String, Codable, CaseIterable {
+    /// Legacy: gyro aims while the focus-mode modifier is held.
+    case focusModifier = "focusModifier"
+    /// Gyro always moves the cursor (bind Gyro Pause to ratchet).
+    case alwaysOn = "alwaysOn"
+    /// Gyro moves the cursor only via Gyro Toggle / Gyro Hold bindings.
+    case gyroButton = "gyroButton"
+
+    var displayName: String {
+        switch self {
+        case .focusModifier: return String(localized: "Focus modifier")
+        case .alwaysOn: return String(localized: "Always on")
+        case .gyroButton: return String(localized: "Gyro button")
+        }
+    }
+
+    /// The toggle latch's initial value when this mode takes effect.
+    var initialToggledOn: Bool {
+        self == .alwaysOn
+    }
+}
+
 /// Which analog trigger, if any, scales cursor speed as a continuous precision control.
 enum AnalogPrecisionTriggerMode: String, Codable, CaseIterable {
     case off = "off"
@@ -317,8 +344,11 @@ struct JoystickSettings: Codable, Equatable {
     /// Response curve from trigger depth to speed reduction (0 = linear, 1 = cubic).
     var analogPrecisionCurve: Double = 0.35
 
-    /// Whether gyroscope aiming is enabled during focus mode.
+    /// Whether gyroscope aiming is enabled.
     var gyroAimingEnabled: Bool = false
+
+    /// How gyro aiming activates (focus modifier hold, always on, or gyro-button control).
+    var gyroActivationMode: GyroActivationMode = .focusModifier
 
     /// Sensitivity for gyroscope aiming (0.0 - 1.0)
     var gyroAimingSensitivity: Double = 0.3
@@ -583,6 +613,7 @@ extension JoystickSettings {
 		case analogPrecisionDeadzone
 		case analogPrecisionCurve
         case gyroAimingEnabled
+        case gyroActivationMode
         case gyroAimingSensitivity
         case gyroAimingDeadzone
         case pointerLockMouseMode
@@ -660,6 +691,8 @@ extension JoystickSettings {
 		analogPrecisionDeadzone = try container.decode(.analogPrecisionDeadzone, default: 0.05, clampedTo: 0.0...0.95)
 		analogPrecisionCurve = try container.decode(.analogPrecisionCurve, default: 0.35, clampedTo: unit)
         gyroAimingEnabled = try container.decode(.gyroAimingEnabled, default: false)
+        // Lenient: unknown mode strings (newer build, hand-edited config) degrade to legacy.
+        gyroActivationMode = try container.decodeLenient(.gyroActivationMode, default: GyroActivationMode.focusModifier)
         gyroAimingSensitivity = try container.decode(.gyroAimingSensitivity, default: 0.3, clampedTo: unit)
         gyroAimingDeadzone = try container.decode(.gyroAimingDeadzone, default: 0.3, clampedTo: unit)
         // Lenient: a mode added by a newer build degrades to .auto on downgrade.
@@ -708,6 +741,7 @@ extension JoystickSettings {
 		try container.encode(analogPrecisionDeadzone, forKey: .analogPrecisionDeadzone)
 		try container.encode(analogPrecisionCurve, forKey: .analogPrecisionCurve)
         try container.encode(gyroAimingEnabled, forKey: .gyroAimingEnabled)
+        try container.encode(gyroActivationMode, forKey: .gyroActivationMode)
         try container.encode(gyroAimingSensitivity, forKey: .gyroAimingSensitivity)
         try container.encode(gyroAimingDeadzone, forKey: .gyroAimingDeadzone)
         try container.encode(pointerLockMouseMode, forKey: .pointerLockMouseMode)

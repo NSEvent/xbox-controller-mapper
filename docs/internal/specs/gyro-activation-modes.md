@@ -1,5 +1,9 @@
 # Gyro Activation Modes & Virtual Gyro Actions
 
+> **Status: implemented 2026-09-02** (same-day as spec). Decisions taken: legacy
+> default everywhere (new enables included), scripting API in v1, idle
+> recalibration in v1. Device verification on kmacstudio pending.
+
 Make gyro aiming a first-class pointing device: always-on gyro, ratcheting, and bindable
 gyro on/off actions that emit no keystrokes — instead of the current "hold the focus-mode
 modifier to gyro-aim" model.

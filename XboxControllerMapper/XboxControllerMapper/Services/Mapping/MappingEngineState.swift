@@ -166,6 +166,16 @@ extension MappingEngine {
         var gyroFilterY = OneEuroFilter(fcmin: 1.0, beta: 0.007, dcutoff: 1.0)
         var lastGyroTime: TimeInterval = 0
 
+        // Gyro activation state (see GyroActivationResolver).
+        // gyroToggledOn is the latch flipped by the Gyro Toggle action; the hold/pause
+        // sets track buttons currently held on Gyro Hold / Gyro Pause mappings.
+        var gyroToggledOn: Bool = false
+        var gyroHoldButtons: Set<ControllerButton> = []
+        var gyroPauseButtons: Set<ControllerButton> = []
+        var wasGyroActive = false
+        /// Start of the current below-deadzone quiet span (idle bias recalibration).
+        var gyroIdleQuietStart: TimeInterval = 0
+
         /// Thread-safe reset: acquires the lock, resets all transient state, and releases the lock.
         /// Use this when you are NOT already holding the lock.
         func lockedReset() {
@@ -369,6 +379,13 @@ extension MappingEngine {
             gyroFilterX.reset()
             gyroFilterY.reset()
             lastGyroTime = 0
+            wasGyroActive = false
+            gyroIdleQuietStart = 0
+            gyroHoldButtons.removeAll()
+            gyroPauseButtons.removeAll()
+            // Re-derive the toggle latch from the current mode so a routing boundary
+            // never leaves gyro parked in a state the mode wouldn't start in.
+            gyroToggledOn = (joystickSettings ?? .default).gyroActivationMode.initialToggledOn
 
 			if preservingManualLayers {
 				activeLayerIds = preservedActiveLayerIds

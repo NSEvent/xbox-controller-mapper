@@ -51,6 +51,16 @@ class ScriptEngine {
     private var isTestMode = false
     private var testLogs: [String] = []
 
+    /// Hooks into the mapping engine's gyro activation state. Set by MappingEngine
+    /// after construction; nil (e.g. the script-editor test engine) makes the
+    /// gyro functions no-ops that return false.
+    struct GyroControl {
+        let toggle: () -> Bool
+        let setActive: (Bool) -> Void
+        let isActive: () -> Bool
+    }
+    var gyroControl: GyroControl?
+
     /// Named key code mapping for pressKey()
     private static let namedKeys: [String: CGKeyCode] = [
         "space": 49, "return": 36, "enter": 36, "tab": 48, "escape": 53, "esc": 53,
@@ -673,6 +683,39 @@ class ScriptEngine {
             }
         }
         context.setObject(notify, forKeyedSubscript: "notify" as NSString)
+
+        // gyroToggle() -> Bool — flip the gyro toggle latch; returns the new latch state
+        let gyroToggleFn: @convention(block) () -> Bool = { [weak self] in
+            guard let self else { return false }
+            if self.isTestMode {
+                self.testLogs.append("[gyroToggle]")
+                return false
+            }
+            return self.gyroControl?.toggle() ?? false
+        }
+        context.setObject(gyroToggleFn, forKeyedSubscript: "gyroToggle" as NSString)
+
+        // gyroSetActive(bool) — set the gyro toggle latch directly
+        let gyroSetActiveFn: @convention(block) (Bool) -> Void = { [weak self] on in
+            guard let self else { return }
+            if self.isTestMode {
+                self.testLogs.append("[gyroSetActive] \(on)")
+                return
+            }
+            self.gyroControl?.setActive(on)
+        }
+        context.setObject(gyroSetActiveFn, forKeyedSubscript: "gyroSetActive" as NSString)
+
+        // gyroIsActive() -> Bool — whether gyro aiming is driving the mouse right now
+        let gyroIsActiveFn: @convention(block) () -> Bool = { [weak self] in
+            guard let self else { return false }
+            if self.isTestMode {
+                self.testLogs.append("[gyroIsActive]")
+                return false
+            }
+            return self.gyroControl?.isActive() ?? false
+        }
+        context.setObject(gyroIsActiveFn, forKeyedSubscript: "gyroIsActive" as NSString)
     }
 
     // MARK: - Logging API

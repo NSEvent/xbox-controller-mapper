@@ -16,6 +16,7 @@ enum ButtonPressOrchestrationPolicy {
         case interceptControllerLock
         case interceptDirectoryNavigator(holdMode: Bool)
         case interceptCommandWheel(holdMode: Bool)
+        case interceptGyroAction(GyroButtonAction)
         case interceptDirectoryNavigation
         case interceptDirectoryConfirm
         case interceptDirectoryDismiss
@@ -115,6 +116,10 @@ enum ButtonPressOrchestrationPolicy {
 
         if mapping.keyCode == KeyCodeMapping.showCommandWheel {
             return .interceptCommandWheel(holdMode: mapping.isHoldModifier)
+        }
+
+        if let keyCode = mapping.keyCode, let gyroAction = GyroButtonAction(keyCode: keyCode) {
+            return .interceptGyroAction(gyroAction)
         }
 
         return .mapping(

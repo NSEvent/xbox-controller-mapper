@@ -163,7 +163,10 @@ There are other controller mapping apps for macOS, but none offered everything I
   - Disable option to turn off stick input entirely
 
 - **Gyroscope Aiming & Gestures** (DualSense/DualShock 4):
-  - Gyro aiming: Use the gyroscope for precise mouse control in focus mode
+  - Gyro aiming: Use the gyroscope for precise mouse control — always on (mouse-like), while a button is held, toggled, or tied to focus mode
+  - Gyro Toggle / Gyro Hold / Gyro Pause button actions control gyro without sending keystrokes; Gyro Pause enables ratcheting (reposition without moving the cursor)
+  - Idle bias recalibration: a controller at rest re-zeroes gyro drift automatically
+  - Scripting: `gyroToggle()`, `gyroSetActive(bool)`, `gyroIsActive()` compose gyro control with key output on one button
   - 1-Euro filter for jitter-free smoothing with responsive tracking
   - Gesture mappings: Tilt forward/back and steer left/right to trigger actions
   - Per-profile gesture sensitivity and cooldown sliders

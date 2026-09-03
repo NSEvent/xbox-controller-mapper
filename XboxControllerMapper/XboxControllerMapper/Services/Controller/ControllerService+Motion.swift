@@ -164,6 +164,19 @@ extension ControllerService {
 		}
 	}
 
+	/// Re-zeroes gyro bias while the controller is at rest (idle recalibration).
+	/// Clears accumulated aiming rates; for the Steam Controller also reruns the
+	/// bias-calibration frames so temperature drift doesn't creep the cursor.
+	nonisolated func recalibrateGyroBias() {
+		storage.lock.withLock {
+			clearAccumulatedMotionRatesLocked()
+			if storage.isSteamController {
+				resetSteamGyroBiasStateLocked()
+				storage.steamGyroBiasCalibrationNotBefore = 0
+			}
+		}
+	}
+
 	nonisolated func prepareForGyroAimingActivation(
 		calibrationDelay: TimeInterval = 0,
 		now: TimeInterval = ProcessInfo.processInfo.systemUptime
