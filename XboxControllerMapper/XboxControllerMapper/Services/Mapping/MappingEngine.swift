@@ -872,9 +872,6 @@ class MappingEngine: ObservableObject {
 
         case .layerActivated(let profile, let layerId):
 			if let layer = profile.layers.first(where: { $0.id == layerId }) {
-				#if DEBUG
-				print("🔷 Layer activated: \(layer.name)")
-				#endif
 				inputLogService?.log(buttons: [button], type: .singlePress, action: "Layer: \(layer.name)")
 			}
 			DispatchQueue.main.async { [weak self] in
@@ -885,9 +882,6 @@ class MappingEngine: ObservableObject {
 		case .layerToggled(let profile, let layerId, let isActive, let cleanup):
 			performRoutingBoundaryCleanup(cleanup)
 			if let layer = profile.layers.first(where: { $0.id == layerId }) {
-				#if DEBUG
-				print("🔷 Layer toggled \(isActive ? "on" : "off"): \(layer.name)")
-				#endif
 				inputLogService?.log(
 					buttons: [button],
 					type: .singlePress,
@@ -1445,12 +1439,6 @@ class MappingEngine: ObservableObject {
             #endif
         }
         if layerDeactivation.didDeactivate {
-            #if DEBUG
-            if let layerName = layerDeactivation.layerName {
-                print("🔷 Layer deactivated: \(layerName)")
-            }
-            #endif
-
             // Revert LED settings: apply next active layer's LED, or fall back to profile default.
             // After applying, also kick the battery monitor so battery-light-bar mode resumes
             // if the profile uses it (otherwise its periodic updates would override our color).
@@ -1799,9 +1787,6 @@ class MappingEngine: ObservableObject {
 				performRoutingBoundaryCleanup(cleanup)
 			}
 			if let layer = startState.profile.layers.first(where: { $0.id == change.layerId }) {
-				#if DEBUG
-				print("🔷 Layer \(change.isActive ? "activated" : "deactivated") via chord: \(layer.name)")
-				#endif
 				inputLogService?.log(
 					buttons: [change.button],
 					type: .singlePress,
