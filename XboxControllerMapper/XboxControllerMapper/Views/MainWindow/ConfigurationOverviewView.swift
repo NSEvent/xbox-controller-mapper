@@ -19,7 +19,7 @@ struct ConfigurationOverviewView: View {
 	@State private var filter: ConfigurationOverviewFilter = .all
 	@State private var showingOtherDeviceMappings = false
 
-	private var snapshot: ConfigurationOverviewSnapshot? {
+	private func makeSnapshot() -> ConfigurationOverviewSnapshot? {
 		profileManager.activeProfile.map {
 			ConfigurationOverviewBuilder.make(
 				profile: $0,
@@ -31,8 +31,9 @@ struct ConfigurationOverviewView: View {
 	}
 
 	var body: some View {
+		let snapshot = makeSnapshot()
 		VStack(spacing: 0) {
-			header
+			header(snapshot)
 			Divider().opacity(0.45)
 
 			if let snapshot {
@@ -61,7 +62,7 @@ struct ConfigurationOverviewView: View {
 		}
 	}
 
-	private var header: some View {
+	private func header(_ snapshot: ConfigurationOverviewSnapshot?) -> some View {
 		HStack(alignment: .center, spacing: 14) {
 			VStack(alignment: .leading, spacing: 3) {
 				Text("Configuration Overview")
@@ -79,7 +80,7 @@ struct ConfigurationOverviewView: View {
 
 			Spacer()
 
-			scopeMenu
+			scopeMenu(snapshot)
 
 			Button(action: onOpenVisualEditor) {
 				Label("Open Visual Editor", systemImage: "gamecontroller.fill")
@@ -92,7 +93,7 @@ struct ConfigurationOverviewView: View {
 		.padding(.vertical, 14)
 	}
 
-	private var scopeMenu: some View {
+	private func scopeMenu(_ snapshot: ConfigurationOverviewSnapshot?) -> some View {
 		Menu {
 			Button {
 				selectedLayerId = nil

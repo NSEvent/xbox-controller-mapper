@@ -6,6 +6,31 @@ import CoreTransferable
 
 // MARK: - Drag & Drop
 
+/// Owns the custom clipboard format used by controller mapping copy/paste.
+///
+/// Context-menu builders run eagerly and frequently in SwiftUI. Availability
+/// checks therefore inspect only the advertised pasteboard types; decoding the
+/// full mapping is deferred until the user actually chooses Paste Mapping.
+enum ControllerMappingPasteboard {
+	static let mappingType = NSPasteboard.PasteboardType("com.kevintang.ControllerKeys.keyMapping")
+
+	static func containsMapping(in pasteboard: NSPasteboard = .general) -> Bool {
+		pasteboard.types?.contains(mappingType) == true
+	}
+
+	static func write(_ mapping: KeyMapping, to pasteboard: NSPasteboard = .general) {
+		guard let data = try? JSONEncoder().encode(mapping) else { return }
+		pasteboard.clearContents()
+		pasteboard.setData(data, forType: mappingType)
+		pasteboard.setString(mapping.compactDescription, forType: .string)
+	}
+
+	static func read(from pasteboard: NSPasteboard = .general) -> KeyMapping? {
+		guard let data = pasteboard.data(forType: mappingType) else { return nil }
+		return try? JSONDecoder().decode(KeyMapping.self, from: data)
+	}
+}
+
 /// Transports a `ControllerButton` across a SwiftUI drag-and-drop. Backed by the
 /// enum's String rawValue, which is already its on-disk identity in the config.
 extension ControllerButton: Transferable {
@@ -117,8 +142,6 @@ extension View {
 /// Interactive visual representation of a controller with a professional Reference Page layout
 /// Automatically adapts to show Xbox or DualSense layouts based on connected controller
 struct ControllerVisualView: View, ControllerTypeProviding {
-	private static let mappingPasteboardType = NSPasteboard.PasteboardType("com.kevintang.ControllerKeys.keyMapping")
-
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
 
@@ -1648,30 +1671,21 @@ struct ControllerVisualView: View, ControllerTypeProviding {
     }
 
 	private var canPasteMapping: Bool {
-		pasteboardMapping() != nil
+		ControllerMappingPasteboard.containsMapping()
 	}
 
 	private func copyMapping(for button: ControllerButton) {
-		guard let mapping = mapping(for: button),
-			  let data = try? JSONEncoder().encode(mapping) else { return }
-		let pasteboard = NSPasteboard.general
-		pasteboard.clearContents()
-		pasteboard.setData(data, forType: Self.mappingPasteboardType)
-		pasteboard.setString(mapping.compactDescription, forType: .string)
+		guard let mapping = mapping(for: button) else { return }
+		ControllerMappingPasteboard.write(mapping)
 	}
 
 	private func pasteMapping(to button: ControllerButton) {
-		guard let mapping = pasteboardMapping() else { return }
+		guard let mapping = ControllerMappingPasteboard.read() else { return }
 		if let layer = selectedLayer {
 			profileManager.setLayerMapping(mapping, for: button, in: layer)
 		} else {
 			profileManager.setMapping(mapping, for: button)
 		}
-	}
-
-	private func pasteboardMapping() -> KeyMapping? {
-		guard let data = NSPasteboard.general.data(forType: Self.mappingPasteboardType) else { return nil }
-		return try? JSONDecoder().decode(KeyMapping.self, from: data)
 	}
 
     private func layerOverrideColor(for button: ControllerButton) -> Color? {

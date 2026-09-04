@@ -10,6 +10,8 @@ class AppMonitor: ObservableObject {
     @Published var frontmostAppName: String?
 
     private var cancellables = Set<AnyCancellable>()
+	private var appInfoCache: [String: AppInfo] = [:]
+	private var unavailableBundleIds = Set<String>()
 
     init() {
         setupNotifications()
@@ -91,11 +93,17 @@ class AppMonitor: ObservableObject {
 
     /// Gets app info for a bundle identifier
     func appInfo(for bundleId: String) -> AppInfo? {
+		if let cached = appInfoCache[bundleId] { return cached }
+		if unavailableBundleIds.contains(bundleId) { return nil }
+
         if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
             let name = url.deletingPathExtension().lastPathComponent
             let icon = NSWorkspace.shared.icon(forFile: url.path)
-            return AppInfo(bundleIdentifier: bundleId, name: name, icon: icon)
+			let info = AppInfo(bundleIdentifier: bundleId, name: name, icon: icon)
+			appInfoCache[bundleId] = info
+			return info
         }
+		unavailableBundleIds.insert(bundleId)
         return nil
     }
 }

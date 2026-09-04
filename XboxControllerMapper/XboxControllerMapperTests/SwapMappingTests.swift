@@ -228,3 +228,39 @@ final class SwapMappingTests: MappingEngineTestCase {
     }
 
 }
+
+@MainActor
+final class ControllerMappingPasteboardTests: XCTestCase {
+	private var pasteboard: NSPasteboard!
+
+	override func setUp() {
+		super.setUp()
+		pasteboard = NSPasteboard(name: NSPasteboard.Name("ControllerMappingPasteboardTests-\(UUID().uuidString)"))
+		pasteboard.clearContents()
+	}
+
+	override func tearDown() {
+		pasteboard.releaseGlobally()
+		pasteboard = nil
+		super.tearDown()
+	}
+
+	func testAvailabilityUsesAdvertisedTypeWithoutRequiringValidPayload() {
+		XCTAssertFalse(ControllerMappingPasteboard.containsMapping(in: pasteboard))
+
+		pasteboard.setData(Data([0xFF]), forType: ControllerMappingPasteboard.mappingType)
+
+		XCTAssertTrue(ControllerMappingPasteboard.containsMapping(in: pasteboard))
+		XCTAssertNil(ControllerMappingPasteboard.read(from: pasteboard))
+	}
+
+	func testMappingRoundTrip() {
+		let mapping = KeyMapping(keyCode: 8, modifiers: .command, hint: "Copied mapping")
+
+		ControllerMappingPasteboard.write(mapping, to: pasteboard)
+
+		XCTAssertTrue(ControllerMappingPasteboard.containsMapping(in: pasteboard))
+		XCTAssertEqual(ControllerMappingPasteboard.read(from: pasteboard), mapping)
+		XCTAssertEqual(pasteboard.string(forType: .string), mapping.compactDescription)
+	}
+}
