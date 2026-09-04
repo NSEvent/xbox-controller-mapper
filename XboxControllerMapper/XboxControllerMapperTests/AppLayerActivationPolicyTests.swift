@@ -120,29 +120,48 @@ final class AppLayerRuntimeTransitionTests: MappingEngineTestCase {
 		await MainActor.run {
 			profileManager.setActiveProfile(profile)
 			appMonitor.frontmostBundleId = firstBundleId
-			controllerService.buttonPressed(.a)
 		}
-		await waitForTasks(0.2)
+		let initialRouteReady = await waitForCondition {
+			self.mappingEngine.state.lock.withLock {
+				self.mappingEngine.state.activeProfile?.id == profile.id
+					&& self.mappingEngine.state.appActivatedLayerId == firstAppLayer.id
+			}
+		}
+		XCTAssertTrue(initialRouteReady, "Initial app-layer route did not settle")
 
 		await MainActor.run {
-			XCTAssertTrue(mockInputSimulator.isHoldingModifiers(.maskShift))
+			controllerService.buttonPressed(.a)
+		}
+		let holdStarted = await waitForCondition {
+			self.mockInputSimulator.isHoldingModifiers(.maskShift)
+		}
+
+		await MainActor.run {
+			XCTAssertTrue(holdStarted, "Base hold did not start")
 			mockInputSimulator.clearEvents()
 			appMonitor.frontmostBundleId = secondBundleId
 		}
-		await waitForTasks(0.15)
+		let transitionCompleted = await waitForCondition {
+			self.mappingEngine.state.lock.withLock {
+				self.mappingEngine.state.appActivatedLayerId == secondAppLayer.id
+			}
+				&& self.mockInputSimulator.isHoldingModifiers(.maskShift)
+		}
 
 		await MainActor.run {
 			XCTAssertTrue(
-				mockInputSimulator.isHoldingModifiers(.maskShift),
+				transitionCompleted,
 				"An unchanged Base action must survive an app-layer change"
 			)
 			XCTAssertFalse(mockInputSimulator.events.contains(.stopHoldMapping(shiftMapping)))
 			controllerService.buttonReleased(.a)
 		}
-		await waitForTasks(0.15)
+		let holdStopped = await waitForCondition {
+			!self.mockInputSimulator.isHoldingModifiers(.maskShift)
+		}
 
 		await MainActor.run {
-			XCTAssertFalse(mockInputSimulator.isHoldingModifiers(.maskShift))
+			XCTAssertTrue(holdStopped, "Base hold did not stop after release")
 		}
 	}
 

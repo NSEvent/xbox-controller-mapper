@@ -283,29 +283,34 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
     }
 
     func testScrollButtonWithPerActionSettingsScrollsContinuouslyUntilRelease() async throws {
-		await MainActor.run {
+		let profileID = await MainActor.run {
 			let mapping = KeyMapping(
 				keyCode: KeyCodeMapping.scrollUp,
 				scrollActionSettings: ScrollActionSettings(speed: 0.5, acceleration: 0)
 			)
-			profileManager.setActiveProfile(Profile(name: "Smooth Scroll", buttonMappings: [.a: mapping]))
+			let profile = Profile(name: "Smooth Scroll", buttonMappings: [.a: mapping])
+			profileManager.setActiveProfile(profile)
+			return profile.id
 		}
-		try? await Task.sleep(nanoseconds: 10_000_000)
+		let profileReady = await waitForCondition {
+			self.mappingEngine.state.lock.withLock {
+				self.mappingEngine.state.activeProfile?.id == profileID
+			}
+		}
+		XCTAssertTrue(profileReady, "Smooth-scroll profile did not settle")
 
 		await MainActor.run {
 			controllerService.buttonPressed(.a)
 		}
-		await waitForTasks(0.12)
-
-		let scrollCountWhileHeld = await MainActor.run {
+		let repeatedScrollStarted = await waitForCondition {
 			mockInputSimulator.events.filter { event in
 				if case .scroll(_, let dy) = event {
 					return dy > 0
 				}
 				return false
-			}.count
+			}.count >= 2
 		}
-		XCTAssertGreaterThanOrEqual(scrollCountWhileHeld, 2, "Smooth scroll should emit repeated scroll events while held")
+		XCTAssertTrue(repeatedScrollStarted, "Smooth scroll should emit repeated scroll events while held")
 
 		await MainActor.run {
 			XCTAssertFalse(mockInputSimulator.events.contains { event in
@@ -316,7 +321,12 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
 			}, "Smooth scroll should not fall through to the legacy key press path")
 			controllerService.buttonReleased(.a)
 		}
-		await waitForTasks(0.08)
+		let scrollStopped = await waitForCondition {
+			self.mappingEngine.state.lock.withLock {
+				self.mappingEngine.state.smoothScrollTimers[.a] == nil
+			}
+		}
+		XCTAssertTrue(scrollStopped, "Smooth scroll timer should stop after release")
 
 		let countAfterRelease = await MainActor.run {
 			mockInputSimulator.events.filter { event in

@@ -48,13 +48,20 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
 
     /// Tests triple-tap behavior (third tap should start new double-tap detection)
     func testTripleTapBehavior() async throws {
-        await MainActor.run {
-            let doubleTap = DoubleTapMapping(keyCode: 2, threshold: 0.2)
-            var aMapping = KeyMapping(keyCode: 1)
-            aMapping.doubleTapMapping = doubleTap
-            profileManager.setActiveProfile(Profile(name: "Triple", buttonMappings: [.a: aMapping]))
-        }
-        try? await Task.sleep(nanoseconds: 10_000_000)
+		let profileID = await MainActor.run {
+			let doubleTap = DoubleTapMapping(keyCode: 2, threshold: 1.0)
+			var aMapping = KeyMapping(keyCode: 1)
+			aMapping.doubleTapMapping = doubleTap
+			let profile = Profile(name: "Triple", buttonMappings: [.a: aMapping])
+			profileManager.setActiveProfile(profile)
+			return profile.id
+		}
+		let profileReady = await waitForCondition {
+			self.mappingEngine.state.lock.withLock {
+				self.mappingEngine.state.activeProfile?.id == profileID
+			}
+		}
+		XCTAssertTrue(profileReady, "Triple-tap profile did not settle")
 
         // First tap
         await MainActor.run {
@@ -64,28 +71,40 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
         await waitForTasks(0.05)
 
         // Second tap (double-tap)
-        await MainActor.run {
-            controllerService.emitInputEvent(.buttonPressed(.a))
-            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
-        }
-        await waitForTasks(0.05)
+		await MainActor.run {
+			controllerService.emitInputEvent(.buttonPressed(.a))
+			controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
+		}
+		let doubleTapFired = await waitForCondition {
+			self.mockInputSimulator.events.contains { event in
+				if case .pressKey(let code, _) = event { return code == 2 }
+				return false
+			}
+		}
+		XCTAssertTrue(doubleTapFired, "Second tap did not execute the double-tap action")
 
-        // Third tap (should start new sequence)
-        await MainActor.run {
-            controllerService.emitInputEvent(.buttonPressed(.a))
-            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
-        }
-        await waitForTasks(0.3)
+		// Third tap (should start new sequence)
+		await MainActor.run {
+			controllerService.emitInputEvent(.buttonPressed(.a))
+			controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
+		}
+		let trailingSingleTapFired = await waitForCondition(timeout: 2.0) {
+			self.mockInputSimulator.events.contains { event in
+				if case .pressKey(let code, _) = event { return code == 1 }
+				return false
+			}
+		}
 
-        await MainActor.run {
-            // Should have one double-tap (keyCode 2) and one single-tap (keyCode 1)
+		await MainActor.run {
+			// Should have one double-tap (keyCode 2) and one single-tap (keyCode 1)
             let doubleTapCount = mockInputSimulator.events.filter { event in
                 if case .pressKey(let code, _) = event { return code == 2 }
                 return false
-            }.count
+			}.count
 
-            XCTAssertEqual(doubleTapCount, 1, "Should have exactly one double-tap")
-        }
+			XCTAssertTrue(trailingSingleTapFired, "Third tap did not start a new single-tap sequence")
+			XCTAssertEqual(doubleTapCount, 1, "Should have exactly one double-tap")
+		}
     }
 
     // MARK: - Long-Hold Edge Cases
