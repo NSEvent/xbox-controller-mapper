@@ -7,9 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.1] - 2026-09-04
+
 ### Added
 
-- **Review prompt**: a one-time, dismissible sheet invites long-time licensed users to leave a Gumroad review, with "Not Now" (asks once more later) and "Don't Ask Again" options
+- **Configuration Overview**: a searchable, filterable inventory shows every configured control, automation, wheel item, and relevant hardware setting in one place, with direct links back to each editor
+- **Flexible gyro activation**: motion aiming can stay always on, run while a mapped gyro button is held, pause while held, or toggle on and off, with matching virtual gyro actions for any controller button
+- **Privacy-safe product analytics**: optional telemetry now measures feature discovery and reliability without collecting controller input or mapping contents
+- **Review prompt**: a one-time, dismissible sheet invites long-time licensed users to leave a Gumroad review, with "Not Now" and "Don't Ask Again" options
+
+### Changed
+
+- **Configuration stays responsive**: overview snapshots and other configuration-derived UI avoid repeated main-thread work while profiles are changing
+- **Clearer profile navigation**: localized Switch Profile, Next/Previous Profile, and Last Used Profile actions now identify their behavior more precisely
+
+### Fixed
+
+- **Configuration Overview accessibility and empty states**: rows expose native button semantics, usage analytics has a spoken label, counts include layer activators, and filters with only unavailable mappings explain what is preserved and how to add a compatible mapping
+- **Gyro activation is stable across release, focus, settings, and DualShock 4 paths**: release events no longer execute activation actions twice, toggle state survives harmless settings republishes, and controller capability gates stay accurate
+- **Telemetry delivery is reliable**: queued events and funnel progress survive retries without duplicating or dropping state
+- **Menu-bar Settings works again**: the popover now opens the Settings window reliably
+- **Automation output cannot deadlock**: shell actions drain process output before waiting for completion
 
 ## [2.7.0] - 2026-08-27
 
