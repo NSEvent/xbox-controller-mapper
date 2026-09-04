@@ -416,16 +416,15 @@ struct ContentView: View {
             onboardingStartStep = .welcome
             showingOnboarding = true
         }
-        // Menu-bar "Buy…"/"Enter License…" → settings sheet (license section).
-        .onReceive(NotificationCenter.default.publisher(for: .openLicenseSettings)) { _ in
-            LicenseUIRequest.pending = false
+		// Menu-bar Settings/Buy/Enter License → settings sheet.
+		.onReceive(NotificationCenter.default.publisher(for: .openSettingsSheet)) { _ in
+			SettingsUIRequest.consumePending()
             showingSettingsSheet = true
         }
         .onAppear {
-            // The menu bar may have requested the license UI while this window
+			// The menu bar may have requested settings while this window
             // was still opening — the notification fires before we subscribe.
-            if LicenseUIRequest.pending {
-                LicenseUIRequest.pending = false
+			if SettingsUIRequest.consumePending() {
                 showingSettingsSheet = true
             }
         }

@@ -320,18 +320,3 @@ final class LicenseManager: ObservableObject {
     }
 #endif
 }
-
-extension Notification.Name {
-    /// Posted (e.g. from the menu bar) to surface the license UI in the main
-    /// window. ContentView listens and opens the settings sheet.
-    static let openLicenseSettings = Notification.Name("openLicenseSettings")
-}
-
-/// Bridges "show the license UI" requests from surfaces outside the main window
-/// (the menu bar) to ContentView. The notification handles the window-already-
-/// open case; the flag handles the window-just-opening race — ContentView
-/// consumes it in `onAppear`, after the notification would have been missed.
-@MainActor
-enum LicenseUIRequest {
-    static var pending = false
-}

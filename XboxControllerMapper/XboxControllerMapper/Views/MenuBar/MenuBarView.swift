@@ -282,7 +282,7 @@ struct MenuBarView: View {
                 .buttonStyle(.plain)
             }
 
-            Button(action: openMainWindow) {
+			Button(action: openSettings) {
                 HStack(spacing: 4) {
                     Image(systemName: "gear")
                     Text("Settings")
@@ -340,14 +340,15 @@ struct MenuBarView: View {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    /// Opens the main window with the settings sheet (license section) showing.
-    /// The pending flag covers the window-just-opening case where the
-    /// notification would fire before ContentView subscribes.
-    private func openLicenseSettings() {
-        LicenseUIRequest.pending = true
-        openMainWindow()
-        NotificationCenter.default.post(name: .openLicenseSettings, object: nil)
-    }
+	/// Opens the main window with its settings sheet showing.
+	private func openSettings() {
+		SettingsUIRequest.request(openWindow: openMainWindow)
+	}
+
+	/// Opens the same settings sheet from the trial/license shortcuts.
+	private func openLicenseSettings() {
+		openSettings()
+	}
 
     private func openConnectionGuides() {
         // The guides window is a regular Window scene; promote the activation
