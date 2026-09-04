@@ -6,6 +6,7 @@ set -euo pipefail
 # 1. Validates git state
 # 2. Builds, signs, and notarizes the app
 # 3. Creates a GitHub release with artifacts
+# 4. Prepares the manifest consumed by the release agent's Gumroad Computer Use step
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -177,12 +178,12 @@ else
 fi
 
 echo ""
+echo "=== Preparing Gumroad Upload ==="
+"$SCRIPT_DIR/prepare-gumroad-upload.sh" "$MARKETING_VERSION" "$BUILD_NUMBER" "$APP_DMG"
+
+echo ""
 echo "=== Release Complete ==="
 echo "Tag created: $TAG"
 echo "GitHub release: https://github.com/${GITHUB_REPO:-NSEvent/xbox-controller-mapper}/releases/tag/$TAG"
-echo ""
-echo "Next step: Upload $APP_DMG to Gumroad"
-echo ""
-
-# Open release folder in Finder for easy Gumroad upload
-open "$RELEASE_DIR"
+echo "Gumroad manifest: $RELEASE_DIR/gumroad-upload.json"
+echo "The ControllerKeys release agent will now upload and verify the DMG on Gumroad with Computer Use."
