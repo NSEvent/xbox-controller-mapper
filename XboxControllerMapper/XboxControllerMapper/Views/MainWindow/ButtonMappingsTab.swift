@@ -27,6 +27,7 @@ private struct NonCanvasHeightPreferenceKey: PreferenceKey {
 struct ButtonMappingsTab: View {
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
+	@EnvironmentObject var mappingEngine: MappingEngine
     @Binding var selectedButton: ControllerButton?
     @Binding var configuringButton: ControllerButton?
     @Binding var selectedLayerId: UUID?
@@ -177,6 +178,22 @@ struct ButtonMappingsTab: View {
 							actionFeedbackEnabled: actionFeedbackEnabled,
 							streamOverlayEnabled: streamOverlayEnabled
 						)
+					}
+
+					if let runtimeLayerId = mappingEngine.activeRuntimeLayerId,
+					   let runtimeLayer = profileManager.activeProfile?.layers.first(where: { $0.id == runtimeLayerId }) {
+						Button {
+							selectedLayerId = runtimeLayerId
+						} label: {
+							Label(
+								String(format: String(localized: "Runtime: %@ · Editing: %@"), runtimeLayer.name, editingScopeName),
+								systemImage: runtimeLayerId == selectedLayerId ? "checkmark.circle.fill" : "bolt.circle.fill"
+							)
+							.font(.caption)
+						}
+						.buttonStyle(.plain)
+						.foregroundStyle(runtimeLayerId == selectedLayerId ? Color.secondary : Color.orange)
+						.help("Edit the layer currently controlling input")
 					}
 
 				// Scope the connect/disconnect animation to just this card so it
@@ -629,6 +646,12 @@ struct ButtonMappingsTab: View {
             swapFirstButton = button
         }
     }
+
+	private var editingScopeName: String {
+		guard let selectedLayerId else { return String(localized: "Base") }
+		return profileManager.activeProfile?.layers.first(where: { $0.id == selectedLayerId })?.name
+			?? String(localized: "Base")
+	}
 
     @ViewBuilder
     private func removableSection<Content: View>(

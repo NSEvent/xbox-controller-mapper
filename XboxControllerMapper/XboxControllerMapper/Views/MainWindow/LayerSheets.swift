@@ -164,8 +164,8 @@ struct EditLayerSheet: View {
     @State private var layerName: String = ""
     @State private var selectedActivator: ControllerButton? = .leftBumper
     @State private var activationStyle: LayerActivationStyle = .hold
-    @State private var enableCustomLED: Bool = false
-    @State private var ledColor: Color = .blue
+	@State private var enableLayerLEDOverride: Bool = false
+	@State private var ledColor: Color = .blue
 
     private var controllerPresentationState: ControllerPresentationState {
 		controllerService.threadSafeControllerPresentationState
@@ -251,16 +251,20 @@ struct EditLayerSheet: View {
 
 				if presentationState.isPlayStation {
                     VStack(alignment: .leading, spacing: 4) {
-                        Toggle("Custom Light Bar Color", isOn: $enableCustomLED)
-                            .font(.subheadline)
+						Toggle("Layer LED Override", isOn: $enableLayerLEDOverride)
+							.font(.subheadline)
 
-                        if enableCustomLED {
-                            Text("Light bar changes to this color when the layer is active")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+						if enableLayerLEDOverride {
+							Text("Selecting a color enables the light bar and turns off battery color.")
+								.font(.caption)
+								.foregroundColor(.secondary)
 
-                            ColorPicker("Color", selection: $ledColor, supportsOpacity: false)
-                        }
+							ColorPicker("Color", selection: $ledColor, supportsOpacity: false)
+						} else if layer.dualSenseLEDSettings != nil {
+							Text("Turning this off removes all LED settings for this layer.")
+								.font(.caption)
+								.foregroundColor(.secondary)
+						}
                     }
                 }
             }
@@ -280,14 +284,12 @@ struct EditLayerSheet: View {
                     updatedLayer.name = layerName
                     updatedLayer.activatorButton = selectedActivator
 					updatedLayer.activationStyle = activationStyle
-                    if enableCustomLED {
-                        var ledSettings = DualSenseLEDSettings()
-                        ledSettings.lightBarEnabled = true
-                        ledSettings.lightBarColor = CodableColor(color: ledColor)
-                        updatedLayer.dualSenseLEDSettings = ledSettings
-                    } else {
-                        updatedLayer.dualSenseLEDSettings = nil
-                    }
+					updatedLayer.dualSenseLEDSettings = LayerLEDSettingsPolicy.applyingColorEdit(
+						to: updatedLayer.dualSenseLEDSettings,
+						isEnabled: enableLayerLEDOverride,
+						color: CodableColor(color: ledColor),
+						didEditColor: didChangeLEDColor
+					)
                     profileManager.updateLayer(updatedLayer)
                     dismiss()
                 }
@@ -302,10 +304,17 @@ struct EditLayerSheet: View {
             layerName = layer.name
             selectedActivator = layer.activatorButton
 			activationStyle = layer.activationStyle
-            if let ledSettings = layer.dualSenseLEDSettings {
-                enableCustomLED = true
-                ledColor = ledSettings.lightBarColor.color
-            }
-        }
+			if let ledSettings = layer.dualSenseLEDSettings {
+				enableLayerLEDOverride = true
+				ledColor = ledSettings.lightBarColor.color
+			}
+		}
     }
+
+	private var didChangeLEDColor: Bool {
+		guard let existing = layer.dualSenseLEDSettings?.lightBarColor else { return true }
+		let selected = CodableColor(color: ledColor)
+		return (existing.redByte, existing.greenByte, existing.blueByte)
+			!= (selected.redByte, selected.greenByte, selected.blueByte)
+	}
 }

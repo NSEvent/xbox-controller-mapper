@@ -56,6 +56,47 @@ final class ButtonMappingResolutionPolicyTests: XCTestCase {
         XCTAssertEqual(result?.keyCode, 10)
     }
 
+	func testResolvePreservesAlternateOnlyLayerMapping() {
+		let alternate = DoubleTapMapping(keyCode: KeyCodeMapping.escape)
+		let layer = Layer(
+			name: "Alternate",
+			buttonMappings: [.a: KeyMapping(doubleTapMapping: alternate)]
+		)
+		let profile = Profile(
+			name: "Test",
+			buttonMappings: [.a: .key(KeyCodeMapping.return)],
+			layers: [layer]
+		)
+
+		let result = ButtonMappingResolutionPolicy.resolve(
+			button: .a,
+			profile: profile,
+			activeLayerIds: [layer.id],
+			layerActivatorMap: [:]
+		)
+
+		XCTAssertNil(result?.keyCode)
+		XCTAssertEqual(result?.doubleTapMapping, alternate)
+	}
+
+	func testResolvePreservesAlternateOnlyBaseMapping() {
+		let alternate = LongHoldMapping(keyCode: KeyCodeMapping.space)
+		let profile = Profile(
+			name: "Test",
+			buttonMappings: [.a: KeyMapping(longHoldMapping: alternate)]
+		)
+
+		let result = ButtonMappingResolutionPolicy.resolve(
+			button: .a,
+			profile: profile,
+			activeLayerIds: [],
+			layerActivatorMap: [:]
+		)
+
+		XCTAssertNil(result?.keyCode)
+		XCTAssertEqual(result?.longHoldMapping, alternate)
+	}
+
     func testResolveUsesProfileDefaultTouchpadMappings() {
         let profile = Profile.createDefault()
 

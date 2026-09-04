@@ -6,7 +6,11 @@ struct CommandWheelSettingsView: View {
     @State private var selectedItemId: UUID?
     @State private var showingAddSheet = false
     @State private var editingAction: CommandWheelAction?
-    @State private var selectedLayerId: UUID?
+	@State private var selectedLayerId: UUID?
+
+	init(initialLayerId: UUID? = nil) {
+		_selectedLayerId = State(initialValue: initialLayerId)
+	}
 
     private var actions: [CommandWheelAction] {
 		profileManager.commandWheelActions(layerId: selectedLayerId)

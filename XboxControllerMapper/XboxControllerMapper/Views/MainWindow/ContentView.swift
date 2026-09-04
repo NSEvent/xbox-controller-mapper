@@ -1,21 +1,10 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-private struct RuntimeLayerSelectionModifier: ViewModifier {
-	@ObservedObject var mappingEngine: MappingEngine
-	@Binding var selectedLayerId: UUID?
-
-	func body(content: Content) -> some View {
-		content
-			.onAppear {
-				if let activeManualLayerId = mappingEngine.activeManualLayerId {
-					selectedLayerId = activeManualLayerId
-				}
-			}
-			.onChange(of: mappingEngine.activeManualLayerId) { _, layerId in
-				selectedLayerId = layerId
-			}
-	}
+private struct LayerConfigurationSelection: Identifiable {
+	let profileId: UUID
+	let layerId: UUID
+	var id: UUID { layerId }
 }
 
 /// Main window content view
@@ -34,6 +23,11 @@ struct ContentView: View {
     @State private var editingSequence: SequenceMapping?
     @State private var showingSettingsSheet = false
     @State private var showingCommandPalette = false
+	@State private var profileForLinkedApps: Profile?
+	@State private var profileForLinkedControllers: Profile?
+	@State private var layerLinkedAppsSelection: LayerConfigurationSelection?
+	@State private var layerLEDSettingsSelection: LayerConfigurationSelection?
+    @AppStorage("hasSeenConfigurationOverview") private var hasSeenConfigurationOverview = false
     @AppStorage("hasShownTrialWelcome") private var hasShownTrialWelcome = false
     // One-shot: the trial-expired sheet at the moment (or first window-open
     // after) the trial ends — the peak-intent conversion moment.
@@ -53,6 +47,8 @@ struct ContentView: View {
     @State private var onboardingStartStep: OnboardingStep = .welcome
     @ObservedObject private var permissions = PermissionsManager.shared
     @State private var selectedTab = 0
+	@State private var temporarilyRevealedSection: MainWindowSection?
+	@State private var joystickNavigationSide: JoystickSide?
     @State private var isMagnifying = false // Track active magnification to prevent tap conflicts
     @State private var selectedLayerId: UUID? = nil // nil = base layer
     @State private var showingAddLayerSheet = false
@@ -120,7 +116,39 @@ struct ContentView: View {
 
                 // Tab content (driven by custom tab bar, no native TabView)
                 Group {
-                    switch selectedTab {
+					switch selectedTab {
+					case 16:
+						ConfigurationOverviewView(
+							selectedLayerId: $selectedLayerId,
+							presentation: ConfigurationOverviewPresentation(
+								isPlayStation: controllerVisualDescriptor.isPlayStation,
+								isDualSense: controllerVisualDescriptor.isDualSense,
+								isDualSenseEdge: controllerVisualDescriptor.isDualSenseEdge,
+								isDualShock: controllerVisualDescriptor.isDualShock,
+								isXboxElite: controllerVisualDescriptor.isXboxElite,
+								isSteamController: controllerVisualDescriptor.isSteamController,
+								isNintendo: controllerVisualDescriptor.isNintendo,
+								isAppleTVRemote: controllerVisualDescriptor.isAppleTVRemote,
+								isEightBitDo: controllerVisualDescriptor.eightBitDoModel != nil,
+								isOuraRing: controllerVisualDescriptor.isOuraRing,
+								isBeamdeskHands: controllerVisualDescriptor.isBeamdeskHands,
+								isStickless: controllerVisualDescriptor.isStickless,
+								hasTriggers: controllerVisualDescriptor.hasTriggers,
+								hasMotion: controllerVisualDescriptor.supportsMotionGestures,
+								supportsCommandWheel: controllerVisualDescriptor.supportsCommandWheel,
+								supportsPlayerAndMuteLEDs: ControllerLEDPresentationPolicy.supportsPlayerAndMuteLEDs(
+									descriptor: controllerVisualDescriptor,
+									previewLayout: profileManager.activeProfile?.controllerPreviewLayout ?? .active,
+									activeConnectionIsBluetooth: controllerService.isBluetoothConnection
+								),
+								supportedButtons: controllerVisualDescriptor.supportedButtons,
+								deviceName: controllerVisualDescriptor.displayName
+							),
+							onOpenVisualEditor: {
+								selectedTab = MainWindowSection.buttons.rawValue
+							},
+							onSelect: applyOverviewNavigation
+						)
                     case 0:
                         ButtonMappingsTab(
                             selectedButton: $selectedButton,
@@ -155,8 +183,8 @@ struct ContentView: View {
                     case 10:
                         ScriptListView()
                             .scrollContentBackground(.hidden)
-                    case 12:
-                        CommandWheelSettingsView()
+					case 12:
+						CommandWheelSettingsView(initialLayerId: selectedLayerId)
                             .scrollContentBackground(.hidden)
                     case 14:
                         InputSettingsView()
@@ -164,8 +192,12 @@ struct ContentView: View {
 					case 15:
 						RingSettingsView()
 							.scrollContentBackground(.hidden)
-                    case 2:
-                        JoystickSettingsView()
+					case 2:
+						JoystickSettingsView(
+							initialOverrideLayerId: selectedLayerId,
+							initialSide: joystickNavigationSide,
+							onConsumeInitialNavigation: { joystickNavigationSide = nil }
+						)
                             .scrollContentBackground(.hidden)
                     case 4:
                         TouchpadSettingsView()
@@ -191,12 +223,6 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 900, minHeight: 650)
-		.modifier(
-			RuntimeLayerSelectionModifier(
-				mappingEngine: mappingEngine,
-				selectedLayerId: $selectedLayerId
-			)
-		)
         // Global Glass Background
         //
         // NSVisualEffectView with `.behindWindow` blending samples desktop/app
@@ -226,7 +252,8 @@ struct ContentView: View {
                         // Get mapping from layer if editing a layer, otherwise from base
                         if let layerId = selectedLayerId,
                            let layer = profileManager.activeProfile?.layers.first(where: { $0.id == layerId }) {
-                            return layer.buttonMappings[button]
+							return layer.buttonMappings[button]
+								?? profileManager.activeProfile?.buttonMappings[button]
                         }
                         return profileManager.activeProfile?.buttonMappings[button]
                     },
@@ -265,10 +292,23 @@ struct ContentView: View {
                 applyPaletteNavigation(destination)
             }
         }
+		.isolatedSheet(item: $profileForLinkedApps) { profile in
+			LinkedAppsSheet(profile: profile)
+		}
+		.isolatedSheet(item: $profileForLinkedControllers) { profile in
+			LinkedControllersSheet(profile: profile)
+		}
+		.isolatedSheet(item: $layerLinkedAppsSelection) { selection in
+			LayerLinkedAppsSheet(profileId: selection.profileId, layerId: selection.layerId)
+		}
+		.isolatedSheet(item: $layerLEDSettingsSelection) { selection in
+			LayerLEDSettingsSheet(profileId: selection.profileId, layerId: selection.layerId)
+		}
         .isolatedSheet(isPresented: $showingWelcome) {
             TrialWelcomeSheet {
                 hasShownTrialWelcome = true
                 showingWelcome = false
+				scheduleConfigurationOverviewIntroduction()
             }
             .interactiveDismissDisabled()
         }
@@ -300,6 +340,8 @@ struct ContentView: View {
                 // first-run sheets don't fight over presentation.
                 if !hasShownTrialWelcome, AppRuntime.screenshotVariant == nil {
                     showingWelcome = true
+				} else {
+					scheduleConfigurationOverviewIntroduction()
                 }
             }
             // The interactive controller-test step needs these to show the live
@@ -380,6 +422,7 @@ struct ContentView: View {
         // (ButtonMappingsTab), anchored at the gesture location.
         .onAppear { installScrollKeyMonitor() }
         .onAppear { selectFirstVisibleTabIfNeeded() }
+		.onAppear { scheduleConfigurationOverviewIntroduction() }
         .onAppear {
             // First run: guided permissions onboarding, then the trial welcome.
             // Both are suppressed in screenshot mode so marketing captures aren't
@@ -480,6 +523,20 @@ struct ContentView: View {
         .onChange(of: hiddenSectionTags) { _, _ in
             selectFirstVisibleTabIfNeeded()
         }
+		.onChange(of: profileManager.activeProfileId) { _, _ in
+			// Layer IDs belong to one profile. Carrying an old ID across a
+			// profile switch makes the editor's scope disagree with its UI.
+			selectedLayerId = nil
+		}
+		.onChange(of: showingSettingsSheet) { _, isShowing in
+			if !isShowing { scheduleConfigurationOverviewIntroduction() }
+		}
+		.onChange(of: showingCommandPalette) { _, isShowing in
+			if !isShowing { scheduleConfigurationOverviewIntroduction() }
+		}
+		.onChange(of: showingReviewRequest) { _, isShowing in
+			if !isShowing { scheduleConfigurationOverviewIntroduction() }
+		}
 		.onChange(of: controllerPresentationState) { _, _ in
 			selectFirstVisibleTabIfNeeded()
 		}
@@ -532,7 +589,7 @@ struct ContentView: View {
 	private var customTabs: [CustomTabItem] {
 		let hiddenSections = MainWindowSection.hiddenSections(from: hiddenSectionTags)
 		let presentationState = controllerPresentationState
-		return MainWindowSection.visibleSections(
+		var sections = MainWindowSection.visibleSections(
 			hiddenSections: hiddenSections,
 			isPlayStation: presentationState.isPlayStation,
 			isDualSense: presentationState.isDualSense,
@@ -540,7 +597,16 @@ struct ContentView: View {
 			isAppleTVRemote: presentationState.isAppleTVRemote,
 			hasMotion: presentationState.hasMotion
 		)
-		.map(\.tabItem)
+		if let temporarilyRevealedSection,
+		   selectedTab == temporarilyRevealedSection.rawValue,
+		   !sections.contains(temporarilyRevealedSection) {
+			sections.append(temporarilyRevealedSection)
+			sections.sort { lhs, rhs in
+				(MainWindowSection.displayOrder.firstIndex(of: lhs) ?? .max)
+					< (MainWindowSection.displayOrder.firstIndex(of: rhs) ?? .max)
+			}
+		}
+		return sections.map(\.tabItem)
 	}
 
     /// Ordered list of visible tab tags matching the TabView order.
@@ -589,8 +655,11 @@ struct ContentView: View {
         switch destination.target {
         case .section(let tag):
             withAnimation(.easeInOut(duration: 0.16)) { selectedTab = tag }
-        case .button(let button):
-            // Surface the button on the Buttons canvas, then open its editor.
+		case .button(let button):
+			// Palette button destinations are currently built from Base
+			// mappings, so make the editing scope explicit instead of reusing
+			// whichever layer happened to be selected before the search.
+			selectedLayerId = nil
             selectedTab = MainWindowSection.buttons.rawValue
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 configuringButton = button
@@ -601,6 +670,93 @@ struct ContentView: View {
             }
         }
     }
+
+    /// Routes Overview rows back into the existing canonical editors. The
+    /// overview is intentionally read-only; editing logic remains single-source.
+	private func applyOverviewNavigation(_ target: ConfigurationOverviewTarget) {
+		switch target {
+		case .button(let button, let layerId):
+			selectOverviewSection(.buttons)
+			DispatchQueue.main.async {
+				// Apply the row's captured editing scope before presenting its sheet.
+				selectedLayerId = layerId
+				configuringButton = button
+			}
+		case .chord(let id):
+			if let chord = profileManager.activeProfile?.chordMappings.first(where: { $0.id == id }) {
+				editingChord = chord
+			}
+		case .sequence(let id):
+			if let sequence = profileManager.activeProfile?.sequenceMappings.first(where: { $0.id == id }) {
+				editingSequence = sequence
+			}
+		case .gesture(let gestureType):
+			editingGestureType = gestureType
+		case .layer(let id):
+			selectOverviewSection(.buttons)
+			DispatchQueue.main.async {
+				editingLayerId = id
+			}
+		case .layerLED(let layerId):
+			guard let profileId = profileManager.activeProfile?.id else { return }
+			layerLEDSettingsSelection = LayerConfigurationSelection(
+				profileId: profileId,
+				layerId: layerId
+			)
+		case .layerLinkedApps(let profileId, let layerId):
+			layerLinkedAppsSelection = LayerConfigurationSelection(
+				profileId: profileId,
+				layerId: layerId
+			)
+		case .wheel(let layerId):
+			selectedLayerId = layerId
+			selectOverviewSection(.wheel)
+		case .joysticks(let layerId, let side):
+			selectedLayerId = layerId
+			joystickNavigationSide = side
+			selectOverviewSection(.joysticks)
+		case .linkedApps(let profileId):
+			profileForLinkedApps = profileManager.profiles.first { $0.id == profileId }
+		case .linkedControllers(let profileId):
+			profileForLinkedControllers = profileManager.profiles.first { $0.id == profileId }
+		case .section(let tag):
+			guard let section = MainWindowSection(rawValue: tag) else { return }
+			selectOverviewSection(section)
+		}
+	}
+
+	private func selectOverviewSection(_ section: MainWindowSection) {
+		if !customTabs.contains(where: { $0.tag == section.rawValue }) {
+			temporarilyRevealedSection = section
+		}
+		withAnimation(.easeInOut(duration: 0.16)) {
+			selectedTab = section.rawValue
+		}
+	}
+
+	private func scheduleConfigurationOverviewIntroduction() {
+		DispatchQueue.main.async {
+			guard ConfigurationOverviewIntroductionPolicy.shouldIntroduce(
+				isRunningTests: AppRuntime.isRunningTests,
+				isScreenshotCapture: AppRuntime.screenshotVariant != nil,
+				hasSeenOverview: hasSeenConfigurationOverview,
+				hasCompletedOnboarding: hasCompletedOnboarding,
+				hasSeenControllerIntro: hasSeenControllerIntro,
+				hasShownTrialWelcome: hasShownTrialWelcome,
+				isShowingOnboarding: showingOnboarding,
+				isShowingWelcome: showingWelcome,
+				hasOtherBlockingPresentation: showingSettingsSheet
+					|| showingCommandPalette
+					|| showingReviewRequest
+					|| profileForLinkedApps != nil
+					|| profileForLinkedControllers != nil
+					|| layerLinkedAppsSelection != nil
+					|| layerLEDSettingsSelection != nil
+			) else { return }
+			selectedTab = MainWindowSection.overview.rawValue
+			hasSeenConfigurationOverview = true
+		}
+	}
 
     // MARK: - Scroll Key Navigation (Home/End/PageUp/PageDown)
 
@@ -932,6 +1088,7 @@ extension UUID: @retroactive Identifiable {
 // MARK: - Main Window Sections
 
 enum MainWindowSection: Int, CaseIterable, Identifiable {
+    case overview = 16
     case buttons = 0
     case chords = 1
     case joysticks = 2
@@ -952,6 +1109,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
     static let hiddenDefaultsKey = "hiddenMainWindowSectionTags"
 
     static let displayOrder: [MainWindowSection] = [
+		.overview,
         .buttons,
         .chords,
         .sequences,
@@ -974,6 +1132,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
+		case .overview: return "Overview"
         case .buttons: return "Buttons"
         case .chords: return "Chords"
         case .joysticks: return "Joysticks"
@@ -1004,7 +1163,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
 
     var navGroup: MainWindowNavGroup {
         switch self {
-        case .buttons, .chords, .sequences, .gestures:
+		case .overview, .buttons, .chords, .sequences, .gestures:
             return .map
         case .macros, .scripts, .wheel, .keyboard:
             return .automate
@@ -1017,6 +1176,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
 
     var systemImage: String {
         switch self {
+		case .overview: return "list.bullet.rectangle"
         case .buttons: return "gamecontroller.fill"
         case .chords: return "link"
         case .sequences: return "point.3.connected.trianglepath.dotted"
@@ -1040,6 +1200,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
     /// does, not just its label (e.g. "javascript" → Scripts, "latency" → Input).
     var searchKeywords: [String] {
         switch self {
+		case .overview: return ["configuration", "summary", "all mappings", "bindings", "layers"]
         case .buttons: return ["mappings", "bindings", "keys", "remap"]
         case .chords: return ["combo", "combination", "simultaneous"]
         case .sequences: return ["combo", "order", "series", "fighting"]
@@ -1219,7 +1380,7 @@ struct CustomTabBar: View {
                 Image(systemName: group.systemImage)
                     .font(.system(size: 11, weight: .semibold))
                     .frame(width: 15)
-                Text(group.rawValue)
+				Text(LocalizedStringKey(group.rawValue))
                     .font(.system(size: 12, weight: .semibold))
                 Text("\(count)")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
@@ -1258,7 +1419,7 @@ struct CustomTabBar: View {
                 Image(systemName: tab.systemImage)
                     .font(.system(size: 11, weight: .semibold))
                     .frame(width: 14)
-                Text(tab.label)
+				Text(LocalizedStringKey(tab.label))
             }
                 .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
                 .foregroundColor(isSelected ? .white : .white.opacity(0.5))

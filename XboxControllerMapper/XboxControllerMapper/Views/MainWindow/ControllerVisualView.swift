@@ -1214,11 +1214,13 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         .opacity(isBaseFallthrough(for: button) ? 0.4 : 1.0)
         .contentShape(Rectangle())
         .controllerAnchor(button, role: .label)
-        .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)
-        .accessibilityElement(children: .combine)
+		.opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)
+		.accessibilityElement(children: .combine)
 			.accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forEightBitDo: eightBitDoModel != nil))
+		.accessibilityValue(mappingAccessibilityValue(mapping: currentMapping, layer: layerActivator, showsLayer: showsLayerActivator))
 		.accessibilityHint(showsLayerActivator ? "Double-tap to open layer" : "Double-tap to configure")
         .accessibilityAddTraits(.isButton)
+		.accessibilityAction { onButtonTap(button) }
         .help(compactHelpText(for: button, mapping: currentMapping, layer: layerActivator, showsLayer: showsLayerActivator))
         .onTapGesture { onButtonTap(button) }
         .contextMenu {
@@ -1421,6 +1423,18 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         return "\(title)\n\(details)"
     }
 
+	private func mappingAccessibilityValue(
+		mapping: KeyMapping?,
+		layer: Layer?,
+		showsLayer: Bool
+	) -> String {
+		if let layer, showsLayer {
+			return String(format: String(localized: "Layer activator: %@"), layer.name)
+		}
+		guard let mapping else { return String(localized: "Unmapped") }
+		return mapping.compactDescription.isEmpty ? String(localized: "No tap action") : mapping.compactDescription
+	}
+
     @ViewBuilder
     private func referenceRow(for button: ControllerButton) -> some View {
         let layerActivator = layerForButton(button)
@@ -1524,8 +1538,10 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)  // Dim all layer activators when viewing any layer
         .accessibilityElement(children: .combine)
 			.accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forEightBitDo: eightBitDoModel != nil))
+		.accessibilityValue(mappingAccessibilityValue(mapping: currentMapping, layer: layerActivator, showsLayer: showsLayerActivator))
 		.accessibilityHint(showsLayerActivator ? "Double-tap to open layer" : "Double-tap to configure")
         .accessibilityAddTraits(.isButton)
+		.accessibilityAction { onButtonTap(button) }
         .onTapGesture { onButtonTap(button) }
         .contextMenu {
 			if let layer = layerActivator, showsLayerActivator {
@@ -1612,8 +1628,8 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                 return nil
             }
             // Check if this button has a layer-specific mapping
-            if let layer = selectedLayer,
-               let layerMapping = layer.buttonMappings[button], !layerMapping.isEmpty {
+			if let layer = selectedLayer,
+			   let layerMapping = layer.buttonMappings[button], layerMapping.hasConfiguredBehavior {
                 return layerMapping
             }
             // Fall through to base layer
@@ -1624,9 +1640,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
         // If the mapping is effectively empty (no primary, no long hold, no double tap), return nil
         // so the UI renders it as "Unmapped"
-        if mapping.isEmpty &&
-           (mapping.longHoldMapping?.isEmpty ?? true) &&
-           (mapping.doubleTapMapping?.isEmpty ?? true) {
+		if !mapping.hasConfiguredBehavior {
             return nil
         }
 

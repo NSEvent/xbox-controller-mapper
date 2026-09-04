@@ -5,14 +5,29 @@ import SwiftUI
 struct JoystickSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
     @State private var focusCursorHighlightEnabled: Bool = FocusModeIndicator.isEnabled
-    @State private var overrideLayerId: UUID?
+	@State private var overrideLayerId: UUID?
+	private let initialOverrideLayerId: UUID?
+	private let initialSide: JoystickSide?
+	private let onConsumeInitialNavigation: () -> Void
+
+	init(
+		initialOverrideLayerId: UUID? = nil,
+		initialSide: JoystickSide? = nil,
+		onConsumeInitialNavigation: @escaping () -> Void = {}
+	) {
+		self.initialOverrideLayerId = initialOverrideLayerId
+		self.initialSide = initialSide
+		self.onConsumeInitialNavigation = onConsumeInitialNavigation
+		_overrideLayerId = State(initialValue: initialOverrideLayerId)
+	}
 
     var settings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default
     }
 
     var body: some View {
-        Form {
+		ScrollViewReader { proxy in
+			Form {
             Section("Left Joystick") {
                 Picker("Mode", selection: Binding(
                     get: { settings.leftStick.mode },
@@ -125,6 +140,7 @@ struct JoystickSettingsView: View {
 					}
                 }
             }
+			.id("base-left-stick")
 
             Section("Focus Mode (Precision)") {
                 SliderRow(
@@ -247,8 +263,7 @@ struct JoystickSettingsView: View {
                         FocusModeIndicator.isEnabled = newValue
                     }
             }
-
-            Section("FPS / Pointer-Lock Games") {
+			Section("FPS / Pointer-Lock Games") {
                 Picker("Relative Mouse Aiming", selection: Binding(
                     get: { settings.pointerLockMouseMode },
                     set: { updateSettings(\.pointerLockMouseMode, $0) }
@@ -264,7 +279,7 @@ struct JoystickSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Right Joystick") {
+			Section("Right Joystick") {
                 Picker("Mode", selection: Binding(
                     get: { settings.rightStick.mode },
                     set: { updateSettings(\.rightStick.mode, $0) }
@@ -395,9 +410,10 @@ struct JoystickSettingsView: View {
 						))
 					}
                 }
-            }
+			}
+			.id("base-right-stick")
 
-            if let layers = profileManager.activeProfile?.layers, !layers.isEmpty {
+			if let layers = profileManager.activeProfile?.layers, !layers.isEmpty {
                 Section("Per-Layer Overrides") {
                     Text("Override stick behavior while a layer is held. Any control left on “Inherit” uses the base settings above.")
                         .font(.caption)
@@ -413,15 +429,27 @@ struct JoystickSettingsView: View {
                     }
 
                     if let layer = resolvedOverrideLayer(layers) {
-                        layerStickOverrideGroup(title: "Left Stick", side: .left, layer: layer)
-                        Divider()
-                        layerStickOverrideGroup(title: "Right Stick", side: .right, layer: layer)
+						layerStickOverrideGroup(title: "Left Stick", side: .left, layer: layer)
+							.id("per-layer-left-stick")
+						Divider()
+						layerStickOverrideGroup(title: "Right Stick", side: .right, layer: layer)
+							.id("per-layer-right-stick")
                     }
                 }
+				.id("per-layer-overrides")
             }
         }
         .formStyle(.grouped)
         .padding()
+			.onAppear {
+				guard let initialSide else { return }
+				DispatchQueue.main.async {
+					let scope = initialOverrideLayerId == nil ? "base" : "per-layer"
+					proxy.scrollTo("\(scope)-\(initialSide.rawValue)-stick", anchor: .top)
+					onConsumeInitialNavigation()
+				}
+			}
+		}
     }
 
     private func updateSettings<T>(_ keyPath: WritableKeyPath<JoystickSettings, T>, _ value: T) {

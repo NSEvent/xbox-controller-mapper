@@ -82,11 +82,90 @@ struct ControllerVisualDescriptor: Equatable {
 	}
 
 	var hasSticks: Bool {
-		!isStickless && !isOuraRing && !isBeamdeskHands
+		!isStickless && !isOuraRing && !isBeamdeskHands && !isAppleTVRemote
+	}
+
+	var supportsMotionGestures: Bool {
+		isPlayStation || isSteamController
+	}
+
+	/// The command wheel is driven by the right stick.
+	var supportsCommandWheel: Bool {
+		hasSticks
 	}
 
 	var hasTriggers: Bool {
-		eightBitDoModel != .zero2 && !isOuraRing && !isBeamdeskHands
+		eightBitDoModel != .zero2
+			&& !isOuraRing
+			&& !isBeamdeskHands
+			&& !isAppleTVRemote
+	}
+
+	/// Exact logical controls represented by this descriptor's editor. Keep
+	/// configuration inventory on the same availability truth as the canvas.
+	var supportedButtons: Set<ControllerButton> {
+		var buttons: Set<ControllerButton>
+		switch family {
+		case .ouraRing:
+			return Set(ControllerButton.ouraRingButtons)
+		case .beamdeskHands:
+			return Set(ControllerButton.beamdeskHandButtons)
+		case .appleTVRemote:
+			return Set(ControllerButton.appleTVRemoteButtons)
+		case .dualShock:
+			buttons = Set(ControllerButton.dualShockButtons)
+		case .dualSense:
+			buttons = Set(ControllerButton.dualSenseButtons)
+		case .dualSenseEdge:
+			buttons = Set(ControllerButton.dualSenseButtons)
+			buttons.formUnion([.leftPaddle, .rightPaddle, .leftFunction, .rightFunction])
+		case .steam:
+			buttons = Set(ControllerButton.xboxButtons)
+			buttons.formUnion(ControllerButton.allCases.filter(\.isSteamControllerOnly))
+			buttons.formUnion(ControllerButton.xboxEliteButtons)
+			buttons.formUnion([.leftPaddle, .rightPaddle, .leftFunction, .rightFunction])
+		case .xboxElite:
+			buttons = Set(ControllerButton.xboxButtons)
+			buttons.remove(.share)
+			buttons.formUnion(ControllerButton.xboxEliteButtons)
+			buttons.formUnion([.leftPaddle, .rightPaddle, .leftFunction, .rightFunction])
+		case .xbox, .nintendo:
+			buttons = Set(family == .nintendo ? ControllerButton.nintendoButtons : ControllerButton.xboxButtons)
+		case let .eightBitDo(model):
+			buttons = Set(ControllerButton.xboxButtons)
+			buttons.remove(.share)
+			if model == .zero2 { buttons.remove(.xbox) }
+		}
+
+		if isStickless {
+			buttons.remove(.leftThumbstick)
+			buttons.remove(.rightThumbstick)
+			buttons.subtract(ControllerButton.allCases.filter(\.isJoystickDirection))
+		}
+		if !hasTriggers {
+			buttons.remove(.leftTrigger)
+			buttons.remove(.rightTrigger)
+		}
+		return buttons
+	}
+
+	var displayName: String {
+		switch family {
+		case .xbox: return "Xbox"
+		case .xboxElite: return "Xbox Elite"
+		case .dualSense: return "DualSense"
+		case .dualSenseEdge: return "DualSense Edge"
+		case .dualShock: return "DualShock 4"
+		case .nintendo: return "Nintendo"
+		case .steam: return "Steam Controller"
+		case .eightBitDo(.zero2): return "8BitDo Zero 2"
+		case .eightBitDo(.micro): return "8BitDo Micro"
+		case .eightBitDo(.lite2): return "8BitDo Lite 2"
+		case .eightBitDo(.liteSE): return "8BitDo Lite SE"
+		case .appleTVRemote: return "Apple TV Remote"
+		case .ouraRing: return "Oura Ring"
+		case .beamdeskHands: return "Beamdesk Hands"
+		}
 	}
 
 	var showsPlayStationTouchpad: Bool {
@@ -137,7 +216,7 @@ struct ControllerVisualDescriptor: Equatable {
 	}
 
 	func shoulderButtons(side: JoystickSide) -> [ControllerButton] {
-		if isOuraRing || isBeamdeskHands { return [] }
+		if isOuraRing || isBeamdeskHands || isAppleTVRemote { return [] }
 		switch side {
 		case .left:
 			return hasTriggers ? [.leftTrigger, .leftBumper] : [.leftBumper]
@@ -164,6 +243,17 @@ struct ControllerVisualDescriptor: Equatable {
 			buttons.append(.share)
 		}
 		return buttons
+	}
+}
+
+enum ControllerLEDPresentationPolicy {
+	static func supportsPlayerAndMuteLEDs(
+		descriptor: ControllerVisualDescriptor,
+		previewLayout: ControllerPreviewLayout,
+		activeConnectionIsBluetooth: Bool
+	) -> Bool {
+		guard descriptor.isDualSense else { return false }
+		return previewLayout != .active || !activeConnectionIsBluetooth
 	}
 }
 

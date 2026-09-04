@@ -343,6 +343,16 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
 			&& systemCommand == nil && midiControlChange == nil
     }
 
+	/// Whether pressing this control can do anything, including alternate gestures.
+	/// `isEmpty` intentionally describes only the primary action; UI inventory and
+	/// persistence cleanup need this broader definition so hold-only and
+	/// double-tap-only mappings are not mistaken for unmapped controls.
+	var hasConfiguredBehavior: Bool {
+		!isEmpty
+			|| longHoldMapping?.isEmpty == false
+			|| doubleTapMapping?.isEmpty == false
+	}
+
     /// Compact description including alternate mappings (for UI)
     var compactDescription: String {
         var parts: [String] = []

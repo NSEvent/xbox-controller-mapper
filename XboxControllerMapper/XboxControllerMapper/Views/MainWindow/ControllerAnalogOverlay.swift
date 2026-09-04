@@ -145,8 +145,8 @@ struct ControllerAnalogOverlay: View {
             .minimapPosition(layout.minus, in: size)
         miniLightGlyphButton(.menu, systemImage: "plus", size: w * layout.minusPlusSize)
             .minimapPosition(layout.plus, in: size)
-        miniCircle(.share, size: w * layout.starHomeSize, interactive: false)
-            .minimapPosition(layout.star, in: size)
+		miniCircle(.share, size: w * layout.starHomeSize, interactive: false)
+			.minimapPosition(layout.star, in: size)
         miniCircle(.xbox, size: w * layout.starHomeSize)
             .minimapPosition(layout.home, in: size)
 

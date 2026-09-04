@@ -6,18 +6,53 @@ import AppKit
 struct LEDSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var controllerService: ControllerService
+	@EnvironmentObject var mappingEngine: MappingEngine
+	let profileId: UUID?
+	let layerId: UUID?
+
+	init(profileId: UUID? = nil, layerId: UUID? = nil) {
+		self.profileId = profileId
+		self.layerId = layerId
+	}
+
+	private var profile: Profile? {
+		profileId.flatMap { id in profileManager.profiles.first { $0.id == id } }
+			?? profileManager.activeProfile
+	}
+
+	private var isLayerScoped: Bool { layerId != nil }
+
+	private var previewLayout: ControllerPreviewLayout {
+		profile?.controllerPreviewLayout ?? .active
+	}
 
     var settings: DualSenseLEDSettings {
-        profileManager.activeProfile?.dualSenseLEDSettings ?? .default
+		guard let profile else { return .default }
+		guard let layerId else { return profile.dualSenseLEDSettings }
+		return profile.layers.first(where: { $0.id == layerId })?.dualSenseLEDSettings
+			?? profile.dualSenseLEDSettings
     }
 
     private var controllerPresentationState: ControllerPresentationState {
 		controllerService.threadSafeControllerPresentationState
     }
 
-    private var isDualShock: Bool {
-		controllerPresentationState.isDualShock
-    }
+	private var controllerDescriptor: ControllerVisualDescriptor {
+		ControllerVisualDescriptor.resolved(
+			previewLayout: previewLayout,
+			presentationState: controllerPresentationState
+		)
+	}
+
+	private var isDualShock: Bool { controllerDescriptor.isDualShock }
+
+	private var supportsPlayerAndMuteLEDs: Bool {
+		ControllerLEDPresentationPolicy.supportsPlayerAndMuteLEDs(
+			descriptor: controllerDescriptor,
+			previewLayout: previewLayout,
+			activeConnectionIsBluetooth: controllerService.isBluetoothConnection
+		)
+	}
 
     var body: some View {
         Form {
@@ -26,18 +61,18 @@ struct LEDSettingsView: View {
                     HStack {
                         Image(systemName: "info.circle.fill")
                             .foregroundColor(.blue)
-                        Text("DualShock 4 supports light bar color only. Player LEDs, mute LED, and brightness controls are DualSense features.")
+						Text("DualShock 4 supports light bar color and brightness. Player and mute LEDs are DualSense features.")
                             .font(.callout)
                             .foregroundColor(.secondary)
                     }
                     .padding(.vertical, 4)
                 }
-            } else if controllerService.isBluetoothConnection {
+			} else if controllerDescriptor.isDualSense && !supportsPlayerAndMuteLEDs {
                 Section {
                     HStack {
                         Image(systemName: "info.circle.fill")
                             .foregroundColor(.blue)
-                        Text("Over Bluetooth, only the light bar color is supported. Player LEDs, mute LED, and brightness require USB.")
+						Text("Over Bluetooth, player and mute LEDs are unavailable. Light bar color and brightness remain supported.")
                             .font(.callout)
                             .foregroundColor(.secondary)
                     }
@@ -84,19 +119,17 @@ struct LEDSettingsView: View {
                         .accessibilityLabel("Light bar color picker")
                     }
 
-                    if !isDualShock {
-                        Picker("Brightness", selection: Binding(
-                            get: { settings.lightBarBrightness },
-                            set: { updateSettings(\.lightBarBrightness, $0) }
+					Picker("Brightness", selection: Binding(
+							get: { settings.lightBarBrightness },
+							set: { updateSettings(\.lightBarBrightness, $0) }
                         )) {
                             ForEach(LightBarBrightness.allCases, id: \.self) { brightness in
                                 Text(brightness.displayName).tag(brightness)
                             }
-                        }
-                        .pickerStyle(.segmented)
-                        .disabled(controllerService.partyModeEnabled || controllerService.isBluetoothConnection)
-                    }
-                }
+						}
+						.pickerStyle(.segmented)
+						.disabled(controllerService.partyModeEnabled)
+				}
             }
 
             if !isDualShock {
@@ -110,7 +143,7 @@ struct LEDSettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .disabled(controllerService.partyModeEnabled || controllerService.isBluetoothConnection)
+				.disabled(controllerService.partyModeEnabled || !supportsPlayerAndMuteLEDs)
             }
 
             Section("Player LEDs") {
@@ -120,8 +153,8 @@ struct LEDSettingsView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .disabled(controllerService.partyModeEnabled || controllerService.isBluetoothConnection)
-                .opacity((controllerService.partyModeEnabled || controllerService.isBluetoothConnection) ? 0.5 : 1.0)
+				.disabled(controllerService.partyModeEnabled || !supportsPlayerAndMuteLEDs)
+				.opacity((controllerService.partyModeEnabled || !supportsPlayerAndMuteLEDs) ? 0.5 : 1.0)
 
                 HStack {
                     Text("Presets:")
@@ -137,22 +170,31 @@ struct LEDSettingsView: View {
                     playerPresetButton("All", preset: .allOn)
                     playerPresetButton("Off", preset: .default)
                 }
-                .disabled(controllerService.partyModeEnabled || controllerService.isBluetoothConnection)
+				.disabled(controllerService.partyModeEnabled || !supportsPlayerAndMuteLEDs)
             }
             } // end if !isDualShock
 
-            Section("Party Mode") {
-                Toggle("Enable Party Mode", isOn: Binding(
-                    get: { controllerService.partyModeEnabled },
-                    set: { controllerService.setPartyMode($0, savedSettings: settings) }
-                ))
+			if !isLayerScoped {
+			Section("Party Mode") {
+				Toggle("Enable Party Mode", isOn: Binding(
+					get: { controllerService.partyModeEnabled },
+					set: { enabled in
+						controllerService.setPartyMode(enabled, savedSettings: settings)
+						if !enabled {
+							DispatchQueue.main.async {
+								mappingEngine.restoreEffectiveLEDSettings()
+							}
+						}
+					}
+				))
 
                 if controllerService.partyModeEnabled {
                     Text("Rainbow lightbar, cycling player LEDs, breathing mute button")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                }
-            }
+				}
+			}
+			}
         }
         .formStyle(.grouped)
         .padding()
@@ -164,6 +206,7 @@ struct LEDSettingsView: View {
             if NSColorPanel.shared.isVisible {
                 NSColorPanel.shared.close()
             }
+			mappingEngine.restoreEffectiveLEDSettings()
         }
     }
 
@@ -236,22 +279,104 @@ struct LEDSettingsView: View {
     private func updateSettings<T>(_ keyPath: WritableKeyPath<DualSenseLEDSettings, T>, _ value: T) {
         var newSettings = settings
         newSettings[keyPath: keyPath] = value
-        profileManager.updateDualSenseLEDSettings(newSettings)
+		persist(newSettings)
         applySettingsToController()
     }
 
     private func updateColor(_ color: Color) {
         var newSettings = settings
         newSettings.lightBarColor = CodableColor(color: color)
-        profileManager.updateDualSenseLEDSettings(newSettings)
+		persist(newSettings)
         applySettingsToController()
     }
 
+	private func persist(_ settings: DualSenseLEDSettings) {
+		guard let layerId else {
+			profileManager.updateDualSenseLEDSettings(settings)
+			return
+		}
+		guard let profile,
+		      var layer = profile.layers.first(where: { $0.id == layerId }) else {
+			return
+		}
+		layer.dualSenseLEDSettings = settings
+		profileManager.updateLayer(layer, in: profile)
+	}
+
     private func applySettingsToController() {
-        if !controllerService.partyModeEnabled {
+		if isEditingEffectiveScope && !controllerService.partyModeEnabled {
             controllerService.applyLEDSettings(settings)
         }
     }
+
+	private var isEditingEffectiveScope: Bool {
+		LayerLEDSettingsPolicy.shouldPreviewOnController(
+			editingProfileId: profile?.id,
+			activeProfileId: profileManager.activeProfileId,
+			editingLayerId: layerId,
+			activeRuntimeLayerId: mappingEngine.activeRuntimeLayerId,
+			isControllerLocked: mappingEngine.isLocked
+		)
+	}
+}
+
+struct LayerLEDSettingsSheet: View {
+	@EnvironmentObject private var profileManager: ProfileManager
+	@EnvironmentObject private var mappingEngine: MappingEngine
+	@Environment(\.dismiss) private var dismiss
+	let profileId: UUID
+	let layerId: UUID
+
+	private var layerName: String {
+		profileManager.profiles.first(where: { $0.id == profileId })?
+			.layers.first(where: { $0.id == layerId })?.name
+			?? String(localized: "Layer")
+	}
+
+	private var profile: Profile? {
+		profileManager.profiles.first { $0.id == profileId }
+	}
+
+	private var hasOverride: Bool {
+		profile?.layers.first(where: { $0.id == layerId })?.dualSenseLEDSettings != nil
+	}
+
+	var body: some View {
+		VStack(spacing: 0) {
+			HStack {
+				VStack(alignment: .leading, spacing: 2) {
+					Text("Layer LEDs")
+						.font(.headline)
+					Text(hasOverride
+						? String(format: String(localized: "%@ · Override"), layerName)
+						: String(format: String(localized: "%@ · Inherited from Base"), layerName))
+						.font(.caption)
+						.foregroundStyle(.secondary)
+				}
+				Spacer()
+				if hasOverride {
+					Button("Use Base") { clearOverride() }
+						.help("Remove this layer's LED override")
+				}
+				Button("Done") { dismiss() }
+					.keyboardShortcut(.defaultAction)
+			}
+			.padding()
+			Divider()
+			LEDSettingsView(profileId: profileId, layerId: layerId)
+		}
+		.frame(width: 560, height: 650)
+	}
+
+	private func clearOverride() {
+		guard let profile,
+		      var layer = profile.layers.first(where: { $0.id == layerId }) else { return }
+		layer.dualSenseLEDSettings = nil
+		profileManager.updateLayer(layer, in: profile)
+		DispatchQueue.main.async {
+			mappingEngine.restoreEffectiveLEDSettings()
+		}
+	}
 }
 
 // MARK: - Light Bar Color Picker

@@ -76,7 +76,7 @@ enum ButtonMappingResolutionPolicy {
 		}
 
 		if let mapping = profile.buttonMappings[button] {
-			return mapping.isEmpty ? nil : mapping
+			return mapping.hasConfiguredBehavior ? mapping : nil
 		}
 
         return defaultMapping(for: button)
@@ -119,7 +119,7 @@ enum ButtonMappingResolutionPolicy {
 		for button: ControllerButton,
 		in mappings: [ControllerButton: KeyMapping]
 	) -> KeyMapping? {
-		guard let mapping = mappings[button], !mapping.isEmpty else { return nil }
+		guard let mapping = mappings[button], mapping.hasConfiguredBehavior else { return nil }
 		return mapping
 	}
 

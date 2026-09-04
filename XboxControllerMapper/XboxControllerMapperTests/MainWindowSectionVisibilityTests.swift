@@ -18,7 +18,7 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
     func testDisplayOrderMatchesNavigationGroups() {
         let groupedSections = Dictionary(grouping: MainWindowSection.displayOrder, by: \.navGroup)
 
-        XCTAssertEqual(groupedSections[.map], [.buttons, .chords, .sequences, .gestures])
+		XCTAssertEqual(groupedSections[.map], [.overview, .buttons, .chords, .sequences, .gestures])
         XCTAssertEqual(groupedSections[.automate], [.macros, .scripts, .wheel, .keyboard])
 		XCTAssertEqual(groupedSections[.hardware], [.input, .ring, .joysticks, .touchpad, .leds, .microphone])
         XCTAssertEqual(groupedSections[.activity], [.stats, .history])
@@ -26,6 +26,10 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
 
 	func testRingSectionUsesStableNewTabId() {
 		XCTAssertEqual(MainWindowSection.ring.rawValue, 15)
+	}
+
+	func testOverviewSectionUsesAdditiveTabId() {
+		XCTAssertEqual(MainWindowSection.overview.rawValue, 16)
 	}
 
     func testTabItemsExposeNavigationMetadata() {

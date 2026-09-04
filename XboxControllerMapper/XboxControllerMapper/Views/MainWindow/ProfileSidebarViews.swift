@@ -327,6 +327,10 @@ struct ProfileListRow: View {
 
     let profile: Profile
 
+	private var configurationCounts: ProfileConfigurationCounts {
+		ConfigurationOverviewBuilder.counts(for: profile)
+	}
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
@@ -339,9 +343,16 @@ struct ProfileListRow: View {
                     LinkedProfileAppIcons(bundleIdentifiers: profile.linkedApps)
                 }
 
-                Text("\(profile.buttonMappings.count) \(String(localized: "mappings"))")
+				Text(configurationCounts.primarySummary)
                     .font(.system(size: 11))
                     .foregroundColor(.white.opacity(0.6))
+
+				if let secondarySummary = configurationCounts.secondarySummary {
+					Text(secondarySummary)
+						.font(.system(size: 10))
+						.foregroundColor(.white.opacity(0.45))
+						.lineLimit(1)
+				}
             }
 
             Spacer()

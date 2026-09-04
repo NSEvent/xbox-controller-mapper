@@ -15,72 +15,12 @@ extension ProfileManager {
     func removeScript(_ script: Script, in profile: Profile? = nil) {
         guard var targetProfile = profile ?? activeProfile else { return }
 
-        // Remove script from list
+		targetProfile = ProfileAutomationReferencePolicy.removingReferences(
+			to: script.id,
+			kind: .script,
+			from: targetProfile
+		)
         targetProfile.scripts.removeAll { $0.id == script.id }
-
-        // Unmap any buttons using this script (including longHold and doubleTap sub-mappings)
-        for (button, mapping) in targetProfile.buttonMappings {
-            var updated = mapping
-            var changed = false
-
-            if updated.scriptId == script.id {
-                targetProfile.buttonMappings.removeValue(forKey: button)
-                continue
-            }
-            if updated.longHoldMapping?.scriptId == script.id {
-                updated.longHoldMapping = nil
-                changed = true
-            }
-            if updated.doubleTapMapping?.scriptId == script.id {
-                updated.doubleTapMapping = nil
-                changed = true
-            }
-            if changed {
-                targetProfile.buttonMappings[button] = updated
-            }
-        }
-
-        // Unmap any chords using this script
-        targetProfile.chordMappings = targetProfile.chordMappings.map { chord in
-            var updatedChord = chord
-            if updatedChord.scriptId == script.id {
-                updatedChord.scriptId = nil
-            }
-            return updatedChord
-        }
-
-        // Unmap any sequences using this script
-        targetProfile.sequenceMappings = targetProfile.sequenceMappings.map { seq in
-            var updatedSeq = seq
-            if updatedSeq.scriptId == script.id {
-                updatedSeq.scriptId = nil
-            }
-            return updatedSeq
-        }
-
-        // Clean up layer button mappings too
-        for i in targetProfile.layers.indices {
-            for (button, mapping) in targetProfile.layers[i].buttonMappings {
-                var updated = mapping
-                var changed = false
-
-                if updated.scriptId == script.id {
-                    targetProfile.layers[i].buttonMappings.removeValue(forKey: button)
-                    continue
-                }
-                if updated.longHoldMapping?.scriptId == script.id {
-                    updated.longHoldMapping = nil
-                    changed = true
-                }
-                if updated.doubleTapMapping?.scriptId == script.id {
-                    updated.doubleTapMapping = nil
-                    changed = true
-                }
-                if changed {
-                    targetProfile.layers[i].buttonMappings[button] = updated
-                }
-            }
-        }
 
         updateProfile(targetProfile)
 

@@ -587,6 +587,8 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
 			appMonitor.frontmostBundleId = firstBundleId
 		}
 		await waitForTasks(0.15)
+		XCTAssertEqual(mappingEngine.activeRuntimeLayerId, firstAppLayer.id)
+		XCTAssertNil(mappingEngine.activeManualLayerId)
 		await tap(.rightTrigger)
 
 		await MainActor.run {
@@ -602,6 +604,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
 			)
 		}
 		XCTAssertEqual(mappingEngine.activeManualLayerId, toggledLayer.id)
+		XCTAssertEqual(mappingEngine.activeRuntimeLayerId, toggledLayer.id)
 
 		await MainActor.run {
 			mockInputSimulator.clearEvents()

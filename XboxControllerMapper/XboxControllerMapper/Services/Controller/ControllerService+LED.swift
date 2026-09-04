@@ -89,8 +89,8 @@ extension ControllerService {
 
     /// Applies LED settings to the connected DualSense controller.
     /// Over USB: sends a full HID output report (light bar, player LEDs, mute LED, brightness).
-    /// Over Bluetooth: uses GCController.light for the light bar color (only channel macOS allows).
-    ///   Player LEDs, mute button LED, and brightness require USB.
+	/// Over Bluetooth: uses GCController.light for light-bar color and applies
+	/// brightness by scaling RGB. Player and mute LEDs require USB.
     func applyLEDSettings(_ settings: DualSenseLEDSettings) {
         storage.lock.lock()
         let isDualSense = storage.isDualSense

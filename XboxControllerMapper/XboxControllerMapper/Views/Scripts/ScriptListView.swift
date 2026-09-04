@@ -3,6 +3,7 @@ import SwiftUI
 struct ScriptListView: View {
     @EnvironmentObject var profileManager: ProfileManager
     @State private var editingScript: Script?
+	@State private var scriptPendingDeletion: Script?
     @State private var showingAddSheet = false
     @State private var showingExamplesGallery = false
     @State private var showingAIPrompt = false
@@ -26,7 +27,7 @@ struct ScriptListView: View {
                                 ScriptRow(script: script, onEdit: {
                                     editingScript = script
                                 }, onDelete: {
-                                    profileManager.removeScript(script)
+									scriptPendingDeletion = script
                                 })
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
@@ -86,7 +87,44 @@ struct ScriptListView: View {
         .sheet(isPresented: $showingAIPrompt) {
             ScriptAIPromptSheet()
         }
+		.alert(item: $scriptPendingDeletion) { script in
+			Alert(
+				title: Text("Delete “\(script.name.isEmpty ? String(localized: "Untitled Script") : script.name)”?"),
+				message: Text(deletionMessage(for: script)),
+				primaryButton: .destructive(Text("Delete")) {
+					profileManager.removeScript(script)
+				},
+				secondaryButton: .cancel()
+			)
+		}
     }
+
+	private func deletionMessage(for script: Script) -> String {
+		guard let profile = profileManager.activeProfile else {
+			return String(localized: "This cannot be undone.")
+		}
+		let report = ProfileAutomationReferencePolicy.report(for: script.id, kind: .script, in: profile)
+		guard report.count > 0 else {
+			return String(localized: "This script is unused. This cannot be undone.")
+		}
+		if report.count == 1 {
+			return String(localized: "1 place uses this script. Its script action will be cleared. This cannot be undone.")
+				+ referencePreview(report)
+		}
+		return String(
+			format: String(localized: "%lld places use this script. Their script actions will be cleared. This cannot be undone."),
+			report.count
+		) + referencePreview(report)
+	}
+
+	private func referencePreview(_ report: ProfileAutomationReferenceReport) -> String {
+		let visible = report.contexts.prefix(5).map { "• \($0)" }.joined(separator: "\n")
+		let remaining = report.count - min(report.count, 5)
+		let suffix = remaining > 0
+			? "\n" + String(format: String(localized: "and %lld more…"), remaining)
+			: ""
+		return "\n\n" + visible + suffix
+	}
 
     // MARK: - Empty State
 

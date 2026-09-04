@@ -40,6 +40,9 @@ class MappingEngine: ObservableObject {
 	/// Highest-priority manually activated layer, for UI presentation.
 	/// App-activated layers are intentionally excluded from editor selection.
 	@Published private(set) var activeManualLayerId: UUID?
+	/// Highest-priority effective layer, including app activation. Presentation
+	/// only; editor scope remains an independent user choice.
+	@Published private(set) var activeRuntimeLayerId: UUID?
 
     let controllerService: ControllerService
     let profileManager: ProfileManager
@@ -534,15 +537,21 @@ class MappingEngine: ObservableObject {
     }
 
 	func syncActiveManualLayerId() {
-		let layerId = state.lock.withLock {
-			state.activeLayerIds.last ?? state.latchedLayerId
+		let (manualLayerId, runtimeLayerId) = state.lock.withLock {
+			(
+				state.activeLayerIds.last ?? state.latchedLayerId,
+				state.effectiveActiveLayerIds.last
+			)
 		}
-		if activeManualLayerId != layerId {
-			activeManualLayerId = layerId
+		if activeManualLayerId != manualLayerId {
+			activeManualLayerId = manualLayerId
+		}
+		if activeRuntimeLayerId != runtimeLayerId {
+			activeRuntimeLayerId = runtimeLayerId
 		}
 	}
 
-    private func refreshLayerPresentation() {
+	private func refreshLayerPresentation() {
 		syncActiveManualLayerId()
 		let (isLocked, activeLayerIds, profile) = state.lock.withLock {
 			(state.isLocked, state.effectiveActiveLayerIds, state.activeProfile)
@@ -557,7 +566,14 @@ class MappingEngine: ObservableObject {
 			controllerService.applyLEDSettings(profileLED)
 		}
 		controllerService.updateBatteryLightBar()
-    }
+	}
+
+	/// Reasserts the runtime-effective LED state after a settings preview ends.
+	/// Editors may inspect Base or an inactive layer without changing which
+	/// layer currently owns physical controller feedback.
+	func restoreEffectiveLEDSettings() {
+		refreshLayerPresentation()
+	}
 
     // MARK: - Button Handling (Background Queue)
 
@@ -729,7 +745,7 @@ class MappingEngine: ObservableObject {
 		   latchedLayerId != layerId,
 		   let latchedLayer = state.layersById[latchedLayerId],
 		   let mapping = latchedLayer.buttonMappings[button],
-		   !mapping.isEmpty {
+		   mapping.hasConfiguredBehavior {
 			return .regular
 		}
 

@@ -125,6 +125,19 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 		XCTAssertFalse(oura.hasTriggers)
 		XCTAssertEqual(oura.leftSystemButtons, [])
 		XCTAssertEqual(oura.rightSystemButtons, [])
+
+		let appleTV = ControllerVisualDescriptor(family: .appleTVRemote)
+		XCTAssertFalse(appleTV.hasSticks)
+		XCTAssertFalse(appleTV.hasTriggers)
+		XCTAssertFalse(appleTV.supportsCommandWheel)
+
+		XCTAssertFalse(micro.supportedButtons.contains(.share))
+		XCTAssertFalse(zero2.supportedButtons.contains(.share))
+		XCTAssertEqual(appleTV.shoulderButtons(side: .left), [])
+
+		XCTAssertTrue(ControllerVisualDescriptor(family: .steam).supportsMotionGestures)
+		XCTAssertTrue(ControllerVisualDescriptor(family: .dualSense).supportsMotionGestures)
+		XCTAssertFalse(ControllerVisualDescriptor(family: .xbox).supportsMotionGestures)
 	}
 
 	func testSystemRowsMatchCurrentPreviewBehavior() {
@@ -136,6 +149,9 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 			ControllerVisualDescriptor(family: .xboxElite).rightSystemButtons,
 			[.menu],
 			"Elite profile-cycle hardware button is not a mappable Share row"
+		)
+		XCTAssertFalse(
+			ControllerVisualDescriptor(family: .xboxElite).supportedButtons.contains(.share)
 		)
 		XCTAssertEqual(
 			ControllerVisualDescriptor(family: .steam).rightSystemButtons,
@@ -153,6 +169,32 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 			ControllerVisualDescriptor(family: .dualShock).rightSystemButtons,
 			[.menu]
 		)
+	}
+
+	func testLEDCapabilityUsesTransportOnlyForActiveHardwarePreview() {
+		let dualSense = ControllerVisualDescriptor(family: .dualSense)
+		let dualShock = ControllerVisualDescriptor(family: .dualShock)
+
+		XCTAssertFalse(ControllerLEDPresentationPolicy.supportsPlayerAndMuteLEDs(
+			descriptor: dualSense,
+			previewLayout: .active,
+			activeConnectionIsBluetooth: true
+		))
+		XCTAssertTrue(ControllerLEDPresentationPolicy.supportsPlayerAndMuteLEDs(
+			descriptor: dualSense,
+			previewLayout: .dualSense,
+			activeConnectionIsBluetooth: true
+		))
+		XCTAssertTrue(ControllerLEDPresentationPolicy.supportsPlayerAndMuteLEDs(
+			descriptor: dualSense,
+			previewLayout: .active,
+			activeConnectionIsBluetooth: false
+		))
+		XCTAssertFalse(ControllerLEDPresentationPolicy.supportsPlayerAndMuteLEDs(
+			descriptor: dualShock,
+			previewLayout: .dualShock,
+			activeConnectionIsBluetooth: false
+		))
 	}
 
 	func testSpecialSectionsAreDescriptorDriven() {
