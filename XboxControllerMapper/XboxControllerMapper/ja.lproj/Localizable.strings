@@ -36,13 +36,14 @@
 "Preview" = "プレビュー";
 "Click a profile to see its mappings" = "プロファイルをクリックしてマッピングを表示";
 "Profile Action" = "プロファイル操作";
+"Switch Profile" = "プロファイルを切り替える";
 "Specific Profile" = "特定のプロファイル";
 "Last Used Profile" = "最後に使用したプロファイル";
 "Next Profile" = "次のプロファイル";
 "Previous Profile" = "前のプロファイル";
 "Switches to the profile used immediately before this one. Assign it in both profiles to toggle between them." = "直前に使用していたプロファイルに切り替えます。両方のプロファイルに割り当てると、2つを切り替えられます。";
-"Switches to the next profile in sidebar order, wrapping at the end." = "サイドバーの順序で次のプロファイルに切り替え、最後では先頭に戻ります。";
-"Switches to the previous profile in sidebar order, wrapping at the beginning." = "サイドバーの順序で前のプロファイルに切り替え、先頭では最後に移動します。";
+"Switches to the next profile in sidebar order, wrapping at the end. Assign it in every profile to keep cycling." = "サイドバーの順序で次のプロファイルに切り替え、最後では先頭に戻ります。繰り返し切り替えるには、すべてのプロファイルに割り当ててください。";
+"Switches to the previous profile in sidebar order, wrapping at the beginning. Assign it in every profile to keep cycling." = "サイドバーの順序で前のプロファイルに切り替え、先頭では最後に移動します。繰り返し切り替えるには、すべてのプロファイルに割り当ててください。";
 
 /* メインウインドウタブ */
 "Buttons" = "ボタン";

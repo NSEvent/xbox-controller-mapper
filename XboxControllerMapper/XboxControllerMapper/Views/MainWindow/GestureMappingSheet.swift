@@ -263,7 +263,7 @@ struct GestureMappingSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Picker("Category", selection: $editorState.systemCommandCategory) {
                 ForEach(SystemCommandCategory.allCases, id: \.self) { category in
-                    Text(category.rawValue).tag(category)
+					Text(category.displayName).tag(category)
                 }
             }
             .pickerStyle(.segmented)

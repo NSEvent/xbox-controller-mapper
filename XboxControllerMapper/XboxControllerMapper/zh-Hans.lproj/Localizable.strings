@@ -36,13 +36,14 @@
 "Preview" = "预览";
 "Click a profile to see its mappings" = "点击配置文件查看其映射";
 "Profile Action" = "配置文件操作";
+"Switch Profile" = "切换配置文件";
 "Specific Profile" = "指定配置文件";
 "Last Used Profile" = "上次使用的配置文件";
 "Next Profile" = "下一个配置文件";
 "Previous Profile" = "上一个配置文件";
 "Switches to the profile used immediately before this one. Assign it in both profiles to toggle between them." = "切换到当前配置文件之前使用的配置文件。请在两个配置文件中都分配此操作，以便在它们之间切换。";
-"Switches to the next profile in sidebar order, wrapping at the end." = "按边栏顺序切换到下一个配置文件，并在末尾回到开头。";
-"Switches to the previous profile in sidebar order, wrapping at the beginning." = "按边栏顺序切换到上一个配置文件，并在开头回到末尾。";
+"Switches to the next profile in sidebar order, wrapping at the end. Assign it in every profile to keep cycling." = "按边栏顺序切换到下一个配置文件，并在末尾回到开头。请在每个配置文件中分配此操作，才能继续循环切换。";
+"Switches to the previous profile in sidebar order, wrapping at the beginning. Assign it in every profile to keep cycling." = "按边栏顺序切换到上一个配置文件，并在开头回到末尾。请在每个配置文件中分配此操作，才能继续循环切换。";
 
 /* 主窗口标签页 */
 "Buttons" = "按键";

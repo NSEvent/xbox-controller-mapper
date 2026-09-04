@@ -165,6 +165,7 @@ final class ProfileNavigationTests: XCTestCase {
 	}
 }
 
+@MainActor
 final class ProfileCommandSelectionTests: XCTestCase {
 	func testSpecificProfileBuildsAndLoads() {
 		let profileId = UUID()
@@ -194,6 +195,7 @@ final class ProfileCommandSelectionTests: XCTestCase {
 	}
 }
 
+@MainActor
 final class ProfileNavigationCodableTests: XCTestCase {
 	private struct LegacyProfileCommand: Codable {
 		let type: String
@@ -246,13 +248,14 @@ final class ProfileNavigationLocalizationTests: XCTestCase {
 	func testProfileNavigationStringsExistInEverySupportedLocalization() throws {
 		let keys = [
 			"Profile Action",
+			"Switch Profile",
 			"Specific Profile",
 			"Last Used Profile",
 			"Next Profile",
 			"Previous Profile",
 			"Switches to the profile used immediately before this one. Assign it in both profiles to toggle between them.",
-			"Switches to the next profile in sidebar order, wrapping at the end.",
-			"Switches to the previous profile in sidebar order, wrapping at the beginning.",
+			"Switches to the next profile in sidebar order, wrapping at the end. Assign it in every profile to keep cycling.",
+			"Switches to the previous profile in sidebar order, wrapping at the beginning. Assign it in every profile to keep cycling.",
 		]
 		let testBundle = Bundle(for: Self.self)
 		let appBundleURL = testBundle.bundleURL

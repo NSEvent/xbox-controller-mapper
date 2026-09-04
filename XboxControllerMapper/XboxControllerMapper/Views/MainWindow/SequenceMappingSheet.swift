@@ -652,7 +652,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
         VStack(alignment: .leading, spacing: 12) {
             Picker("Category", selection: $systemCommandCategory) {
                 ForEach(SystemCommandCategory.allCases, id: \.self) { category in
-                    Text(category.rawValue).tag(category)
+					Text(category.displayName).tag(category)
                 }
             }
             .pickerStyle(.segmented)

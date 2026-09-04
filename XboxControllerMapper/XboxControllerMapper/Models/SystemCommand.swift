@@ -89,10 +89,17 @@ enum SystemCommandCategory: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+	var displayName: String {
+		switch self {
+		case .profile: return String(localized: "Switch Profile")
+		default: return rawValue
+		}
+	}
+
     /// Short label for use in segmented pickers where space is limited
     var shortLabel: String {
         switch self {
-		case .profile: return "Profile"
+		case .profile: return String(localized: "Profile")
         case .shell: return "Shell"
         case .app: return "App"
         case .link: return "Link"
@@ -188,9 +195,9 @@ enum ProfileNavigationAction: String, Codable, CaseIterable, Identifiable {
 		case .lastUsed:
 			return String(localized: "Switches to the profile used immediately before this one. Assign it in both profiles to toggle between them.")
 		case .next:
-			return String(localized: "Switches to the next profile in sidebar order, wrapping at the end.")
+			return String(localized: "Switches to the next profile in sidebar order, wrapping at the end. Assign it in every profile to keep cycling.")
 		case .previous:
-			return String(localized: "Switches to the previous profile in sidebar order, wrapping at the beginning.")
+			return String(localized: "Switches to the previous profile in sidebar order, wrapping at the beginning. Assign it in every profile to keep cycling.")
 		}
 	}
 }
