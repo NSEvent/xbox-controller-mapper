@@ -282,6 +282,7 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
 		}
     }
 
+    @MainActor
     func testScrollButtonWithPerActionSettingsScrollsContinuouslyUntilRelease() async throws {
 		let profileID = await MainActor.run {
 			let mapping = KeyMapping(
@@ -303,7 +304,7 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
 			controllerService.buttonPressed(.a)
 		}
 		let repeatedScrollStarted = await waitForCondition {
-			mockInputSimulator.events.filter { event in
+			self.mockInputSimulator.events.filter { event in
 				if case .scroll(_, let dy) = event {
 					return dy > 0
 				}

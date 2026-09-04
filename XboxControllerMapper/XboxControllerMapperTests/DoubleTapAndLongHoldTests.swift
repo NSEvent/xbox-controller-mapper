@@ -47,6 +47,7 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
     }
 
     /// Tests triple-tap behavior (third tap should start new double-tap detection)
+    @MainActor
     func testTripleTapBehavior() async throws {
 		let profileID = await MainActor.run {
 			let doubleTap = DoubleTapMapping(keyCode: 2, threshold: 1.0)
