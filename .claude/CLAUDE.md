@@ -54,6 +54,7 @@ Configuration (CUSTOM decoder - see ProfileManager.swift)
 ├── schemaVersion: Int                           decodeIfPresent ?? 1
 ├── profiles: [Profile]                          decodeIfPresent ?? []
 ├── activeProfileId: UUID?                       decodeIfPresent (auto nil)
+├── lastActiveProfileId: UUID?                   decodeIfPresent (auto nil)
 ├── uiScale: CGFloat?                            decodeIfPresent (auto nil)
 └── onScreenKeyboardSettings: OnScreenKeyboardSettings?  LEGACY (decoded for migration only, not saved)
 
