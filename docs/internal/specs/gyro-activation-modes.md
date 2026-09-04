@@ -19,16 +19,28 @@
 > executor; Hold/Pause are offered only in the primary button editor.
 >
 > **Second review round 2026-09-03:** fixed a focusEdge capture-ordering
-> regression (double haptic in legacy mode), added removeDuplicates to the
-> isConnected polling sink (duplicate device announcements were full-resetting
-> gyro modal state), gyro presses now mark pressConsumedByAction (closes the
-> held-layer phantom-tap hole from release-time mapping resolution),
+> regression (double haptic in legacy mode), gyro presses now mark
+> pressConsumedByAction (closes the held-layer phantom-tap hole from
+> release-time mapping resolution — for gyro actions; the same pre-existing
+> hole for OSK/laser/lock/navigator/wheel intercepts remains and needs the
+> overlay release handlers hoisted above the consumed-check first — deferred),
 > KeyPressActionCommand reports didDispatch=false for swallowed special
 > markers, the DS4 startup calibration gained Steam-style motion rejection,
 > and the gyro clear/flip logic was consolidated into single EngineState
 > helpers. Deferred by choice: same-UUID content validation on republish
 > (stuck latch is recoverable via mode change), always-on profile-switch
 > recalibration edge (semi-intentional), Steam/DS4 recenter EMA unification.
+>
+> **Third review round 2026-09-03:** REVERTED round 2's removeDuplicates on
+> the isConnected polling sink — the duplicate publishes are load-bearing
+> (only path re-enabling motion after an active-controller switch, and the
+> Steam-takeover engine reset); the gyro-modal reset on a controller switch
+> is intended behavior, not a bug. Also: DS4 calibration gained the second
+> (magnitude) Steam gate against constant-rate rotation; init state sync
+> fully locked; consumed-mark now atomic with the gyro state change;
+> setGyroLatchLocked completes the latch-writer consolidation; the
+> DS4 calibration-reset triple extracted to a shared helper; the
+> GyroActionCommand assert replaced with an honest degrade.
 
 Make gyro aiming a first-class pointing device: always-on gyro, ratcheting, and bindable
 gyro on/off actions that emit no keystrokes — instead of the current "hold the focus-mode

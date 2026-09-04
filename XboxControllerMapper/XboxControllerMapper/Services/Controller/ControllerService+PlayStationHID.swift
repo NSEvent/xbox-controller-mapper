@@ -15,6 +15,10 @@ private enum DS4GyroRecenter {
 	/// Max corrected residual folded into the bias — bounds absorption of very
 	/// slow real rotation (comparable to the Steam recenter residual cap).
 	static let residualThreshold = 0.05
+	/// Max absolute raw rate accepted into calibration — rejects constant-rate
+	/// rotation, which has near-zero sample-to-sample delta but large magnitude
+	/// (Steam's second calibration gate, calibrationMagnitudeLimitCounts).
+	static let calibrationMagnitudeLimit = 0.5
 	/// EMA rate per sample; at ~250Hz reports this converges in well under a second.
 	static let alpha = 0.02
 }
@@ -397,14 +401,16 @@ extension ControllerService {
             let rawDelta = lastRaw.map { max(abs(rawPitch - $0.pitch), abs(rawRoll - $0.roll)) }
 
             if storage.ds4GyroBiasSampleCount < biasCalibrationFrames {
-                // Motion rejection (mirrors Steam's calibration gates): a moving
-                // controller restarts calibration instead of baking real
-                // rotation into the bias — an error the recenter's residual cap
-                // could never claw back within a session.
-                if let rawDelta, rawDelta > DS4GyroRecenter.stableDeltaThreshold {
-                    storage.ds4GyroPitchBiasSum = 0
-                    storage.ds4GyroRollBiasSum = 0
-                    storage.ds4GyroBiasSampleCount = 0
+                // Motion rejection (mirrors BOTH Steam calibration gates): the
+                // delta gate catches accelerating motion; the magnitude gate
+                // catches constant-rate rotation, whose sample-to-sample delta
+                // is near zero. Either restarts calibration instead of baking
+                // real rotation into the bias — an error the recenter's
+                // residual cap could never claw back within a session.
+                let magnitudeExceeded = max(abs(rawPitch), abs(rawRoll)) > DS4GyroRecenter.calibrationMagnitudeLimit
+                let deltaExceeded = rawDelta.map { $0 > DS4GyroRecenter.stableDeltaThreshold } ?? false
+                if magnitudeExceeded || deltaExceeded {
+                    resetDS4GyroBiasCalibrationSamplesLocked()
                     return (0, 0)
                 }
                 storage.ds4GyroPitchBiasSum += rawPitch

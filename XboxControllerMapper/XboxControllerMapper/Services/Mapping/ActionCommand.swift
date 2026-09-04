@@ -185,9 +185,9 @@ struct GyroActionCommand: ActionCommand {
         switch gyroAction {
         case .toggle:
             guard let gyroControl else {
-                // Only the script-editor preview engine legitimately lacks the
-                // hook; a nil here in the real executor is a wiring regression.
-                assertionFailure("GyroActionCommand executed without a gyroControl hook")
+                // nil means this executor context was never wired to the
+                // engine's gyro hook (factories built with scriptEngine: nil,
+                // e.g. in tests). Degrade to an honest non-dispatch.
                 return ActionCommandOutcome(feedback: "Gyro Toggle (unavailable)", didDispatch: false)
             }
             let latchedOn = gyroControl.toggle()

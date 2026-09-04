@@ -39,16 +39,34 @@ extension MappingEngine {
     /// Handles a press on a Gyro Toggle / Gyro Hold / Gyro Pause mapping.
     /// The joystick poll loop picks up the state change via `GyroActivationResolver`
     /// on its next tick (including calibration + haptic on the activation edge).
-    nonisolated func handleGyroActionPressed(_ button: ControllerButton, action: GyroButtonAction) {
+    /// - Parameter consumingPress: when true (the orchestration intercept for a
+    ///   primary button mapping), the press is marked consumed in the SAME locked
+    ///   section as the gyro state change, so a concurrent transient reset can
+    ///   never observe one without the other. Press-only contexts (chords,
+    ///   sequences) leave it false — they manage their own press state.
+    nonisolated func handleGyroActionPressed(
+        _ button: ControllerButton,
+        action: GyroButtonAction,
+        consumingPress: Bool = false
+    ) {
         switch action {
         case .toggle:
-            let latchedOn = state.lock.withLock { state.toggleGyroLatchLocked() }
+            let latchedOn = state.lock.withLock { () -> Bool in
+                if consumingPress { _ = state.pressConsumedByAction.insert(button) }
+                return state.toggleGyroLatchLocked()
+            }
             inputLogService?.log(buttons: [button], type: .singlePress, action: latchedOn ? "Gyro On" : "Gyro Off")
         case .hold:
-            state.lock.withLock { _ = state.gyroHoldButtons.insert(button) }
+            state.lock.withLock {
+                if consumingPress { _ = state.pressConsumedByAction.insert(button) }
+                _ = state.gyroHoldButtons.insert(button)
+            }
             inputLogService?.log(buttons: [button], type: .singlePress, action: "Gyro Hold")
         case .pause:
-            state.lock.withLock { _ = state.gyroPauseButtons.insert(button) }
+            state.lock.withLock {
+                if consumingPress { _ = state.pressConsumedByAction.insert(button) }
+                _ = state.gyroPauseButtons.insert(button)
+            }
             inputLogService?.log(buttons: [button], type: .singlePress, action: "Gyro Pause")
         }
     }

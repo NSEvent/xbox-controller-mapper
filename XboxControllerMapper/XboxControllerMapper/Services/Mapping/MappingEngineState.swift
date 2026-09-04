@@ -194,12 +194,19 @@ extension MappingEngine {
             rederiveGyroLatchLocked()
         }
 
-        /// Flips the Gyro Toggle latch and returns the new state — the ONE
-        /// flip site, shared by the button intercept, the scripting hook, and
-        /// the executor command. Caller must hold `lock`.
+        /// Flips the Gyro Toggle latch and returns the new state. Together with
+        /// `setGyroLatchLocked`, these are the ONLY latch writers besides the
+        /// re-derive — button intercept, scripting hooks, and executor command
+        /// all route through them. Caller must hold `lock`.
         func toggleGyroLatchLocked() -> Bool {
             gyroToggledOn.toggle()
             return gyroToggledOn
+        }
+
+        /// Sets the Gyro Toggle latch directly (scripting `gyroSetActive`).
+        /// Caller must hold `lock`.
+        func setGyroLatchLocked(_ on: Bool) {
+            gyroToggledOn = on
         }
 
         /// Whether gyro aiming should drive the mouse right now — the single

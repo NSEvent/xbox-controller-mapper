@@ -252,13 +252,21 @@ extension ControllerService {
         storage.motionInputEnabled = false
         storage.motionGestureDetector.reset()
 		clearAccumulatedMotionRatesLocked()
-        storage.ds4GyroPitchBiasSum = 0
-        storage.ds4GyroRollBiasSum = 0
-        storage.ds4GyroBiasSampleCount = 0
+        resetDS4GyroBiasCalibrationSamplesLocked()
         storage.ds4GyroPitchBias = 0
         storage.ds4GyroRollBias = 0
         storage.ds4GyroLastRaw = nil
 		resetSteamGyroBiasStateLocked()
+	}
+
+	/// Restarts the DS4 bias-calibration sampling window (mirrors
+	/// `resetSteamGyroBiasCalibrationSamplesLocked`). Called from the full motion
+	/// reset AND the calibration motion-rejection restart so the two sites can
+	/// never diverge. Caller must hold `storage.lock`.
+	nonisolated func resetDS4GyroBiasCalibrationSamplesLocked() {
+		storage.ds4GyroPitchBiasSum = 0
+		storage.ds4GyroRollBiasSum = 0
+		storage.ds4GyroBiasSampleCount = 0
 	}
 
 	nonisolated private func clearAccumulatedMotionRatesLocked() {

@@ -201,7 +201,7 @@ class MappingEngine: ObservableObject {
             },
             setActive: { [weak engineState] on in
                 guard let s = engineState else { return }
-                s.lock.withLock { s.gyroToggledOn = on }
+                s.lock.withLock { s.setGyroLatchLocked(on) }
             },
             isActive: { [weak engineState] in
                 guard let s = engineState else { return false }
@@ -217,24 +217,29 @@ class MappingEngine: ObservableObject {
             }
         )
 
-        // Initial state sync (locked: setupBindings has already subscribed, so
-        // the sink's locked writes must not interleave with these)
+        // Initial state sync — the WHOLE block is locked: setupBindings has
+        // already subscribed (and, with a controller attached at construction,
+        // the isConnected sink has synchronously started the poll timer), so
+        // none of these state writes may interleave with locked readers.
+        let initialProfile = profileManager.activeProfile
+        let oskSettings = profileManager.onScreenKeyboardSettings
+        let initialBundleId = appMonitor.frontmostBundleId
+        let initialAppLayerId = AppLayerActivationPolicy.resolve(
+            bundleId: initialBundleId,
+            controllerKeysBundleId: Bundle.main.bundleIdentifier,
+            profile: initialProfile
+        )
         self.state.lock.withLock {
-            self.state.activeProfile = profileManager.activeProfile
-            self.state.joystickSettings = profileManager.activeProfile?.joystickSettings
+            self.state.activeProfile = initialProfile
+            self.state.joystickSettings = initialProfile?.joystickSettings
             self.state.rederiveGyroLatchLocked()
+            self.state.swipeTypingEnabled = oskSettings.swipeTypingEnabled
+            self.state.swipeTypingSensitivity = oskSettings.swipeTypingSensitivity
+            self.state.frontmostBundleId = initialBundleId
+            self.state.appActivatedLayerId = initialAppLayerId
+            self.state.sequenceDetector.configure(sequences: initialProfile?.sequenceMappings ?? [])
+            self.state.applyProfileIndex(MappingProfileIndex(profile: initialProfile))
         }
-	let oskSettings = profileManager.onScreenKeyboardSettings
-	self.state.swipeTypingEnabled = oskSettings.swipeTypingEnabled
-	self.state.swipeTypingSensitivity = oskSettings.swipeTypingSensitivity
-        self.state.frontmostBundleId = appMonitor.frontmostBundleId
-		self.state.appActivatedLayerId = AppLayerActivationPolicy.resolve(
-			bundleId: appMonitor.frontmostBundleId,
-			controllerKeysBundleId: Bundle.main.bundleIdentifier,
-			profile: profileManager.activeProfile
-		)
-        self.state.sequenceDetector.configure(sequences: profileManager.activeProfile?.sequenceMappings ?? [])
-        self.state.applyProfileIndex(MappingProfileIndex(profile: profileManager.activeProfile))
         syncLatencySettings(for: profileManager.activeProfile)
         syncGestureSettings(from: profileManager.activeProfile?.joystickSettings)
         syncPointerLockMouseMode(from: profileManager.activeProfile?.joystickSettings)
@@ -388,13 +393,17 @@ class MappingEngine: ObservableObject {
             self?.enqueueControllerInputEvent(event)
         }
 
-        // Joystick polling. removeDuplicates matters: isConnected republishes
-        // `true` when additional devices announce, and startJoystickPollingIfNeeded
-        // begins with a full transient reset — without the filter, a second
-        // controller connecting would wipe gyro modal state and held modifiers
-        // mid-session.
+        // Joystick polling. Deliberately NOT deduplicated: isConnected
+        // republishes `true` on every active-controller switch, and that
+        // duplicate publish is load-bearing twice over — it re-runs
+        // syncMotionActivation after prepareForActiveControllerSwitch disabled
+        // the outgoing pad's motion (the ONLY re-enable path), and it gives the
+        // Steam-takeover path its engine reset for buttons still held on the
+        // replaced pad. The gyro-modal/held-state reset this triggers on a
+        // controller switch is intended: new device, stale press state must
+        // clear. (A removeDuplicates here was tried and reverted — it left
+        // gyro dead after pad switches and modifiers stuck after Steam takeover.)
         controllerService.$isConnected
-            .removeDuplicates()
             .sink { [weak self] connected in
                 if connected {
                     self?.startJoystickPollingIfNeeded()
@@ -988,12 +997,12 @@ class MappingEngine: ObservableObject {
                 return
 
             case .interceptGyroAction(let action):
-                // Mark the press consumed so the release is suppressed from
+                // consumingPress marks the press consumed atomically with the
+                // gyro state change, so the release is suppressed from
                 // press-time state — the keycode guard in handleButtonReleased
                 // can't cover a mapping that changes between press and release
                 // (e.g. a held layer's gyro binding released after the layer).
-                state.lock.withLock { _ = state.pressConsumedByAction.insert(button) }
-                handleGyroActionPressed(button, action: action)
+                handleGyroActionPressed(button, action: action, consumingPress: true)
                 return
 
             case .interceptDirectoryNavigation:
@@ -1494,11 +1503,14 @@ class MappingEngine: ObservableObject {
 
         guard let (mapping, profile, isLongHoldTriggered) = getReleaseContext(for: button) else { return }
 
-        // Special-action mappings (gyro, laser, OSK, lock, navigator, wheel) are
-        // fully handled by their press intercepts + dedicated release handlers —
-        // never execute them again on release. Without this, a special action
-        // with isHoldModifier=false (laser defaults to that) re-executes as a
-        // single-tap, handing a marker keycode to the executor.
+        // Special-action mappings never execute on release. For gyro the primary
+        // suppression is the pressConsumedByAction mark set at press intercept
+        // (it survives mapping changes under held layers); this keycode guard is
+        // the mechanism for the OTHER special actions (laser defaults to
+        // isHoldModifier=false and would re-execute as a single-tap) plus a
+        // backstop when the release-time mapping resolves to a special keycode
+        // the press never was. Do not remove the press-time consumed mark in
+        // favor of this guard — it cannot see press-time mappings.
         if let keyCode = mapping.keyCode, KeyCodeMapping.isSpecialAction(keyCode) {
             return
         }
