@@ -1787,9 +1787,6 @@ class MappingEngine: ObservableObject {
 				performRoutingBoundaryCleanup(cleanup)
 			}
 			if let layer = startState.profile.layers.first(where: { $0.id == change.layerId }) {
-				#if DEBUG
-				print("🔷 Layer \(change.isActive ? "activated" : "deactivated") via chord: \(layer.name)")
-				#endif
 				inputLogService?.log(
 					buttons: [change.button],
 					type: .singlePress,
