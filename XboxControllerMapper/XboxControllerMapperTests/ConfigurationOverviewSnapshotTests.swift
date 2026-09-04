@@ -3,6 +3,44 @@ import TriggerKitCore
 @testable import ControllerKeys
 
 final class ConfigurationOverviewSnapshotTests: XCTestCase {
+	func testUnavailableOnlyStateAppearsOnlyWithoutCurrentDeviceRowsOrSearch() {
+		let unsupported = ConfigurationOverviewRow(
+			id: "unsupported",
+			category: .wheel,
+			trigger: "Slot 1",
+			action: "Open App",
+			detail: nil,
+			source: .profile,
+			systemImage: "circle",
+			target: .section(MainWindowSection.wheel.rawValue),
+			isCurrentDevice: false
+		)
+		let current = ConfigurationOverviewRow(
+			id: "current",
+			category: .wheel,
+			trigger: "Slot 2",
+			action: "Press Space",
+			detail: nil,
+			source: .profile,
+			systemImage: "circle",
+			target: .section(MainWindowSection.wheel.rawValue),
+			isCurrentDevice: true
+		)
+
+		XCTAssertTrue(ConfigurationOverviewEmptyStatePolicy.showsUnavailableOnlyState(
+			rows: [unsupported],
+			query: ""
+		))
+		XCTAssertFalse(ConfigurationOverviewEmptyStatePolicy.showsUnavailableOnlyState(
+			rows: [unsupported, current],
+			query: ""
+		))
+		XCTAssertFalse(ConfigurationOverviewEmptyStatePolicy.showsUnavailableOnlyState(
+			rows: [unsupported],
+			query: "slot"
+		))
+	}
+
 	func testSelectedLayerMakesOverridesAndInheritanceExplicit() throws {
 		let layer = Layer(
 			name: "Editing",
@@ -36,6 +74,7 @@ final class ConfigurationOverviewSnapshotTests: XCTestCase {
 			.profile
 		)
 		XCTAssertEqual(snapshot.mappedControlCount, 2)
+		XCTAssertEqual(snapshot.configuredControlCount, 3)
 	}
 
 	func testSnapshotIncludesConfiguredTriggersAndAutomationLibrary() {
@@ -139,6 +178,7 @@ final class ConfigurationOverviewSnapshotTests: XCTestCase {
 		)
 
 		XCTAssertEqual(snapshot.mappedControlCount, 1)
+		XCTAssertEqual(snapshot.configuredControlCount, 1)
 		XCTAssertEqual(
 			snapshot.rows.filter { $0.category == .controls && !$0.isCurrentDevice }.count,
 			2

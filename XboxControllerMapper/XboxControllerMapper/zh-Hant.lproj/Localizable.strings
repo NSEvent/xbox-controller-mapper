@@ -935,6 +935,9 @@
 "Dismiss this guide" = "關閉此指南";
 "Dismiss getting started guide" = "關閉入門指南";
 "mapped controls" = "已對應的控制項";
+"configured controls" = "已設定的控制項";
+"No Available Configuration" = "沒有可用的設定";
+"Configured items for other controllers are preserved below. Open the editor to add something this controller can use." = "為其他控制器設定的項目會保留在下方。開啟編輯器以新增此控制器可用的項目。";
 "advanced triggers" = "進階觸發條件";
 "wheel actions" = "輪盤操作";
 "automations" = "自動化";

@@ -215,6 +215,7 @@ struct SettingsSheet: View {
 				updater.setUsageAnalyticsEnabled(enabled)
 				TelemetryService.shared.preferenceChanged(enabled: enabled)
 			}
+			.accessibilityLabel("Share Usage Analytics")
         } header: {
             Text("Privacy")
         }

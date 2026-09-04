@@ -935,6 +935,9 @@
 "Dismiss this guide" = "Diese Anleitung schließen";
 "Dismiss getting started guide" = "Erste-Schritte-Anleitung schließen";
 "mapped controls" = "zugeordnete Bedienelemente";
+"configured controls" = "konfigurierte Bedienelemente";
+"No Available Configuration" = "Keine verfügbare Konfiguration";
+"Configured items for other controllers are preserved below. Open the editor to add something this controller can use." = "Konfigurierte Elemente für andere Controller bleiben unten erhalten. Öffne den Editor, um etwas hinzuzufügen, das dieser Controller verwenden kann.";
 "advanced triggers" = "erweiterte Auslöser";
 "wheel actions" = "Radaktionen";
 "automations" = "Automatisierungen";

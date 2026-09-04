@@ -193,7 +193,7 @@ struct ConfigurationOverviewView: View {
 	private func scopeSummary(_ snapshot: ConfigurationOverviewSnapshot) -> some View {
 		VStack(alignment: .leading, spacing: 10) {
 			HStack(spacing: 16) {
-				metric(snapshot.mappedControlCount, "mapped controls", systemImage: "button.programmable")
+				metric(snapshot.configuredControlCount, "configured controls", systemImage: "button.programmable")
 				metric(snapshot.advancedTriggerCount, "advanced triggers", systemImage: "link")
 				metric(snapshot.commandWheelCount, "wheel actions", systemImage: "circle.hexagongrid")
 				metric(snapshot.automationCount, "automations", systemImage: "bolt.fill")
@@ -320,14 +320,22 @@ struct ConfigurationOverviewView: View {
 					|| !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 			)
 		} else {
+			let currentDeviceRows = visibleRows.filter(\.isCurrentDevice)
+			let otherDeviceRows = visibleRows.filter { !$0.isCurrentDevice }
+			if ConfigurationOverviewEmptyStatePolicy.showsUnavailableOnlyState(
+				rows: visibleRows,
+				query: query
+			) {
+				unavailableOnlyState()
+			}
+
 			ForEach(ConfigurationOverviewCategory.allCases) { category in
-				let categoryRows = visibleRows.filter { $0.category == category && $0.isCurrentDevice }
+				let categoryRows = currentDeviceRows.filter { $0.category == category }
 				if !categoryRows.isEmpty {
 					rowSection(category, rows: categoryRows)
 				}
 			}
 
-			let otherDeviceRows = visibleRows.filter { !$0.isCurrentDevice }
 			if !otherDeviceRows.isEmpty {
 				DisclosureGroup(isExpanded: $showingOtherDeviceMappings) {
 					LazyVStack(spacing: 5) {
@@ -425,9 +433,29 @@ struct ConfigurationOverviewView: View {
 		}
 		.buttonStyle(.plain)
 		.help("Open \(row.trigger)")
-		.accessibilityElement(children: .ignore)
 		.accessibilityLabel(row.accessibilitySummary)
 		.accessibilityHint("Open configuration")
+	}
+
+	private func unavailableOnlyState() -> some View {
+		let emptyConfiguration = filter.emptyConfiguration
+		return VStack(spacing: 10) {
+			Image(systemName: "gamecontroller.fill")
+				.font(.system(size: 30))
+				.foregroundStyle(.secondary)
+			Text("No Available Configuration")
+				.font(.headline)
+			Text("Configured items for other controllers are preserved below. Open the editor to add something this controller can use.")
+				.font(.callout)
+				.foregroundStyle(.secondary)
+				.multilineTextAlignment(.center)
+			Button(emptyConfiguration.action) {
+				onSelect(emptyConfiguration.target)
+			}
+			.buttonStyle(.borderedProminent)
+		}
+		.frame(maxWidth: .infinity)
+		.padding(.vertical, 28)
 	}
 
 	private func emptyState(hasConfiguration: Bool) -> some View {

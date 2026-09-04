@@ -70,6 +70,17 @@ struct ConfigurationOverviewEmptyState {
 	let target: ConfigurationOverviewTarget
 }
 
+enum ConfigurationOverviewEmptyStatePolicy {
+	static func showsUnavailableOnlyState(
+		rows: [ConfigurationOverviewRow],
+		query: String
+	) -> Bool {
+		!rows.isEmpty
+			&& !rows.contains(where: \.isCurrentDevice)
+			&& query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+	}
+}
+
 enum ConfigurationOverviewCategory: String, CaseIterable, Identifiable {
 	case controls = "Controls"
 	case triggers = "Advanced Triggers"
@@ -185,6 +196,12 @@ struct ConfigurationOverviewSnapshot: Equatable {
 			if case .layer = row.target { return false }
 			return true
 		}.count
+	}
+
+	/// All usable control rows, including layer activators. This matches the
+	/// count shown beside the Controls inventory.
+	var configuredControlCount: Int {
+		rows.filter { $0.category == .controls && $0.isCurrentDevice }.count
 	}
 
 	var advancedTriggerCount: Int {

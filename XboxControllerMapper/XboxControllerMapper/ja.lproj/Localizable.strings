@@ -935,6 +935,9 @@
 "Dismiss this guide" = "このガイドを閉じる";
 "Dismiss getting started guide" = "スタートガイドを閉じる";
 "mapped controls" = "マッピング済みコントロール";
+"configured controls" = "設定済みコントロール";
+"No Available Configuration" = "利用可能な設定がありません";
+"Configured items for other controllers are preserved below. Open the editor to add something this controller can use." = "ほかのコントローラー用に設定した項目は下に保持されています。エディターを開き、このコントローラーで使える項目を追加してください。";
 "advanced triggers" = "高度なトリガー";
 "wheel actions" = "ホイールアクション";
 "automations" = "オートメーション";
