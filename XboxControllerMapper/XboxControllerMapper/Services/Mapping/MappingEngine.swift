@@ -872,9 +872,6 @@ class MappingEngine: ObservableObject {
 
         case .layerActivated(let profile, let layerId):
 			if let layer = profile.layers.first(where: { $0.id == layerId }) {
-				#if DEBUG
-				print("🔷 Layer activated: \(layer.name)")
-				#endif
 				inputLogService?.log(buttons: [button], type: .singlePress, action: "Layer: \(layer.name)")
 			}
 			DispatchQueue.main.async { [weak self] in
@@ -885,9 +882,6 @@ class MappingEngine: ObservableObject {
 		case .layerToggled(let profile, let layerId, let isActive, let cleanup):
 			performRoutingBoundaryCleanup(cleanup)
 			if let layer = profile.layers.first(where: { $0.id == layerId }) {
-				#if DEBUG
-				print("🔷 Layer toggled \(isActive ? "on" : "off"): \(layer.name)")
-				#endif
 				inputLogService?.log(
 					buttons: [button],
 					type: .singlePress,
