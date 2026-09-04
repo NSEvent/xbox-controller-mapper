@@ -1439,12 +1439,6 @@ class MappingEngine: ObservableObject {
             #endif
         }
         if layerDeactivation.didDeactivate {
-            #if DEBUG
-            if let layerName = layerDeactivation.layerName {
-                print("🔷 Layer deactivated: \(layerName)")
-            }
-            #endif
-
             // Revert LED settings: apply next active layer's LED, or fall back to profile default.
             // After applying, also kick the battery monitor so battery-light-bar mode resumes
             // if the profile uses it (otherwise its periodic updates would override our color).
