@@ -4,6 +4,7 @@ struct ProfileAutoSwitchState: Equatable {
     let previousBundleId: String?
     let profileIdBeforeBackground: UUID?
     let activeProfileId: UUID?
+	var lastActiveProfileId: UUID? = nil
 }
 
 enum ProfileAutoSwitchReason: Equatable {
@@ -45,7 +46,17 @@ enum ProfileAutoSwitchResolver {
             profileIdBeforeBackground = state.activeProfileId
         }
 
-        if let linkedProfile = profiles.first(where: { $0.linkedApps.contains(bundleId) }) {
+		// Community imports may share an app link (e.g. basic Anki vs AnKing).
+		// Honor the explicitly selected variant, including after visiting an
+		// unrelated app, rather than silently choosing whichever was imported first.
+		let linkedProfiles = profiles.filter { $0.linkedApps.contains(bundleId) }
+		let preferredLinkedProfile = linkedProfiles.first { $0.id == state.activeProfileId }
+			?? linkedProfiles.first { $0.id == profileIdBeforeBackground }
+			// The editing bookmark is session-only, but the previous profile
+			// survives restarting while an unrelated app has selected Default.
+			?? linkedProfiles.first { $0.id == state.lastActiveProfileId }
+			?? linkedProfiles.first
+		if let linkedProfile = preferredLinkedProfile {
             if state.activeProfileId == linkedProfile.id {
                 return ProfileAutoSwitchResult(
                     action: nil,

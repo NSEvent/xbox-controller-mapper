@@ -113,6 +113,21 @@ struct ProfileSidebar: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 16)
 
+			// Make the existing gallery discoverable before a new user has
+			// learned the Add menu. Imported/custom profiles keep the sidebar compact.
+			if profileManager.profiles.count == 1, profileManager.profiles.first?.isDefault == true {
+				Button {
+					showingCommunityProfiles = true
+				} label: {
+					Label("Browse Starter Profiles", systemImage: "square.stack.3d.up")
+						.font(.callout)
+				}
+				.buttonStyle(.bordered)
+				.help("Ready-made mappings for Anki, presentations, and more")
+				.padding(.horizontal, 12)
+				.padding(.bottom, 12)
+			}
+
             // Profile list
             ScrollView {
                 VStack(spacing: 4) {

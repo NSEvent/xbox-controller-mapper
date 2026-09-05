@@ -18,7 +18,8 @@
   },
   "createdAt" : "2026-02-08T21:41:41Z",
   "linkedApps" : [
-    "net.ankiweb.launcher"
+    "net.ankiweb.launcher",
+    "net.ankiweb.anki"
   ],
   "isDefault" : false,
   "chordMappings" : [

@@ -197,7 +197,8 @@ class ProfileManager: ObservableObject {
         let state = ProfileAutoSwitchState(
             previousBundleId: previousBundleId,
             profileIdBeforeBackground: profileIdBeforeBackground,
-            activeProfileId: activeProfileId
+			activeProfileId: activeProfileId,
+			lastActiveProfileId: lastActiveProfileId
         )
         let result = ProfileAutoSwitchResolver.resolve(
             bundleId: bundleId,

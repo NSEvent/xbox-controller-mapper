@@ -4,7 +4,8 @@
   "icon" : "stethoscope",
   "isDefault" : false,
   "linkedApps" : [
-    "net.ankiweb.launcher"
+    "net.ankiweb.launcher",
+    "net.ankiweb.anki"
   ],
   "createdAt" : "2026-05-09T20:47:46Z",
   "modifiedAt" : "2026-05-09T20:47:46Z",
