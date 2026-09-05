@@ -30,6 +30,11 @@ struct OnboardingView: View {
     @State private var startedAt = Date()
     @State private var selectedUseCase: TelemetryService.ProductUseCase?
 
+	private var readiness: OnboardingReadiness {
+		OnboardingReadiness(accessibilityGranted: permissions.accessibilityGranted,
+							controllerConnected: controllerService.isConnected)
+	}
+
     private var stepState: OnboardingStepState {
         OnboardingStepState(
             accessibility: permissions.accessibility,
@@ -92,7 +97,7 @@ struct OnboardingView: View {
         case .inputMonitoring: return String(localized: "Allow Input Monitoring")
         case .bluetooth: return String(localized: "Bluetooth (Optional)")
         case .controllerTest: return String(localized: "Try Your Controller")
-        case .done: return String(localized: "You're all set")
+		case .done: return readiness.title
         }
     }
 
@@ -247,22 +252,7 @@ struct OnboardingView: View {
 
     private var doneContent: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.largeTitle)
-                    .foregroundStyle(.green)
-                Text("ControllerKeys is ready to go.")
-                    .font(.title3.weight(.semibold))
-            }
-
-            grantedSummaryRow("Accessibility", state: permissions.accessibility)
-            grantedSummaryRow("Input Monitoring", state: permissions.inputMonitoring)
-            grantedSummaryRow("Bluetooth", state: permissions.bluetooth, optional: true)
-
-            Text("You can revisit any of these anytime from **Settings \u{203A} Permissions**.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.top, 2)
+			OnboardingCompletionView(readiness: readiness, permissions: stepState)
 
             Picker("What will you mainly use ControllerKeys for?", selection: $selectedUseCase) {
                 Text("Prefer not to say").tag(nil as TelemetryService.ProductUseCase?)
@@ -272,19 +262,6 @@ struct OnboardingView: View {
             }
             .accessibilityHint("Optional anonymous product feedback")
         }
-    }
-
-    private func grantedSummaryRow(_ title: LocalizedStringKey, state: PermissionState, optional: Bool = false) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: state == .granted ? "checkmark.circle.fill" : (optional ? "minus.circle" : "exclamationmark.triangle.fill"))
-                .foregroundStyle(state == .granted ? .green : (optional ? .secondary : .orange))
-            Text(title)
-            Spacer()
-            Text(state == .granted ? String(localized: "Granted") : (optional ? String(localized: "Skipped") : String(localized: "Not granted")))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .font(.callout)
     }
 
     // MARK: - Footer
@@ -298,7 +275,10 @@ struct OnboardingView: View {
 
             Spacer()
 
-            if step.isRequired && !stepState.canAdvance(from: step) {
+			if step == .done && readiness.repairStep != nil {
+				Button("Set Up Later") { finishOnboarding() }
+					.controlSize(.large)
+			} else if step.isRequired && !stepState.canAdvance(from: step) {
                 Button("Skip for now") { goNext() }
                     .controlSize(.large)
             } else if step == .bluetooth && permissions.bluetooth != .granted {
@@ -307,7 +287,9 @@ struct OnboardingView: View {
             }
 
             Button(primaryButtonTitle) {
-                if step == .done { finishOnboarding() } else { goNext() }
+				if step == .done, let repair = readiness.repairStep {
+					withAnimation { step = repair }
+				} else if step == .done { finishOnboarding() } else { goNext() }
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
@@ -319,7 +301,7 @@ struct OnboardingView: View {
     private var primaryButtonTitle: String {
         switch step {
         case .welcome: return String(localized: "Get Started")
-        case .done: return String(localized: "Start Using ControllerKeys")
+		case .done: return readiness.buttonTitle
         default: return String(localized: "Continue")
         }
     }

@@ -81,7 +81,7 @@ final class TelemetryServiceTests: XCTestCase {
             "install", "trial_started", "app_version_first_seen", "launch",
         ])
         for event in events {
-            XCTAssertEqual(event["schema_version"] as? Int, 3)
+			XCTAssertEqual(event["schema_version"] as? Int, 4)
             XCTAssertNotNil(event["event_id"] as? String)
             XCTAssertNotNil(event["occurred_at"] as? String)
             XCTAssertNil(event["key_code"])
@@ -166,6 +166,59 @@ final class TelemetryServiceTests: XCTestCase {
         XCTAssertEqual(usefulDay["feature_categories"] as? [String], ["keyboard", "macro"])
         XCTAssertEqual(usefulDay["complex_action_used"] as? Bool, true)
     }
+
+	func testContinuousPointerOnlyUseActivatesAndSurvivesDayRolloverWithoutFrameCounting() throws {
+		let recorder = TransportRecorder()
+		let clock = Clock(ISO8601DateFormatter().date(from: "2026-09-01T23:59:59Z")!)
+		let service = makeService(recorder: recorder, clock: clock)
+		for _ in 0..<1_200 { service.recordContinuousPointerActivity() }
+		service.synchronizeForTesting()
+		recorder.respondNext(200)
+		service.synchronizeForTesting()
+
+		clock.set(ISO8601DateFormatter().date(from: "2026-09-02T00:00:00Z")!)
+		service.recordContinuousPointerActivity()
+		service.synchronizeForTesting()
+		let events = try eventPayloads(in: recorder.requestBodies()).flatMap { $0 }
+		XCTAssertEqual(events.filter { ($0["event"] as? String) == "first_action_succeeded" }.count, 1)
+		let day = try XCTUnwrap(events.first { ($0["event"] as? String) == "useful_day" })
+		XCTAssertEqual(day["client_day"] as? String, "2026-09-01")
+		XCTAssertEqual(day["action_count_bucket"] as? String, "1-5")
+		XCTAssertEqual(day["feature_categories"] as? [String], ["pointer"])
+		XCTAssertEqual(day["funnel_version"] as? String, "trial-v4-2026-09")
+		XCTAssertEqual(day["complex_action_used"] as? Bool, false)
+	}
+
+	func testPointerActivityHonorsOptOutAndCanResumeInSameSecond() throws {
+		let recorder = TransportRecorder()
+		let service = makeService(recorder: recorder)
+		defaults.set(false, forKey: "telemetryEnabled")
+		service.recordContinuousPointerActivity()
+		service.synchronizeForTesting()
+		XCTAssertTrue(recorder.requestBodies().isEmpty)
+
+		defaults.set(true, forKey: "telemetryEnabled")
+		service.recordContinuousPointerActivity()
+		service.synchronizeForTesting()
+		XCTAssertEqual(service.pendingEventCountForTesting(), 1)
+		defaults.set(false, forKey: "telemetryEnabled")
+		service.preferenceChanged(enabled: false)
+		service.synchronizeForTesting()
+		defaults.set(true, forKey: "telemetryEnabled")
+		service.recordContinuousPointerActivity()
+		service.synchronizeForTesting()
+		XCTAssertEqual(service.pendingEventCountForTesting(), 1)
+	}
+
+	func testPointerActivityIsDisabledInTestAndScreenshotRuntimes() {
+		let recorder = TransportRecorder()
+		let service = TelemetryService(defaults: defaults, transport: recorder.send,
+									   runtimeAllowsTelemetry: { false }, schedulesRetries: false)
+		service.recordContinuousPointerActivity()
+		service.synchronizeForTesting()
+		XCTAssertTrue(recorder.requestBodies().isEmpty)
+		XCTAssertEqual(service.pendingEventCountForTesting(), 0)
+	}
 
     func testOnboardingUsesOnlyCoarseOptionalDimensions() throws {
         let recorder = TransportRecorder()

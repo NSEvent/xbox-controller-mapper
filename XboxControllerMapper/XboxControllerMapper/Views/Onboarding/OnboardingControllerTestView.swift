@@ -175,13 +175,20 @@ struct OnboardingControllerTestView: View {
                 .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 8) {
-                pairingHintRow(icon: "dot.radiowaves.left.and.right", text: "**Xbox / PlayStation:** hold the pairing button until the light flashes, then add it in **System Settings ▸ Bluetooth**.")
+				pairingHintRow(icon: "dot.radiowaves.left.and.right", text: "**Wireless:** put your controller in Bluetooth pairing mode, then select it in **System Settings ▸ Bluetooth**.")
                 pairingHintRow(icon: "cable.connector", text: "**Wired:** connect a USB cable — no pairing needed.")
-                pairingHintRow(icon: "hand.tap", text: "You can skip this and try your controller later — everything still works.")
+				pairingHintRow(icon: "hand.tap", text: "You can explore your mappings now and connect a controller later.")
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.06)))
+
+			Button("Open Bluetooth Settings") {
+				if let url = URL(string: "x-apple.systempreferences:com.apple.BluetoothSettings") {
+					NSWorkspace.shared.open(url)
+				}
+			}
+			.buttonStyle(.borderedProminent)
         }
     }
 

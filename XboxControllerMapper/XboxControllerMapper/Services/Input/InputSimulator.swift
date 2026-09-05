@@ -375,6 +375,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             event.setDoubleValueField(.mouseEventPressure, value: 1.0)
         }
         event.post(tap: .cghidEventTap)
+		TelemetryService.shared.recordContinuousPointerActivity()
     }
 
     // MARK: - Keyboard Simulation
@@ -1312,6 +1313,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 										edgePoint,
 										delta: CGPoint(x: moveX, y: moveY)
 									)
+									TelemetryService.shared.recordContinuousPointerActivity()
 									return
 								}
 						} else {
@@ -1393,6 +1395,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 }
             }
 
+			if postedViaHID && (localDeltaX != 0 || localDeltaY != 0) {
+				TelemetryService.shared.recordContinuousPointerActivity()
+			}
             if !postedViaHID {
                 if let event = CGEvent(
                     mouseEventSource: source,
@@ -1411,6 +1416,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                         event.setDoubleValueField(.mouseEventPressure, value: 1.0)
                     }
                     event.post(tap: .cghidEventTap)
+					if localDeltaX != 0 || localDeltaY != 0 {
+						TelemetryService.shared.recordContinuousPointerActivity()
+					}
                 } else {
                     NSLog("[InputSimulator] Failed to create mouse move event - check Accessibility permissions")
                 }
@@ -1512,7 +1520,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 }
             }
 
-            guard !postedViaHID else { return }
+			guard !postedViaHID else {
+				TelemetryService.shared.recordContinuousPointerActivity()
+				return
+			}
 
             guard let event = CGEvent(
                 mouseEventSource: self.eventSource,
@@ -1533,6 +1544,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 event.setDoubleValueField(.mouseEventPressure, value: 1.0)
             }
             event.post(tap: .cghidEventTap)
+			TelemetryService.shared.recordContinuousPointerActivity()
         }
     }
 
@@ -1585,6 +1597,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 isContinuous: isContinuous,
                 flags: flags
            ) {
+			if dx != 0 || dy != 0 {
+				TelemetryService.shared.recordContinuousPointerActivity()
+			}
             return
         }
 
@@ -1628,6 +1643,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                     event.flags = event.flags.union(scrollFlags)
                 }
                 event.post(tap: .cghidEventTap)
+				if Int32(dx) != 0 || Int32(dy) != 0 || (isContinuous && (dx != 0 || dy != 0)) {
+					TelemetryService.shared.recordContinuousPointerActivity()
+				}
             } else {
                 NSLog("[InputSimulator] Failed to create scroll wheel event - check Accessibility permissions")
             }
@@ -1690,6 +1708,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         // Option+Command+= (zoom in) or Option+Command+- (zoom out)
         keyboardQueue.async { [weak self] in
             guard let self = self else { return }
+			guard self.checkAccessibility() else { return }
 
             // kVK_ANSI_Equal = 0x18 = 24, kVK_ANSI_Minus = 0x1B = 27
             let keyCode: CGKeyCode = zoomIn ? 24 : 27
@@ -1699,6 +1718,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             if let downEvent = CGEvent(keyboardEventSource: self.eventSource, virtualKey: keyCode, keyDown: true) {
                 downEvent.flags = modifiers
                 downEvent.post(tap: .cghidEventTap)
+				TelemetryService.shared.recordContinuousPointerActivity()
             } else {
                 NSLog("[InputSimulator] Failed to create zoom key-down event - check Accessibility permissions")
             }

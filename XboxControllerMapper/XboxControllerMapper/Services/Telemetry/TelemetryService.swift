@@ -40,6 +40,7 @@ final class TelemetryService: @unchecked Sendable {
     let stateQueue = DispatchQueue(label: "com.controllerkeys.telemetry", qos: .utility)
     private let usageLock = NSLock()
     private var dailyUsage: DailyUsage
+	private var lastPointerSampleSecond: Int64?
     private var isSending = false
     private var retryWorkItem: DispatchWorkItem?
 
@@ -88,7 +89,22 @@ final class TelemetryService: @unchecked Sendable {
         }
     }
 
-    /// Hot-path safe: persists only when the coarse bucket/category changes.
+	/// Called only after nonzero pointer/scroll output was dispatched. Collapse
+	/// continuous input to at most one activity sample per UTC second, so a
+	/// 120 Hz stick cannot flood persistence, the outbox, or action buckets.
+	/// No coordinates, deltas, buttons, or target apps enter telemetry.
+	func recordContinuousPointerActivity() {
+		guard canCollect else { return }
+		let second = Int64(now().timeIntervalSince1970.rounded(.down))
+		usageLock.lock()
+		let shouldRecord = lastPointerSampleSecond != second
+		lastPointerSampleSecond = second
+		usageLock.unlock()
+		guard shouldRecord else { return }
+		recordSuccessfulAction(category: .pointer, isComplex: false)
+	}
+
+	/// Persists only when the coarse bucket/category changes.
     func recordSuccessfulAction(category: FeatureCategory, isComplex: Bool) {
         guard canCollect else { return }
 
@@ -221,6 +237,7 @@ final class TelemetryService: @unchecked Sendable {
 
     private func resetDailyUsage() {
         usageLock.lock()
+		lastPointerSampleSecond = nil
         dailyUsage = DailyUsage(day: Self.dayStamp(now()))
         persistDailyUsageLocked()
         usageLock.unlock()

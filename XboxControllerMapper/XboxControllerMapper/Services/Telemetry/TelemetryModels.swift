@@ -146,8 +146,8 @@ extension TelemetryService {
     }
 
     static let defaultEndpoint = URL(string: "https://analytics.kevintang.app/controllerkeys/e")!
-    static let schemaVersion = 3
-    static let funnelVersion = "trial-v3-2026-09"
+	static let schemaVersion = 4
+	static let funnelVersion = "trial-v4-2026-09"
     static let offerVersion = "gumroad-19.99-v1"
     static let maximumOutboxCount = 100
     static let batchSize = 25

@@ -6,6 +6,23 @@ import XCTest
 /// touching real TCC state (which isn't deterministic in CI).
 final class OnboardingFlowTests: XCTestCase {
 
+	func testCompletionPrioritizesMissingAccessibilityEvenWithAController() {
+		for connected in [false, true] {
+			let readiness = OnboardingReadiness(accessibilityGranted: false, controllerConnected: connected)
+			XCTAssertEqual(readiness, .accessibilityMissing)
+			XCTAssertEqual(readiness.repairStep, .accessibility)
+		}
+	}
+
+	func testCompletionOffersControllerSetupUntilConnected() {
+		let readiness = OnboardingReadiness(accessibilityGranted: true, controllerConnected: false)
+		XCTAssertEqual(readiness, .controllerMissing)
+		XCTAssertEqual(readiness.repairStep, .controllerTest)
+		let connected = OnboardingReadiness(accessibilityGranted: true, controllerConnected: true)
+		XCTAssertEqual(connected, .ready)
+		XCTAssertNil(connected.repairStep)
+	}
+
     // MARK: - Step metadata
 
     func testRequiredSteps() {
