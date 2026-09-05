@@ -217,17 +217,17 @@ struct SequenceRow: View {
             // Tappable content area
             Button(action: onEdit) {
                 HStack {
-                HStack(spacing: 4) {
-                    ForEach(Array(sequence.steps.enumerated()), id: \.offset) { index, button in
-                        if index > 0 {
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 9))
-                                .foregroundColor(.white.opacity(0.3))
-                                .accessibilityHidden(true)
-                        }
+                    HStack(spacing: 4) {
+                        ForEach(Array(sequence.steps.enumerated()), id: \.offset) { index, button in
+                            if index > 0 {
+                                Image(systemName: "arrow.right")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.white.opacity(0.3))
+                                    .accessibilityHidden(true)
+                            }
 							ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
+                        }
                     }
-                }
 
                 Image(systemName: "arrow.right")
                     .font(.caption2)
