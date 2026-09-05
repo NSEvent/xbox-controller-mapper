@@ -64,25 +64,27 @@ import sys
 manifest_path, version, build, artifact, notes_path, sha256, size_bytes = sys.argv[1:]
 description = Path(notes_path).read_text(encoding="utf-8").rstrip()
 
+product = {
+    "name": "ControllerKeys",
+    "gumroad_product_id": "apabap",
+    "content_url": "https://gumroad.com/products/apabap/edit/content",
+}
+release = {
+    "version": version,
+    "build": int(build),
+    "display_name": f"ControllerKeys-{version}",
+    "artifact_path": artifact,
+    "artifact_filename": Path(artifact).name,
+    "artifact_size_bytes": int(size_bytes),
+    "expected_gumroad_size": f"{int(size_bytes) / (1024 * 1024):.1f} MB",
+    "sha256": sha256,
+    "description_path": notes_path,
+    "description": description,
+}
 manifest = {
     "schema_version": 1,
-    "product": {
-        "name": "ControllerKeys",
-        "gumroad_product_id": "apabap",
-        "content_url": "https://gumroad.com/products/apabap/edit/content",
-    },
-    "release": {
-        "version": version,
-        "build": int(build),
-        "display_name": f"ControllerKeys-{version}",
-        "artifact_path": artifact,
-        "artifact_filename": Path(artifact).name,
-        "artifact_size_bytes": int(size_bytes),
-        "expected_gumroad_size": f"{int(size_bytes) / (1024 * 1024):.1f} MB",
-        "sha256": sha256,
-        "description_path": notes_path,
-        "description": description,
-    },
+    "product": product,
+    "release": release,
     "notify_customers": False,
 }
 
