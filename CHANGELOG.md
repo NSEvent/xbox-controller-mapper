@@ -7,13 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.7.2] - 2026-09-05
+## [2.7.2] - 2026-09-06
+
+### Added
+
+- Browse Starter Profiles shortcut for new profile libraries, with an Anki setup and recovery guide.
 
 ### Fixed
+
 - First-run setup now shows the missing permission or controller connection, with a direct next step and an option to finish later.
 - Added a Bluetooth settings shortcut during controller setup; optional permissions no longer appear as required in the summary.
 - Anonymous first-use and daily-use reporting now includes cursor movement and scrolling, with bounded sampling and the existing opt-out.
 - Accessibility Zoom shortcuts now check Accessibility permission before posting keys.
+- Anki starter profiles recognize both the current Anki app and its legacy launcher.
+- Fixed cases where switching apps or relaunching replaced the selected Anki profile variant. Explicit menu-bar and controller-command choices now take precedence over stale editor selections.
+- Community profile downloads show failures and support retry without duplicating successful imports. Closing the gallery cancels pending imports.
+- Profile previews show retryable errors and ignore stale download results.
+- Developer Anki verification rejects invalid traces before launch and cleans up after failed checks.
 
 ## [2.7.1] - 2026-09-04
 
