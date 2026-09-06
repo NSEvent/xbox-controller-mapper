@@ -64,3 +64,7 @@ fi
 
 echo "Running direct XCTest bundle"
 xcrun xctest "$XCTEST_BUNDLE"
+
+# XCTest creates the key trace needed by the optional real-Anki cases.
+echo "Checking Anki oracle guards (real Anki cases opt in via environment)"
+"${TEST_PYTHON:-python3}" -m unittest discover -s Scripts/tests

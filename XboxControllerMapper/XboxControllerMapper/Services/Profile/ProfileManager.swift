@@ -229,7 +229,7 @@ class ProfileManager: ObservableObject {
         }
         #endif
 
-        setActiveProfile(profile)
+		setActiveProfile(profile, isAutomatic: true)
     }
     
     @discardableResult
@@ -369,10 +369,16 @@ class ProfileManager: ObservableObject {
         }
     }
 
-    func setActiveProfile(_ profile: Profile) {
+	func setActiveProfile(_ profile: Profile, isAutomatic: Bool = false) {
         if !profiles.contains(where: { $0.id == profile.id }) {
             profiles.append(profile)
         }
+		// Menu-bar and controller commands can select a profile without ever
+		// foregrounding the editor. Remember those explicit choices too, even
+		// when reselecting the active profile; automatic switches must not replace them.
+		if !isAutomatic {
+			profileIdBeforeBackground = profile.id
+		}
 		if activeProfileId != profile.id,
 		   let outgoingProfileId = activeProfileId,
 		   profiles.contains(where: { $0.id == outgoingProfileId }) {

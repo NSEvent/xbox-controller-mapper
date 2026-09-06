@@ -7,12 +7,67 @@ Run on kmacstudio; see docs/internal/anki-first-session-verification.md.
 """
 
 import argparse
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
 import sys
 import time
 import uuid
+
+
+REVIEW_CASES = [
+    ("Anki Flashcards", {"a": 3, "b": 1, "x": 2, "y": 4, "rightBumper": 3}),
+    ("Anki - AnKing (USMLE)", {"a": 3, "b": 2, "x": 1, "y": 4}),
+]
+SUPPORTED_KEYS = {49, 36, 18, 19, 20, 21}
+
+
+def load_trace(path: Path) -> dict:
+    """Reject missing/malformed/incomplete input before creating any Anki state."""
+    trace = json.loads(path.read_text())
+    if not isinstance(trace, list):
+        raise ValueError("trace must be an array of mapped-key records")
+    expected = {(profile, button) for profile, ratings in REVIEW_CASES for button in ratings}
+    outputs = {}
+    for row in trace:
+        if not isinstance(row, dict):
+            raise ValueError("each trace record must be an object")
+        profile, button, codes = row.get("profile"), row.get("button"), row.get("keyCodes")
+        if not isinstance(profile, str) or not isinstance(button, str):
+            raise ValueError("profile and button must be strings")
+        key = (profile, button)
+        if key not in expected or key in outputs:
+            raise ValueError(f"unexpected or duplicate trace record: {key}")
+        if (not isinstance(codes, list) or len(codes) != 1
+                or type(codes[0]) is not int or codes[0] not in SUPPORTED_KEYS):
+            raise ValueError(f"{key} must emit exactly one supported key")
+        outputs[key] = codes
+    if missing := expected - outputs.keys():
+        raise ValueError(f"missing trace records: {sorted(missing)}")
+    return outputs
+
+
+@contextmanager
+def anki_session(aqt, base: Path, timer):
+    """Protect every verification operation after Anki returns its isolated app."""
+    app = aqt._run(["controllerkeys-anki-oracle", "-b", str(base),
+                    "-p", "ControllerKeys Fixture", "-l", "en_US", "--safemode"], exec=False)
+    try:
+        if app is None:
+            raise RuntimeError("Must create an isolated Anki instance")
+        yield app, aqt.mw
+    finally:
+        if app is not None:
+            # Anki's order: collection, audio, server, then WebEngine.
+            # Direct app.quit() leaves Chromium pages alive (exit 255).
+            if aqt.mw.col is not None:
+                aqt.mw.unloadProfileAndExit()
+            else:
+                aqt.mw.cleanupAndExit()
+            timer.singleShot(10000, lambda: app.exit(2))
+            if app.exec() != 0:
+                raise RuntimeError("Timed out closing the isolated Anki fixture")
 
 
 def main() -> None:
@@ -27,6 +82,10 @@ def main() -> None:
     packages = args.anki_app.resolve() / "Contents/Resources/app_packages"
     if not (packages / "aqt").is_dir():
         parser.error("--anki-app must contain the official bundled aqt runtime")
+    try:
+        outputs = load_trace(args.trace)
+    except (OSError, ValueError) as error:
+        parser.error(f"Invalid trace: {error}")
     args.output = args.output.resolve()
     args.output.mkdir(parents=True, exist_ok=False)
     os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -38,8 +97,7 @@ def main() -> None:
     import aqt
     from anki.collection import Collection
     from aqt.profiles import ProfileManager, VideoDriver
-    from aqt.qt import Qt, QTimer
-    from PyQt6.QtTest import QTest
+    from aqt.qt import QTimer
 
     anki.lang.set_lang("en_US")
     base = args.output / "isolated-anki"
@@ -63,10 +121,13 @@ def main() -> None:
     col.close()
     pm.db.close()
 
-    app = aqt._run(["controllerkeys-anki-oracle", "-b", str(base),
-                    "-p", "ControllerKeys Fixture", "-l", "en_US", "--safemode"], exec=False)
-    assert app is not None, "Must create an isolated Anki instance"
-    mw = aqt.mw
+    with anki_session(aqt, base, QTimer) as (app, mw):
+        verify_reviews(app, mw, outputs, args.output, aqt.appVersion)
+
+
+def verify_reviews(app, mw, outputs: dict, output: Path, version: str) -> None:
+    from aqt.qt import Qt
+    from PyQt6.QtTest import QTest
 
     def wait_for(condition, label: str, seconds: float = 20) -> None:
         deadline = time.monotonic() + seconds
@@ -77,56 +138,40 @@ def main() -> None:
             QTest.qWait(20)
         QTest.qWait(100)
 
-    trace = json.loads(args.trace.read_text())
-    outputs = {(row["profile"], row["button"]): row["keyCodes"] for row in trace}
     qt_keys = {49: Qt.Key.Key_Space, 36: Qt.Key.Key_Return,
                18: Qt.Key.Key_1, 19: Qt.Key.Key_2, 20: Qt.Key.Key_3, 21: Qt.Key.Key_4}
     results = []
-    try:
-        wait_for(lambda: mw.col is not None and mw.state == "deckBrowser", "open fixture")
-        mw.moveToState("review")
-        wait_for(lambda: mw.reviewer.state == "question", "first practice question")
-        mw.web.setFocus()
+    wait_for(lambda: mw.col is not None and mw.state == "deckBrowser", "open fixture")
+    mw.moveToState("review")
+    wait_for(lambda: mw.reviewer.state == "question", "first practice question")
+    mw.web.setFocus()
 
-        def tap(profile: str, button: str) -> None:
-            codes = outputs[profile, button]
-            assert len(codes) == 1, f"One controller tap must emit exactly one key: {codes}"
-            QTest.keyClick(mw, qt_keys[codes[0]])
+    def tap(profile: str, button: str) -> None:
+        codes = outputs[profile, button]
+        QTest.keyClick(mw, qt_keys[codes[0]])
 
-        for profile, ratings in [
-            ("Anki Flashcards", {"a": 3, "b": 1, "x": 2, "y": 4, "rightBumper": 3}),
-            ("Anki - AnKing (USMLE)", {"a": 3, "b": 2, "x": 1, "y": 4}),
-        ]:
-            for button, expected in ratings.items():
-                wait_for(lambda: mw.reviewer.state == "question", "next question")
-                card_id = mw.reviewer.card.id
-                count_before = mw.col.db.scalar("select count(*) from revlog")
-                tap(profile, "a")
-                wait_for(lambda: mw.reviewer.state == "answer", f"{profile}: reveal with A")
-                assert mw.col.db.scalar("select count(*) from revlog") == count_before
-                if not results:
-                    assert mw.grab().save(str(args.output / "revealed-practice-card.png"))
-                tap(profile, button)
-                wait_for(lambda: mw.reviewer.state == "question", f"{profile}: grade with {button}")
-                rows = mw.col.db.all("select ease from revlog where cid = ? order by id desc", card_id)
-                assert rows and rows[0][0] == expected, (profile, button, expected, rows)
-                assert mw.col.db.scalar("select count(*) from revlog") == count_before + 1
-                results.append({"profile": profile, "button": button, "rating": expected})
-                print(f"PASS {profile}: A reveals, {button} grades {expected} exactly once", flush=True)
-        (args.output / "result.json").write_text(json.dumps({
-            "anki_version": aqt.appVersion, "platform": app.platformName(),
-            "verified_reviews": results,
-            "boundary": "Real Anki reviewer and DB via Qt test input; not Bluetooth/TCC/global CGEvent delivery",
-        }, indent=2) + "\n")
-    finally:
-        # Use Anki's cleanup order: collection, audio, server, then WebEngine.
-        # Direct app.quit() leaves Chromium pages alive and exits with code 255.
-        if mw.col is not None:
-            mw.unloadProfileAndExit()
-        else:
-            mw.cleanupAndExit()
-        QTimer.singleShot(10000, lambda: app.exit(2))
-        assert app.exec() == 0, "Timed out closing the isolated Anki fixture"
+    for profile, ratings in REVIEW_CASES:
+        for button, expected in ratings.items():
+            wait_for(lambda: mw.reviewer.state == "question", "next question")
+            card_id = mw.reviewer.card.id
+            count_before = mw.col.db.scalar("select count(*) from revlog")
+            tap(profile, "a")
+            wait_for(lambda: mw.reviewer.state == "answer", f"{profile}: reveal with A")
+            assert mw.col.db.scalar("select count(*) from revlog") == count_before
+            if not results:
+                assert mw.grab().save(str(output / "revealed-practice-card.png"))
+            tap(profile, button)
+            wait_for(lambda: mw.reviewer.state == "question", f"{profile}: grade with {button}")
+            rows = mw.col.db.all("select ease from revlog where cid = ? order by id desc", card_id)
+            assert rows and rows[0][0] == expected, (profile, button, expected, rows)
+            assert mw.col.db.scalar("select count(*) from revlog") == count_before + 1
+            results.append({"profile": profile, "button": button, "rating": expected})
+            print(f"PASS {profile}: A reveals, {button} grades {expected} exactly once", flush=True)
+    (output / "result.json").write_text(json.dumps({
+        "anki_version": version, "platform": app.platformName(),
+        "verified_reviews": results,
+        "boundary": "Real Anki reviewer and DB via Qt test input; not Bluetooth/TCC/global CGEvent delivery",
+    }, indent=2) + "\n")
 
 
 if __name__ == "__main__":

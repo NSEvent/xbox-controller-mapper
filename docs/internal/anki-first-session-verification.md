@@ -15,6 +15,8 @@ this work does not authorize a release or alter the September 10 measurement hol
   Resolution now prefers the active linked variant, then the remembered editing
   variant, then the persisted previous profile, before import-order fallback. App links still outrank
   controller links and the default profile.
+  Follow-up 2026-09-06: explicit menu-bar/controller choices now update that bookmark
+  even without foregrounding the editor; automatic switches do not overwrite it.
 - **Import failure looked like success.** Failed downloads dismissed the picker;
   partial retries could duplicate successful imports. Failures now remain visible,
   successful IDs are tracked immediately, and cancellation prevents post-dismissal
@@ -41,6 +43,9 @@ fixes that case without changing the configuration schema.
   cancellation during download and approval, success identity, and empty batch.
 - `ProfileAutoSwitchPreferenceTests`: selection/remembered-choice precedence,
   removed links, and fallback without an applicable preference.
+- `AnkiProfileSelectionTests`: six production-manager cases for background selection,
+  controller navigation, main-window selection, explicit reselection of an automatic
+  choice, preservation across other linked apps, and relaunch from Default.
 - `FirstSessionRenderingTests`: native hosted sidebar at its 200-point minimum
   and Anki guide preview in both color schemes. ImageRenderer alone omits native
   List/ScrollView content; use the hosted-view captures for review. The isolated
@@ -55,6 +60,8 @@ The app test suite also covers the separately authored onboarding-readiness and
 continuous-pointer telemetry changes in `6398313`; this patch does not own them.
 
 2026-09-05 final full gate: **2,163 tests, 37 skipped, zero failures** on kmacstudio.
+2026-09-06 follow-up full gate: **2,169 tests, 37 skipped, zero failures**; six new
+selection regressions added. The original background-choice reproductions now pass.
 The skips include real-input/permission-dependent tests; they are not evidence
 that hardware or TCC has been validated. Native screenshots were visually checked.
 
@@ -93,6 +100,28 @@ disables sync/update checks, uses a unique instance key and the offscreen Qt
 backend, and shuts down through Anki's normal cleanup path. `result.json` records
 the actual Anki version and ratings; `revealed-practice-card.png` is a Qt-rendered
 fixture screenshot. It never sends system-wide keystrokes. Detach the DMG afterward.
+
+### Failure-path gate (2026-09-06)
+
+Trace shape/completeness is validated before creating an output directory or loading
+Anki. Missing/malformed input exits 2 without launching Qt. Once Anki returns its
+isolated app, all verification runs inside a cleanup context, including import/setup
+errors in the reviewer check. A wrong-but-valid rating trace must fail with exit 1,
+without a success receipt or WebEngine teardown warnings; nine correct reviews exit 0.
+
+The normal direct-XCTest runner now runs the 12 dependency-free Python guards after
+XCTest. Three additional real-Anki tests opt in with the app and generated trace:
+
+```bash
+CONTROLLERKEYS_ANKI_APP=/absolute/read-only/mount/Anki.app \
+CONTROLLERKEYS_ANKI_KEY_TRACE="$PWD/anki-key-trace.json" \
+anki-venv/bin/python -m unittest discover -s Scripts/tests -v
+```
+
+These 15 tests passed on kmacstudio with Anki 26.08.1, including missing/malformed
+input and a deliberately incorrect rating. For a combined direct-XCTest/oracle run,
+also set `TEST_PYTHON="$PWD/anki-venv/bin/python"`; XCTest exports the trace before
+the Python tests consume it. No new dependencies or installed-app changes.
 
 ## Remaining release gate
 
