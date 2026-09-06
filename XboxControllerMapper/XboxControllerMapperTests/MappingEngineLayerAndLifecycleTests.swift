@@ -640,12 +640,21 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         await MainActor.run {
             controllerService.buttonPressed(.leftBumper)
         }
-        await waitForTasks(0.1)
+		let firstLayerReady = await waitForCondition {
+			self.mappingEngine.activeRuntimeLayerId == layer1.id
+		}
+		XCTAssertTrue(firstLayerReady, "First layer should activate before the next input")
         await MainActor.run {
             controllerService.buttonPressed(.rightBumper)
             controllerService.buttonReleased(.rightBumper)
         }
-        await waitForTasks(0.1)
+		let didRemapActivator = await waitForCondition {
+			self.mockInputSimulator.events.contains {
+				if case .pressKey(let keyCode, _) = $0 { return keyCode == 63 }
+				return false
+			}
+		}
+		XCTAssertTrue(didRemapActivator, "Wait for remapped output, not a fixed dispatch delay")
 
         let remappedActivatorCount = mockInputSimulator.events.filter {
             if case .pressKey(let keyCode, _) = $0 { return keyCode == 63 }
@@ -659,7 +668,13 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
             controllerService.buttonPressed(.a)
             controllerService.buttonReleased(.a)
         }
-        await waitForTasks()
+		let didUseFirstLayer = await waitForCondition {
+			self.mockInputSimulator.events.contains {
+				if case .pressKey(let keyCode, _) = $0 { return keyCode == 61 }
+				return false
+			}
+		}
+		XCTAssertTrue(didUseFirstLayer, "First layer should still produce output")
 
         let events = mockInputSimulator.events
         let layer2Count = events.filter {
