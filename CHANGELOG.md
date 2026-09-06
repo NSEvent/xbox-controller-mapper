@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a Bluetooth settings shortcut during controller setup; optional permissions no longer appear as required in the summary.
 - Anonymous first-use and daily-use reporting now includes cursor movement and scrolling, with bounded sampling and the existing opt-out.
 - Accessibility Zoom shortcuts now check Accessibility permission before posting keys.
+- Buttons pressed during controller preview no longer fire when mapping resumes, including delayed chord and queued input.
 - Anki starter profiles recognize both the current Anki app and its legacy launcher.
 - Fixed cases where switching apps or relaunching replaced the selected Anki profile variant. Explicit menu-bar and controller-command choices now take precedence over stale editor selections.
 - Community profile downloads show failures and support retry without duplicating successful imports. Closing the gallery cancels pending imports.
