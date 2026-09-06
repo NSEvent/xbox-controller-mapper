@@ -240,14 +240,16 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
         await MainActor.run {
             controllerService.emitInputEvent(.buttonPressed(.a))
             controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
-        }
-        await waitForTasks(0.05)
-
-        await MainActor.run {
             controllerService.emitInputEvent(.buttonPressed(.a))
             controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
-        await waitForTasks(0.3)
+		let completed = await waitForCondition { [self] in
+			mockInputSimulator.events.filter {
+				if case .pressKey(let code, _) = $0 { return code == 10 || code == 11 }
+				return false
+			}.count >= 2
+		}
+		XCTAssertTrue(completed, "Double-tap macro must finish")
 
         await MainActor.run {
             let macroKeys = mockInputSimulator.events.filter { event in

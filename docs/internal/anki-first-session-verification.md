@@ -1,8 +1,9 @@
 # Anki first-session verification
 
 Scope: starter discovery → import → foreground selection → first review →
-disconnect/reconnect → configuration reload. Prepared locally on 2026-09-05;
-this work does not authorize a release or alter the September 10 measurement hold.
+disconnect/reconnect → configuration reload. Prepared locally on 2026-09-05.
+Kevin authorized publishing 2.7.2 on 2026-09-06, superseding the September 10 hold;
+the original cohort enrollment and September 10/20 reads remain unchanged.
 
 ## Reproduced defects and fixes
 
@@ -28,10 +29,25 @@ this work does not authorize a release or alter the September 10 measurement hol
 
 Baseline `c3773bc`: six journey tests produced 22 failed assertions. Adding the
 current Anki identity exposed the second-variant selection failure. Tests precede
-the relevant fixes; the reconnect/reload/muted-preview cases already worked.
+the relevant fixes; reconnect/reload passed. The original muted-preview test
+checked too early; the release-time correction below supersedes that result.
 An additional restart-from-Finder fixture reproduced three failed assertions:
 the session-only selection was lost. The persisted previous-profile fallback
 fixes that case without changing the configuration schema.
+
+### Release CI correction—2026-09-06
+
+The original preview-exit assertion waited 150 ms, less than the production
+180 ms chord-release delay. A fresh tap then cancelled that delayed output,
+masking a real defect on faster runners. Waiting beyond the delay reproduces
+the unintended Space output on kmacstudio as well as GitHub CI.
+
+Discrete input now passes a generation-based pause gate. Presses from an old
+queue generation or a muted controller/chord window cannot execute after resume;
+their releases are consumed. Disconnect clears the mute state, and a fresh
+press after release works normally. Integration cases cover held and completed
+chord-window input plus queues delayed across both sides of the pause boundary.
+Pure gate tests cover mixed chords, repeated enable, and disconnect recovery.
 
 ## Automated gates
 

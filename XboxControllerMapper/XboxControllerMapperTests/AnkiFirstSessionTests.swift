@@ -137,7 +137,7 @@ final class AnkiFirstSessionTests: MappingEngineTestCase {
 		XCTAssertFalse(mockInputSimulator.events.contains(.pressKey(49, [])))
 		mappingEngine.enable()
 		controllerService.buttonReleased(.a)
-		await waitForTasks(0.15)
+		await waitForTasks(Config.chordReleaseProcessingDelay + 0.3)
 		XCTAssertFalse(mockInputSimulator.events.contains(.pressKey(49, [])),
 			"A press begun in safe preview must not grade a card on exit")
 		await expectTap(.a, keyCode: 49)
@@ -155,6 +155,56 @@ final class AnkiFirstSessionTests: MappingEngineTestCase {
 		appMonitor.frontmostBundleId = modernAnkiID
 		XCTAssertEqual(profileManager.activeProfileId, selected.id)
 		await expectTap(.b, keyCode: 18)
+	}
+
+	func testPreviewExitConsumesAPressStillInTheControllerChordWindow() async throws {
+		_ = try importAndSelect()
+		controllerService.chordWindow = 0.3
+		mappingEngine.disable()
+		controllerService.buttonPressed(.a)
+		mappingEngine.enable()
+		controllerService.buttonReleased(.a)
+		await waitForTasks(0.3 + Config.chordReleaseProcessingDelay + 0.3)
+		XCTAssertFalse(mockInputSimulator.events.contains(.pressKey(49, [])))
+		await expectTap(.a, keyCode: 49)
+	}
+
+	func testPreviewExitConsumesACompletedTapStillInTheControllerChordWindow() async throws {
+		_ = try importAndSelect()
+		controllerService.chordWindow = 0.3
+		mappingEngine.disable()
+		controllerService.buttonPressed(.a)
+		controllerService.buttonReleased(.a)
+		mappingEngine.enable()
+		await waitForTasks(0.3 + Config.chordReleaseProcessingDelay + 0.3)
+		XCTAssertFalse(mockInputSimulator.events.contains(.pressKey(49, [])))
+		await expectTap(.a, keyCode: 49)
+	}
+
+	func testPauseResumeDiscardsInputAlreadyQueuedBeforePause() async throws {
+		_ = try importAndSelect()
+		mappingEngine.inputQueue.suspend()
+		controllerService.emitInputEvent(.buttonPressed(.a))
+		controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.05))
+		mappingEngine.disable()
+		mappingEngine.enable()
+		mappingEngine.inputQueue.resume()
+		await waitForTasks(Config.chordReleaseProcessingDelay + 0.3)
+		XCTAssertFalse(mockInputSimulator.events.contains(.pressKey(49, [])))
+		await expectTap(.a, keyCode: 49)
+	}
+
+	func testPreviewExitDiscardsInputQueuedWhileMuted() async throws {
+		_ = try importAndSelect()
+		mappingEngine.disable()
+		mappingEngine.inputQueue.suspend()
+		controllerService.emitInputEvent(.buttonPressed(.a))
+		controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.05))
+		mappingEngine.enable()
+		mappingEngine.inputQueue.resume()
+		await waitForTasks(Config.chordReleaseProcessingDelay + 0.3)
+		XCTAssertFalse(mockInputSimulator.events.contains(.pressKey(49, [])))
+		await expectTap(.a, keyCode: 49)
 	}
 
 	func testExportsActualMappedKeysForOptionalAnkiOracle() async throws {

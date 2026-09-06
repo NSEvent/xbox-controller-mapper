@@ -37,8 +37,10 @@ final class UsageStatsServiceTests: XCTestCase {
         // Regression guard: avoid synchronous @Published updates on hot path.
         XCTAssertEqual(service.stats.joystickMousePixels, 0, accuracy: 0.0001)
 
-        await waitForAsyncWork(0.08)
-
+		let published = await waitForCondition {
+			abs(service.stats.joystickMousePixels - 1000) < 0.0001
+		}
+		XCTAssertTrue(published, "The coalesced total must eventually publish")
         XCTAssertEqual(service.stats.joystickMousePixels, 1000, accuracy: 0.0001)
     }
 

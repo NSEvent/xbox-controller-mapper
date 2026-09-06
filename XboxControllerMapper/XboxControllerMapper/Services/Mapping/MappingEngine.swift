@@ -440,7 +440,12 @@ class MappingEngine: ObservableObject {
         $isEnabled
             .sink { [weak self] enabled in
                 guard let self = self else { return }
+				let pendingButtons = self.controllerService.storage.lock.withLock {
+					self.controllerService.storage.activeButtons
+						.union(self.controllerService.storage.capturedButtonsInWindow)
+				}
 				let cleanup: RoutingBoundaryCleanup? = self.state.lock.withLock {
+					self.state.inputMuteGate.setEnabled(enabled, pendingButtons: pendingButtons)
                     self.state.isEnabled = enabled
                     if enabled {
                         let profile = self.state.activeProfile
@@ -789,6 +794,7 @@ class MappingEngine: ObservableObject {
     nonisolated private func beginButtonPress(_ button: ControllerButton) -> ButtonPressStartState {
         state.lock.withLock {
             guard state.isEnabled, let profile = state.activeProfile else {
+				state.pressConsumedByAction.insert(button)
                 #if DEBUG
                 if state.isEnabled && state.activeProfile == nil {
                     print("⚠️ MappingEngine: Button \(button) pressed but no active profile — input ignored")
@@ -1891,8 +1897,18 @@ class MappingEngine: ObservableObject {
 		}
 		switch ControllerInputEventRouting.queue(for: event) {
 		case .input:
+			let generation = state.lock.withLock { state.inputMuteGate.generation }
 			inputQueue.async { [weak self] in
-				self?.handleControllerInputEvent(event)
+				guard let self else { return }
+				let decision = self.state.lock.withLock {
+					let decision = self.state.inputMuteGate.decision(for: event, generation: generation)
+					if decision == .cancelRelease, case .buttonReleased(let button, _) = event {
+						self.state.cancelledPhysicalButtonReleases.insert(button)
+					}
+					return decision
+				}
+				guard decision != .ignore else { return }
+				self.handleControllerInputEvent(event)
 			}
 		case .polling:
 			pollingQueue.async { [weak self] in
@@ -2003,6 +2019,7 @@ class MappingEngine: ObservableObject {
 
 	nonisolated private func resetControllerInputState() {
 		let cleanup = state.lock.withLock {
+			state.inputMuteGate.resetForDisconnect()
 			let cleanup = RoutingBoundaryCleanup(
 				state: state,
 				releaseAllModifiers: true

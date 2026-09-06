@@ -14,6 +14,7 @@ extension MappingEngine {
         let lock = NSLock()
         var isEnabled = true
         var isLocked = false
+		var inputMuteGate = ControllerInputMuteGate()
 
         // Mirrors of MainActor data
         var activeProfile: Profile?
