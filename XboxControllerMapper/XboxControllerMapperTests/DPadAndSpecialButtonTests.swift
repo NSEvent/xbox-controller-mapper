@@ -162,12 +162,22 @@ final class DPadAndSpecialButtonTests: MappingEngineTestCase {
 		await MainActor.run {
 			controllerService.buttonPressed(.dpadUp)
 		}
-		await waitForTasks(0.2)
+		// Keep the button down until repeat output arrives; a loaded runner can
+		// take longer than 200 ms to process the chord window and repeat timer.
+		let didRepeat = await waitForCondition {
+			self.mockInputSimulator.events.filter { event in
+				if case .executeMapping(let mapping) = event {
+					return mapping.keyCode == KeyCodeMapping.upArrow
+				}
+				return false
+			}.count > 1
+		}
 
 		await MainActor.run {
 			controllerService.buttonReleased(.dpadUp)
 		}
 		await waitForTasks()
+		XCTAssertTrue(didRepeat, "Expected repeated output before releasing D-pad Up")
 
 		await MainActor.run {
 			let repeatCount = mockInputSimulator.events.filter { event in

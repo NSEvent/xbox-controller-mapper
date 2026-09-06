@@ -49,17 +49,31 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
 		controllerService.updateRightTrigger(0.0, pressed: false)
 		mockInputSimulator.clearEvents()
 		controllerService.setLeftStickForTesting(CGPoint(x: 0.8, y: 0.0))
-		await waitForTasks(0.35)
+		let normalSamplesReady = await waitForMouseSamples()
+		XCTAssertTrue(normalSamplesReady, "Expected enough normal-speed polling samples")
 		let normal = averageRecentMouseDeltaX()
 
 		controllerService.updateRightTrigger(1.0, pressed: false)
 		mockInputSimulator.clearEvents()
-		await waitForTasks(0.35)
+		let preciseSamplesReady = await waitForMouseSamples()
+		XCTAssertTrue(preciseSamplesReady, "Expected enough precision-speed polling samples")
 		let precise = averageRecentMouseDeltaX()
 
 		XCTAssertGreaterThan(normal, 0.1)
 		XCTAssertGreaterThan(precise, 0.1)
 		XCTAssertLessThan(precise, normal * 0.6)
+	}
+
+	private func waitForMouseSamples() async -> Bool {
+		// Multiplier smoothing advances per tick, not per wall-clock second.
+		// Wait for a fixed sample count before inspecting the final eight; a
+		// loaded CI runner may produce only a few ticks during a 350 ms sleep.
+		await waitForCondition(timeout: 10) {
+			self.mockInputSimulator.events.filter { event in
+				if case .moveMouse = event { return true }
+				return false
+			}.count >= 32
+		}
 	}
 
 	private func averageRecentMouseDeltaX(limit: Int = 8) -> CGFloat {
