@@ -36,3 +36,7 @@
 ## 2024-05-18 - [SwiftUI Button Accessibility]
 **Learning:** Using `.onTapGesture` on generic views like `HStack` prevents interactive elements from properly supporting keyboard focus and VoiceOver accessibility.
 **Action:** Always wrap interactive list rows in a `Button` with `.buttonStyle(.plain)` instead of attaching `.onTapGesture` to views, ensuring `.contentShape(Rectangle())` is applied within the button to maintain the clickable area.
+
+## 2024-06-25 - Replacing .onTapGesture with Button
+**Learning:** Using `.onTapGesture` on generic views like `HStack` makes them inaccessible to keyboard navigation and screen readers.
+**Action:** Always wrap interactive areas in a `Button` with `.buttonStyle(.plain)` instead, and ensure `.contentShape(Rectangle())` is inside the `Button` content block so that empty space like `Spacer()` remains clickable.
