@@ -36,3 +36,6 @@
 ## 2024-05-18 - [SwiftUI Button Accessibility]
 **Learning:** Using `.onTapGesture` on generic views like `HStack` prevents interactive elements from properly supporting keyboard focus and VoiceOver accessibility.
 **Action:** Always wrap interactive list rows in a `Button` with `.buttonStyle(.plain)` instead of attaching `.onTapGesture` to views, ensuring `.contentShape(Rectangle())` is applied within the button to maintain the clickable area.
+## 2024-05-14 - Accessible Custom Interactive Rows
+**Learning:** In SwiftUI lists, using `onTapGesture` on list rows or components (like `HStack` inside a row) overrides default accessibility behaviors. While standard buttons get traits automatically, `.onTapGesture` makes elements silently interactive to screen readers unless explicitly told otherwise.
+**Action:** Always append `.accessibilityElement(children: .combine)`, `.accessibilityAddTraits(.isButton)`, `.accessibilityAction { ... }`, and `.accessibilityLabel(...)` when making custom layouts interactive via `.onTapGesture`.

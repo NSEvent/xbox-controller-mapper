@@ -108,6 +108,10 @@ struct ChordRow: View {
             }
             .contentShape(Rectangle())
             .onTapGesture { onEdit() }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { onEdit() }
+            .accessibilityLabel(chord.hint ?? chord.actionDisplayString)
 
             HStack(spacing: 12) {
                 Button(action: onEdit) {
@@ -254,6 +258,10 @@ struct SequenceRow: View {
             }
             .contentShape(Rectangle())
             .onTapGesture { onEdit() }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { onEdit() }
+            .accessibilityLabel(sequence.hint ?? sequence.actionDisplayString)
 
             HStack(spacing: 12) {
                 Button(action: onEdit) {
