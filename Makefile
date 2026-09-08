@@ -26,6 +26,7 @@ SHELL := /bin/sh
 SCHEME ?= XboxControllerMapper
 CONFIG ?= Release
 TEAM_ID ?= 542GXYT5Z2
+SIGN_IDENTITY ?= Developer ID Application: Kevin Tang (542GXYT5Z2)
 PROJECT := XboxControllerMapper/XboxControllerMapper.xcodeproj
 TEST_DERIVED_DATA := /tmp/xcm-derived-data
 
@@ -41,9 +42,8 @@ WRAPPER_NAME := $(shell $(BUILD_SETTINGS) | awk -F ' = ' '/WRAPPER_NAME/ {print 
 APP_PATH := $(TARGET_BUILD_DIR)/$(WRAPPER_NAME)
 PROCESS_NAME := $(basename $(WRAPPER_NAME))
 
-# Check if an Apple Development cert is available for local development signing.
-# Restrict to the configured team so a different team's certificate does not force
-# the signed build path before xcodebuild can fall back to ad-hoc signing.
+# Check for a matching Apple Development cert for Xcode's intermediate build.
+# The final build and installed app use SIGN_IDENTITY below.
 APPLE_DEVELOPMENT_IDENTITY := $(shell \
 	valid_identities=$$(security find-identity -v -p codesigning 2>/dev/null | awk '/Apple Development:/ {printf " %s ", $$2}'); \
 	tmp_dir=$$(mktemp -d 2>/dev/null || mktemp -d -t xcm-cert); \
@@ -67,7 +67,7 @@ INFO_PLIST := XboxControllerMapper/XboxControllerMapper/Info.plist
 HELPER_SRC := Helpers/XboxEliteHelper.swift
 HELPER_NAME := XboxEliteHelper
 
-.PHONY: build install clean release sign-and-notarize app-path help check-permissions check-version-plist test-regressions test-full test-full-xcodebuild test-clean refactor-gate screenshots demo-gifs sync-website marketing-assets
+.PHONY: build sign install clean release sign-and-notarize app-path help check-permissions check-version-plist test-regressions test-full test-full-xcodebuild test-clean refactor-gate screenshots demo-gifs sync-website marketing-assets
 
 help:
 	@echo "ControllerKeys - Build Commands"
@@ -92,9 +92,9 @@ help:
 	@echo "  Version: $(MARKETING_VERSION) ($(BUILD_NUMBER))"
 	@echo ""
 	@echo "For Contributors:"
-	@echo "  If you don't have the developer certificate, the build will automatically"
-	@echo "  use ad-hoc signing. Ad-hoc signed apps work locally for development/testing"
-	@echo "  but cannot be distributed. Run: make install BUILD_FROM_SOURCE=1"
+	@echo "  Local builds require SIGN_IDENTITY (defaults to the owner's Developer ID)."
+	@echo "  Override SIGN_IDENTITY with your own stable signing identity if needed."
+	@echo "  Run: make install BUILD_FROM_SOURCE=1"
 
 check-permissions:
 ifndef BUILD_FROM_SOURCE
@@ -135,27 +135,26 @@ else
 		$(DEV_SWIFT_CONDITIONS) \
 		build
 endif
+	$(MAKE) sign
+
+# Keep the app's TCC identity stable across local rebuilds.
+sign:
+	codesign --force --options runtime --timestamp=none \
+		--sign "$(SIGN_IDENTITY)" --preserve-metadata=entitlements "$(APP_PATH)"
+	codesign --verify --strict "$(APP_PATH)"
 
 install: build elite-helper
 	-pkill -x "$(PROCESS_NAME)" || true
 	-pkill -x "$(HELPER_NAME)" || true
 	@sleep 1
+	@if [ -e "/Applications/$(WRAPPER_NAME)" ]; then trash "/Applications/$(WRAPPER_NAME)"; fi
 	/usr/bin/ditto "$(APP_PATH)" "/Applications/$(WRAPPER_NAME)"
 	@# Bundle the Elite helper inside the app
 	@mkdir -p "/Applications/$(WRAPPER_NAME)/Contents/Helpers"
 	@cp "$(TARGET_BUILD_DIR)/$(HELPER_NAME)" "/Applications/$(WRAPPER_NAME)/Contents/Helpers/$(HELPER_NAME)"
-ifeq ($(HAS_DEV_CERT),1)
-	@CERT_PREFIX="/tmp/xcm-app-signing-cert-$$$$"; \
-	/usr/bin/codesign -d --extract-certificates="$$CERT_PREFIX" "$(APP_PATH)" >/dev/null 2>&1; \
-	SIGNING_IDENTITY="$$(openssl x509 -inform DER -in "$${CERT_PREFIX}0" -noout -fingerprint -sha1 | sed 's/.*=//; s/://g')"; \
-	rm -f "$${CERT_PREFIX}"*; \
-	echo "Signing Elite helper with app identity $$SIGNING_IDENTITY"; \
-	/usr/bin/codesign --force --sign "$$SIGNING_IDENTITY" --timestamp=none "/Applications/$(WRAPPER_NAME)/Contents/Helpers/$(HELPER_NAME)"; \
-	/usr/bin/codesign --force --sign "$$SIGNING_IDENTITY" --timestamp=none --preserve-metadata=entitlements,requirements,flags "/Applications/$(WRAPPER_NAME)"
-else
-	/usr/bin/codesign --force --sign - --timestamp=none "/Applications/$(WRAPPER_NAME)/Contents/Helpers/$(HELPER_NAME)"
-	/usr/bin/codesign --force --sign - --timestamp=none --preserve-metadata=entitlements,requirements,flags "/Applications/$(WRAPPER_NAME)"
-endif
+	codesign --force --options runtime --timestamp=none --sign "$(SIGN_IDENTITY)" \
+		"/Applications/$(WRAPPER_NAME)/Contents/Helpers/$(HELPER_NAME)"
+	$(MAKE) sign APP_PATH="/Applications/$(WRAPPER_NAME)"
 	@echo "Installed to /Applications/$(WRAPPER_NAME)"
 	open "/Applications/$(WRAPPER_NAME)"
 

@@ -388,6 +388,8 @@ extension ControllerService {
 	private func stopAppleTVRemoteSystemEventSuppression() {
 		if let tap = appleTVRemoteSystemEventTap {
 			CGEvent.tapEnable(tap: tap, enable: false)
+			// Break the Mach-port/run-loop-source retention cycle before releasing context.
+			CFMachPortInvalidate(tap)
 		}
 		if let source = appleTVRemoteSystemEventRunLoopSource {
 			CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, CFRunLoopMode.commonModes)

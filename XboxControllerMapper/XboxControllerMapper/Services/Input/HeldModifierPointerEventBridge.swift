@@ -84,6 +84,9 @@ nonisolated final class HeldModifierPointerEventBridge: @unchecked Sendable {
 			return
 		}
 
+		// Cover both normal shutdown and a stop requested during tap creation.
+		defer { CFMachPortInvalidate(tap) }
+
 		let currentRunLoop = CFRunLoopGetCurrent()
 		let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
 
