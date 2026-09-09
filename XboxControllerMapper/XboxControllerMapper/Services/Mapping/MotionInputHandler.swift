@@ -93,8 +93,12 @@ extension MappingEngine {
             return wasEmpty
         }
         if becameActive {
-            Task { @MainActor [controllerService] in
-                controllerService.setWiimotePointerEngaged(true)
+            // DispatchQueue.main is FIFO; independent unstructured Tasks are
+            // not, and a reordered press/release pair would leave the pointer
+            // engaged with no button held.
+            let service = controllerService
+            DispatchQueue.main.async {
+                service.setWiimotePointerEngaged(true)
             }
         }
         inputLogService?.log(buttons: [button], type: .singlePress, action: "Pointer")
@@ -107,9 +111,22 @@ extension MappingEngine {
             return state.wiimotePointerButtons.isEmpty
         }
         if becameInactive {
-            Task { @MainActor [controllerService] in
-                controllerService.setWiimotePointerEngaged(false)
+            let service = controllerService
+            DispatchQueue.main.async {
+                service.setWiimotePointerEngaged(false)
             }
+        }
+    }
+
+    /// Re-align the service's pointer engagement after any state reset that
+    /// clears wiimotePointerButtons out-of-band (profile switch, disconnect).
+    /// Idempotent — disengage no-ops when already disengaged.
+    nonisolated func syncWiimotePointerEngagement() {
+        let held = state.lock.withLock { !state.wiimotePointerButtons.isEmpty }
+        guard !held else { return }
+        let service = controllerService
+        DispatchQueue.main.async {
+            service.setWiimotePointerEngaged(false)
         }
     }
 }

@@ -54,43 +54,44 @@ struct WiimoteSettingsView: View {
 			Section("Pointer — Tilt") {
 				Toggle("Tilt steering (accelerometer)", isOn: $tiltEnabled)
 					.help("Move the pointer by tilting the remote. Turn off for pure IR aiming — tilt won't fight the IR pointer when candles flicker.")
-				sliderRow(
-					"Side-to-side speed",
+				SliderRow(
+					label: "Side-to-side speed",
 					value: $tiltRollSpeed,
 					range: 5...80,
-					help: "Pointer speed when rolling the remote left/right (px per report at full tilt)."
+					description: "Pointer speed when rolling the remote left/right (px per report at full tilt).",
+					specifier: "%.0f"
 				)
-				sliderRow(
-					"Up-down speed",
+				SliderRow(
+					label: "Up-down speed",
 					value: $tiltPitchSpeed,
 					range: 5...80,
-					help: "Pointer speed when pitching the remote up/down."
+					description: "Pointer speed when pitching the remote up/down.",
+					specifier: "%.0f"
 				)
-				sliderRow(
-					"Deadzone",
+				SliderRow(
+					label: "Deadzone",
 					value: $tiltDeadzone,
 					range: 0.02...0.30,
-					format: "%.2f g",
-					help: "Tilt below this holds the cursor still, so a steady hand parks it."
+					description: "Tilt below this holds the cursor still, so a steady hand parks it.",
+					specifier: "%.2f g"
 				)
 			}
 
 			Section("Pointer — IR (sensor bar / candles)") {
 				Toggle("IR aiming", isOn: $irEnabled)
 					.help("Point directly at the screen using IR sources.")
-				sliderRow(
-					"Speed",
+				SliderRow(
+					label: "Speed",
 					value: $irSpeed,
 					range: 0.25...3.0,
-					format: "%.2f×",
-					help: "Multiplier on IR aiming movement."
+					description: "Multiplier on IR aiming movement.",
+					specifier: "%.2f×"
 				)
-				sliderRow(
-					"Smoothing",
+				SliderRow(
+					label: "Smoothing",
 					value: $irSmoothing,
 					range: 0.10...0.90,
-					format: "%.2f",
-					help: "Base smoothing — lower = steadier aim (smoothing auto-lightens during fast sweeps). Raise only if aiming feels laggy."
+					description: "Base smoothing — lower = steadier aim (smoothing auto-lightens during fast sweeps). Raise only if aiming feels laggy."
 				)
 				Text("Hold the mapped 🎯 Pointer button and aim at the screen. With two IR sources visible (a sensor bar, or two candles ~20 cm apart under the display), aiming is direct; otherwise the pointer falls back to tilt.")
 					.font(.system(size: 11))
@@ -111,28 +112,4 @@ struct WiimoteSettingsView: View {
 		.formStyle(.grouped)
 	}
 
-	@ViewBuilder
-	private func sliderRow(
-		_ title: String,
-		value: Binding<Double>,
-		range: ClosedRange<Double>,
-		format: String = "%.0f",
-		help: String
-	) -> some View {
-		VStack(alignment: .leading, spacing: 4) {
-			HStack {
-				Text(title)
-				Spacer()
-				Text(String(format: format, value.wrappedValue))
-					.font(.system(size: 12, weight: .medium, design: .monospaced))
-					.foregroundStyle(.secondary)
-			}
-			Slider(value: value, in: range)
-			Text(help)
-				.font(.system(size: 11))
-				.foregroundStyle(.tertiary)
-				.fixedSize(horizontal: false, vertical: true)
-		}
-		.padding(.vertical, 2)
-	}
 }

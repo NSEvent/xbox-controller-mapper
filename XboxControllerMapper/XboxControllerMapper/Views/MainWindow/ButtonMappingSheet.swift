@@ -389,7 +389,7 @@ struct ButtonMappingSheet: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 if primaryState.mappingType == .singleKey {
-					ActionMappingEditor(state: $primaryState, variant: .primary, showsScrollActionSettings: true)
+					ActionMappingEditor(state: $primaryState, variant: .primary, showsScrollActionSettings: true, showWiimotePointer: isWiimote)
 
                     // Show hold option if any mapping is configured
                     if primaryState.keyCode != nil || primaryState.modifiers.hasAny {
@@ -457,7 +457,7 @@ struct ButtonMappingSheet: View {
 						}
                     }
                 } else {
-					ActionMappingEditor(state: $primaryState, variant: .primary, showsScrollActionSettings: true)
+					ActionMappingEditor(state: $primaryState, variant: .primary, showsScrollActionSettings: true, showWiimotePointer: isWiimote)
                 }
             }
             .onChange(of: primaryState.keyCode) { _, newValue in

@@ -352,9 +352,7 @@ struct ButtonIconView: View {
                 Text(button.shortLabel(forDualSense: isDualSense, forNintendo: isNintendo, forWiimote: isWiimote))
                     .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
                     .foregroundColor(.white.opacity(0.95))
-            } else if let systemImage = isWiimote
-                ? button.systemImageName(forWiimote: true)
-                : (isNintendo ? button.systemImageName(forNintendo: true) : button.systemImageName(forDualSense: isDualSense)) {
+            } else if let systemImage = isNintendo ? button.systemImageName(forNintendo: true) : button.systemImageName(forDualSense: isDualSense) {
                 Image(systemName: systemImage)
                     .foregroundColor(.white.opacity(0.95))
             } else {

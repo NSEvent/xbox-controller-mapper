@@ -194,6 +194,9 @@ extension MappingEngine {
             wasGyroActive = false
             gyroHoldButtons.removeAll()
             gyroPauseButtons.removeAll()
+            // Callers follow up with syncWiimotePointerEngagement() so the
+            // service-side engaged flag can't outlive the cleared set.
+            wiimotePointerButtons.removeAll()
             rederiveGyroLatchLocked()
         }
 

@@ -205,7 +205,7 @@ struct ButtonMappingsTab: View {
 						ControllerPairingHintView(
 							previewLayout: controllerPreviewLayout,
 							onSelectLayout: { controllerPreviewLayout = $0 },
-							onDismiss: { pairingHintDismissed = true }
+							onDismiss: { withAnimation(.easeInOut(duration: 0.25)) { pairingHintDismissed = true } }
 						)
 						.transition(.opacity.combined(with: .move(edge: .top)))
 					}

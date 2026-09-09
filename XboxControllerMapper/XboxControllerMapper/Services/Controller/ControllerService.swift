@@ -329,6 +329,11 @@ class ControllerService: ObservableObject {
     /// Pending debounced disconnect — interface churn must not flap the
     /// connected state (each flip animates the empty-state card).
     var wiimoteDisconnectWorkItem: DispatchWorkItem?
+    /// MappingEngine's input simulator, injected once at engine setup (before
+    /// any input flows). The Wiimote pointer MUST post through the same
+    /// simulator that holds mapped mouse buttons — a second instance can't
+    /// see held clicks, so drags would post as plain mouseMoved.
+    nonisolated(unsafe) var wiimotePointerSimulator: InputSimulatorProtocol?
     /// Last twin adoption uptime, to break removal↔adoption ping-pong loops.
     var wiimoteLastAdoptionUptime: TimeInterval = 0
 

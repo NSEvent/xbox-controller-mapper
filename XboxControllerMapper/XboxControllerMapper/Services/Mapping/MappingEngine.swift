@@ -137,6 +137,9 @@ class MappingEngine: ObservableObject {
 
         // Set up on-screen keyboard manager with our input simulator
         OnScreenKeyboardManager.shared.setInputSimulator(inputSimulator)
+        // The Wiimote pointer posts through this same simulator so held
+        // mapped clicks turn its moves into drags (see wiimotePointerSimulator).
+        controllerService.wiimotePointerSimulator = inputSimulator
         Task { @MainActor in
             if let service = usageStatsService {
                 OnScreenKeyboardManager.shared.setUsageStatsService(service)
@@ -372,6 +375,7 @@ class MappingEngine: ObservableObject {
 					return cleanup
                 }
 				self.performRoutingBoundaryCleanup(cleanup)
+                self.syncWiimotePointerEngagement()
                 self.syncGestureSettings(from: profile?.joystickSettings)
                 self.syncPointerLockMouseMode(from: profile?.joystickSettings)
                 self.syncTouchpadSettings(from: profile)
@@ -1416,6 +1420,7 @@ class MappingEngine: ObservableObject {
 					|| state.pressConsumedByAction.contains(resolvedButtonForState)
 					|| state.gyroHoldButtons.contains(resolvedButtonForState)
 					|| state.gyroPauseButtons.contains(resolvedButtonForState)
+					|| state.wiimotePointerButtons.contains(resolvedButtonForState)
 					|| state.cancelledPhysicalButtonReleases.contains(button)
 			}
             if !hasLocalButtonState {
@@ -2034,6 +2039,7 @@ class MappingEngine: ObservableObject {
         }
 
 		performRoutingBoundaryCleanup(cleanup)
+		syncWiimotePointerEngagement()
 		DispatchQueue.main.async { [weak self] in
 			self?.syncActiveManualLayerId()
 		}

@@ -12,63 +12,9 @@ fileprivate final class SteamHIDCallbackContext {
 }
 
 private let steamHIDSetupQueue = DispatchQueue(label: "com.controllerkeys.steam-hid.setup", qos: .utility)
-private let steamHIDRunLoop = SteamHIDRunLoop()
+private let steamHIDRunLoop = DedicatedHIDRunLoop(threadName: "ControllerKeys Steam HID")
 private let steamTrackpadCompatibilityOverride = SteamControllerTrackpadCompatibilityOverride()
 
-private final class SteamHIDRunLoop: @unchecked Sendable {
-    private let lock = NSLock()
-    private var runLoop: CFRunLoop?
-
-    func perform(_ work: @escaping @Sendable () -> Void) {
-        let runLoop = startIfNeeded()
-        CFRunLoopPerformBlock(runLoop, CFRunLoopMode.defaultMode.rawValue, work)
-        CFRunLoopWakeUp(runLoop)
-    }
-
-    /// Returns false when the wait timed out — the work may still be running
-    /// (or queued) on the HID run loop, so callers must not free resources it uses.
-    @discardableResult
-    func performAndWait(_ work: @escaping @Sendable () -> Void) -> Bool {
-        let semaphore = DispatchSemaphore(value: 0)
-        perform {
-            work()
-            semaphore.signal()
-        }
-        return semaphore.wait(timeout: .now() + 1.0) == .success
-    }
-
-    private func startIfNeeded() -> CFRunLoop {
-        lock.lock()
-        if let runLoop {
-            lock.unlock()
-            return runLoop
-        }
-
-        let ready = DispatchSemaphore(value: 0)
-        let thread = Thread {
-            let currentRunLoop = CFRunLoopGetCurrent()
-            var sourceContext = CFRunLoopSourceContext()
-            if let keepAliveSource = CFRunLoopSourceCreate(kCFAllocatorDefault, 0, &sourceContext) {
-                CFRunLoopAddSource(currentRunLoop, keepAliveSource, CFRunLoopMode.defaultMode)
-            }
-            self.lock.lock()
-            self.runLoop = currentRunLoop
-            self.lock.unlock()
-            ready.signal()
-            CFRunLoopRun()
-        }
-        thread.name = "ControllerKeys Steam HID"
-        thread.qualityOfService = .userInteractive
-        thread.start()
-        lock.unlock()
-
-        ready.wait()
-        lock.lock()
-        let currentRunLoop = runLoop!
-        lock.unlock()
-        return currentRunLoop
-    }
-}
 
 private final class SteamControllerTrackpadCompatibilityOverride: @unchecked Sendable {
     private static let domain = "com.apple.AppleMultitouchTrackpad" as CFString

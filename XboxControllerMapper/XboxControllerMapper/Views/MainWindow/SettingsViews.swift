@@ -1200,22 +1200,25 @@ struct SliderRow: View {
     @Binding var value: Double
     let range: ClosedRange<Double>
     var description: LocalizedStringKey? = nil
+    /// printf-style display format for the value readout (may carry a unit
+    /// suffix, e.g. "%.2f g" or "%.0f").
+    var specifier: String = "%.2f"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(label)
                 Spacer()
-                Text("\(value, specifier: "%.2f")")
+                Text(String(format: specifier, value))
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .monospacedDigit()
-                    .frame(width: 40)
+                    .frame(minWidth: 40)
             }
 
             Slider(value: $value, in: range)
                 .accessibilityLabel(label)
-                .accessibilityValue("\(value, specifier: "%.2f")")
+                .accessibilityValue(Text(String(format: specifier, value)))
                 .accessibilityHint(description ?? "")
 
             if let description = description {

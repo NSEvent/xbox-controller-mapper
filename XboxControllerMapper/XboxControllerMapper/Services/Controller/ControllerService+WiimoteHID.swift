@@ -26,7 +26,14 @@ import IOKit.hid
 /// deallocated.
 fileprivate final class WiimoteHIDCallbackContext {
     weak var service: ControllerService?
-    init(service: ControllerService) { self.service = service }
+    /// The registered device, so report handlers can write back to the
+    /// interface that actually delivered the report (0x20 mode re-sends).
+    /// Nil for the manager-level matched/removed callback context.
+    let device: IOHIDDevice?
+    init(service: ControllerService, device: IOHIDDevice? = nil) {
+        self.service = service
+        self.device = device
+    }
 }
 
 /// Per-device registration state. Mirrors NintendoHIDRegistration: each matched
@@ -41,81 +48,56 @@ struct WiimoteHIDRegistration {
     let dedupeKey: String
 }
 
-/// Dedicated run-loop thread for Wiimote HID report delivery. Reports MUST NOT
-/// be scheduled on the main run loop: any main-thread hitch (UI animation,
-/// layout) stalls delivery, and the queued reports flush in one burst seconds
-/// late — a release report stuck in that queue leaves the button (and any
-/// mapped mouse click) held down. Verified by trace 2026-09-09: three reports
-/// spanning a 3.7s hold all delivered in the same millisecond. Same lesson the
-/// Steam backend learned (SteamHIDRunLoop).
-private final class WiimoteHIDRunLoop: @unchecked Sendable {
+// Report delivery uses a dedicated run-loop thread (never the main run
+// loop — see DedicatedHIDRunLoop; the stuck-button burst pathology was
+// traced live 2026-09-09).
+private let wiimoteHIDRunLoop = DedicatedHIDRunLoop(threadName: "ControllerKeys Wiimote HID")
+
+/// Serial queue for pointer mode transitions (engage's ~140ms IR init and
+/// disengage's teardown must never interleave), with a generation counter so
+/// a superseded engage aborts between writes instead of finishing late and
+/// leaving the remote streaming while disengaged.
+private let wiimotePointerModeQueue = DispatchQueue(label: "com.controllerkeys.wiimote-pointer-mode", qos: .userInitiated)
+
+private final class WiimoteModeGeneration: @unchecked Sendable {
     private let lock = NSLock()
-    private var runLoop: CFRunLoop?
+    private var value = 0
 
-    func perform(_ work: @escaping @Sendable () -> Void) {
-        let runLoop = startIfNeeded()
-        CFRunLoopPerformBlock(runLoop, CFRunLoopMode.defaultMode.rawValue, work)
-        CFRunLoopWakeUp(runLoop)
+    func next() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        value += 1
+        return value
     }
 
-    /// Returns false when the wait timed out — the work may still be running
-    /// (or queued) on the HID run loop, so callers must not free resources it
-    /// uses.
-    @discardableResult
-    func performAndWait(_ work: @escaping @Sendable () -> Void) -> Bool {
-        let semaphore = DispatchSemaphore(value: 0)
-        perform {
-            work()
-            semaphore.signal()
-        }
-        return semaphore.wait(timeout: .now() + 1.0) == .success
-    }
-
-    private func startIfNeeded() -> CFRunLoop {
+    func isCurrent(_ generation: Int) -> Bool {
         lock.lock()
-        if let runLoop {
-            lock.unlock()
-            return runLoop
-        }
-
-        let ready = DispatchSemaphore(value: 0)
-        let thread = Thread {
-            let currentRunLoop = CFRunLoopGetCurrent()
-            var sourceContext = CFRunLoopSourceContext()
-            if let keepAliveSource = CFRunLoopSourceCreate(kCFAllocatorDefault, 0, &sourceContext) {
-                CFRunLoopAddSource(currentRunLoop, keepAliveSource, CFRunLoopMode.defaultMode)
-            }
-            self.lock.lock()
-            self.runLoop = currentRunLoop
-            self.lock.unlock()
-            ready.signal()
-            CFRunLoopRun()
-        }
-        thread.name = "ControllerKeys Wiimote HID"
-        thread.qualityOfService = .userInteractive
-        thread.start()
-        lock.unlock()
-
-        ready.wait()
-        lock.lock()
-        let currentRunLoop = runLoop!
-        lock.unlock()
-        return currentRunLoop
+        defer { lock.unlock() }
+        return value == generation
     }
 }
 
-private let wiimoteHIDRunLoop = WiimoteHIDRunLoop()
-
-/// Dedicated simulator for the tilt/IR mouse so the Wiimote backend doesn't
-/// reach into MappingEngine's instance. Thread-safe (@unchecked Sendable,
-/// internally queued), called from the HID run-loop thread.
-private let wiimoteTiltMouse = InputSimulator()
+private let wiimoteModeGeneration = WiimoteModeGeneration()
 
 /// Smoothed IR pointer state, shared between HID-thread reports.
 private final class WiimotePointerState: @unchecked Sendable {
     private let lock = NSLock()
     private var smoothed: CGPoint?
     private var lastIRSample: TimeInterval = 0
+    private var lastBlobCount = 0
+    private var cachedScreenBounds: CGRect?
+
+    /// Main-display bounds, cached per pointer session (refreshed on reset —
+    /// engage/disengage/IR-loss) so the ~100 Hz IR path doesn't query
+    /// CoreGraphics per report.
+    func screenBounds() -> CGRect {
+        lock.lock()
+        defer { lock.unlock() }
+        if let cachedScreenBounds { return cachedScreenBounds }
+        let bounds = CGDisplayBounds(CGMainDisplayID())
+        cachedScreenBounds = bounds
+        return bounds
+    }
 
     /// Stamp an IR sighting; used for the tilt-fallback grace period.
     func noteIRSeen(at time: TimeInterval) {
@@ -138,9 +120,18 @@ private final class WiimotePointerState: @unchecked Sendable {
     /// Speed-adaptive (One-Euro-style): a slow or still hand gets heavy
     /// smoothing so candle flicker parks the cursor, while fast sweeps raise
     /// the blend factor and stay responsive.
-    func advance(target: CGPoint, baseAlpha: CGFloat) -> CGPoint? {
+    func advance(target: CGPoint, baseAlpha: CGFloat, blobCount: Int) -> CGPoint? {
         lock.lock()
         defer { lock.unlock() }
+        // 2↔1 blob transitions shift the reference frame by half the blob
+        // separation; re-anchor without emitting a delta so the cursor pauses
+        // for a report instead of lurching (the adaptive alpha would amplify
+        // the false jump).
+        if blobCount != lastBlobCount {
+            lastBlobCount = blobCount
+            smoothed = target
+            return nil
+        }
         guard let previous = smoothed else {
             smoothed = target
             return nil
@@ -158,6 +149,8 @@ private final class WiimotePointerState: @unchecked Sendable {
     func reset() {
         lock.lock()
         smoothed = nil
+        lastBlobCount = 0
+        cachedScreenBounds = nil
         lock.unlock()
     }
 }
@@ -282,7 +275,7 @@ extension ControllerService {
         }
 
         let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Self.wiimoteHIDReportBufferSize)
-        let ctx = WiimoteHIDCallbackContext(service: self)
+        let ctx = WiimoteHIDCallbackContext(service: self, device: device)
         let retainedContext = Unmanaged.passRetained(ctx).toOpaque()
         wiimoteHIDRegistrations.append(
             WiimoteHIDRegistration(
@@ -296,8 +289,8 @@ extension ControllerService {
         IOHIDDeviceRegisterInputReportCallback(device, buffer, Self.wiimoteHIDReportBufferSize, { context, _, _, _, reportID, report, reportLength in
             guard let context else { return }
             let holder = Unmanaged<WiimoteHIDCallbackContext>.fromOpaque(context).takeUnretainedValue()
-            guard let service = holder.service else { return }
-            service.handleWiimoteHIDReport(reportID: reportID, report: report, length: Int(reportLength))
+            guard let service = holder.service, let device = holder.device else { return }
+            service.handleWiimoteHIDReport(device: device, reportID: reportID, report: report, length: Int(reportLength))
         }, retainedContext)
 
         wiimoteHIDRunLoop.perform {
@@ -305,21 +298,26 @@ extension ControllerService {
         }
         NSLog("[ControllerKeys] Wii Remote HID monitoring started")
 
-        // Initialize the remote: core-button reporting on change, player LED 1
-        // (also stops the post-connect blink), and a status request so the
-        // battery level comes back in a 0x20 report.
-        sendWiimoteOutputReport(device, bytes: [0x12, 0x00, 0x30])
-        sendWiimoteOutputReport(device, bytes: [0x11, 0x10])
-        sendWiimoteOutputReport(device, bytes: [0x15, 0x00])
+        // Initialize the remote: player LED 1 (also stops the post-connect
+        // blink) and a status request so battery comes back in a 0x20 report.
+        // The reporting mode honors the pointer engagement state — adoption
+        // of a churned interface mid-hold must restore streaming+IR, not
+        // silently revert to buttons-only 0x30.
+        Self.sendWiimoteReport(device, [0x11, 0x10])
+        Self.sendWiimoteReport(device, [0x15, 0x00])
+        let engaged = storage.lock.withLock { storage.wiimotePointerEngaged }
+        enqueueWiimotePointerMode(engaged: engaged, device: device)
 
         activateWiimoteHIDSessionIfNeeded(device)
     }
 
     func wiimoteDeviceRemoved(_ device: IOHIDDevice) {
         var removedKey: String?
+        var removedRegistration = false
         if let index = wiimoteHIDRegistrations.firstIndex(where: { $0.device == device }) {
             let registration = wiimoteHIDRegistrations.remove(at: index)
             removedKey = registration.dedupeKey
+            removedRegistration = true
             let buffer = registration.reportBuffer
             let completed = wiimoteHIDRunLoop.performAndWait {
                 IOHIDDeviceRegisterInputReportCallback(
@@ -343,9 +341,14 @@ extension ControllerService {
             }
         }
 
-        releaseLatchedWiimoteButtons()
+        // A dedupe-skipped twin interface churning away must not synthesize
+        // releases — the registered interface is still reporting the hold.
+        guard removedRegistration else { return }
 
-        guard wiimoteHIDActiveDevice == device else { return }
+        guard wiimoteHIDActiveDevice == device else {
+            releaseLatchedWiimoteButtons()
+            return
+        }
         wiimoteHIDActiveDevice = nil
 
         // macOS tears down and recreates the paired Wiimote's two HID
@@ -367,6 +370,8 @@ extension ControllerService {
             if let twin {
                 NSLog("[ControllerKeys] Wii Remote interface churned — adopting surviving twin")
                 wiimoteLastAdoptionUptime = uptime
+                // No latched-button release here: the adopted interface's 0x15
+                // status request refreshes the mask, healing any lost release.
                 wiimoteDeviceAppeared(twin)
                 if wiimoteHIDActiveDevice == nil {
                     wiimoteHIDActiveDevice = twin
@@ -374,6 +379,8 @@ extension ControllerService {
                 return
             }
         }
+
+        releaseLatchedWiimoteButtons()
 
         // Debounce the disconnect: churn can momentarily leave zero
         // interfaces before a recreated one arrives. Flapping isConnected
@@ -519,13 +526,7 @@ extension ControllerService {
         }
     }
 
-    /// Send an output report. Bluetooth HID quirk: `bytes[0]` is the report ID
-    /// and must stay in the buffer.
-    private func sendWiimoteOutputReport(_ device: IOHIDDevice, bytes: [UInt8]) {
-        Self.sendWiimoteReport(device, bytes)
-    }
-
-    // MARK: Tilt mouse (hold B, tilt to move the pointer)
+    // MARK: Pointer (tilt/IR mouse via the mapped Pointer (Hold) action)
 
     /// Pointer tuning, user-adjustable in the Wii Remote settings tab.
     /// UserDefaults is thread-safe and internally cached — fine at 100 Hz.
@@ -550,11 +551,13 @@ extension ControllerService {
         return CGFloat(g < 0 ? -speed : speed)
     }
 
-    /// Absolute-style IR aiming, delivered as relative moves so drags and
-    /// held clicks keep working: smooth the midpoint of the visible blobs,
-    /// scale camera-space deltas (1024×768) to screen scale, with the camera
-    /// axes mirrored (pointing right moves the blob image left).
-    nonisolated private static func moveWiimotePointerByIR(_ points: [WiimoteIRPoint]) {
+    /// Absolute-style IR aiming, delivered as relative moves through the
+    /// MAPPING ENGINE's simulator (so held mapped clicks turn moves into
+    /// drags): smooth the midpoint of the visible blobs and scale
+    /// camera-space deltas (1024×768) to screen scale, camera axes mirrored
+    /// (pointing right moves the blob image left).
+    nonisolated private func moveWiimotePointerByIR(_ points: [WiimoteIRPoint]) {
+        let blobCount = min(points.count, 2)
         let mx: CGFloat
         let my: CGFloat
         if points.count >= 2 {
@@ -564,16 +567,18 @@ extension ControllerService {
             mx = CGFloat(points[0].x)
             my = CGFloat(points[0].y)
         }
-        let alpha = CGFloat(wiimoteTuning(Config.wiimoteIRSmoothingKey, default: 0.25))
-        guard let delta = wiimotePointerState.advance(target: CGPoint(x: mx, y: my), baseAlpha: alpha) else {
-            return
-        }
-        let gain = CGFloat(wiimoteTuning(Config.wiimoteIRSpeedKey, default: 1.0))
-        let bounds = CGDisplayBounds(CGMainDisplayID())
+        let alpha = CGFloat(Self.wiimoteTuning(Config.wiimoteIRSmoothingKey, default: 0.25))
+        guard let delta = wiimotePointerState.advance(
+            target: CGPoint(x: mx, y: my),
+            baseAlpha: alpha,
+            blobCount: blobCount
+        ) else { return }
+        let gain = CGFloat(Self.wiimoteTuning(Config.wiimoteIRSpeedKey, default: 1.0))
+        let bounds = wiimotePointerState.screenBounds()
         let dx = -delta.x * (bounds.width / 1024.0) * gain
         let dy = delta.y * (bounds.height / 768.0) * gain
         if abs(dx) > 0.01 || abs(dy) > 0.01 {
-            wiimoteTiltMouse.moveMouse(dx: dx, dy: dy)
+            wiimotePointerSimulator?.moveMouse(dx: dx, dy: dy)
         }
     }
 
@@ -593,39 +598,55 @@ extension ControllerService {
     /// buttons+accel+IR (0x33). Streaming runs only while the pointer is
     /// engaged. Engaging also runs the IR camera init sequence so the pointer
     /// can use absolute IR aiming when IR sources are visible, falling back
-    /// to tilt when they aren't.
+    /// to tilt when they aren't. Targets the pointer's session device (the
+    /// active one), not merely the first registration.
     func setWiimoteMotionReporting(_ enabled: Bool) {
-        guard let device = wiimoteHIDRegistrations.first?.device else { return }
+        guard let device = wiimoteHIDActiveDevice ?? wiimoteHIDRegistrations.first?.device else { return }
         wiimotePointerState.reset()
-        if enabled {
-            DispatchQueue.global(qos: .userInitiated).async {
-                Self.initializeWiimoteIRCamera(device)
-            }
-        } else {
-            DispatchQueue.global(qos: .userInitiated).async {
+        enqueueWiimotePointerMode(engaged: enabled, device: device)
+        NSLog("[ControllerKeys] Wii Remote pointer %@", enabled ? "engaged" : "disengaged")
+    }
+
+    /// Enqueue a mode transition on the serial pointer-mode queue. The
+    /// generation token lets a superseding transition abort an in-flight
+    /// engage between its paced writes, so rapid press-release can never
+    /// leave the remote streaming while disengaged (or vice versa).
+    func enqueueWiimotePointerMode(engaged: Bool, device: IOHIDDevice) {
+        let generation = wiimoteModeGeneration.next()
+        wiimotePointerModeQueue.async {
+            guard wiimoteModeGeneration.isCurrent(generation) else { return }
+            if engaged {
+                Self.initializeWiimoteIRCamera(device, generation: generation)
+            } else {
                 Self.sendWiimoteReport(device, [0x12, 0x00, 0x30])
                 // Power the IR camera back down (battery).
                 Self.sendWiimoteReport(device, [0x13, 0x00])
                 Self.sendWiimoteReport(device, [0x1A, 0x00])
             }
         }
-        NSLog("[ControllerKeys] Wii Remote pointer %@", enabled ? "engaged" : "disengaged")
     }
 
     /// WiiBrew IR camera bring-up (Marcan sensitivity, extended-format mode 3).
-    /// Runs off-main with small gaps between writes — the camera's register
-    /// interface drops back-to-back writes.
-    nonisolated private static func initializeWiimoteIRCamera(_ device: IOHIDDevice) {
-        func pause() { usleep(20_000) }
-        sendWiimoteReport(device, [0x13, 0x04]); pause()          // IR clock enable 1
-        sendWiimoteReport(device, [0x1A, 0x04]); pause()          // IR clock enable 2
-        writeWiimoteRegister(device, address: 0xB0_0030, data: [0x01]); pause()
-        writeWiimoteRegister(device, address: 0xB0_0000,
-                             data: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x90, 0x00, 0x41]); pause()
-        writeWiimoteRegister(device, address: 0xB0_001A, data: [0x40, 0x00]); pause()
-        writeWiimoteRegister(device, address: 0xB0_0033, data: [0x03]); pause()  // extended mode
-        writeWiimoteRegister(device, address: 0xB0_0030, data: [0x08]); pause()
-        sendWiimoteReport(device, [0x12, 0x04, 0x33])             // continuous buttons+accel+IR
+    /// Runs on the serial mode queue with small gaps between writes — the
+    /// camera's register interface drops back-to-back writes — aborting
+    /// between steps if a newer mode transition superseded this one.
+    nonisolated private static func initializeWiimoteIRCamera(_ device: IOHIDDevice, generation: Int) {
+        func step(_ body: () -> Void) -> Bool {
+            guard wiimoteModeGeneration.isCurrent(generation) else { return false }
+            body()
+            usleep(20_000)
+            return true
+        }
+        guard step({ sendWiimoteReport(device, [0x13, 0x04]) }),          // IR clock enable 1
+              step({ sendWiimoteReport(device, [0x1A, 0x04]) }),          // IR clock enable 2
+              step({ writeWiimoteRegister(device, address: 0xB0_0030, data: [0x01]) }),
+              step({ writeWiimoteRegister(device, address: 0xB0_0000,
+                                          data: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x90, 0x00, 0x41]) }),
+              step({ writeWiimoteRegister(device, address: 0xB0_001A, data: [0x40, 0x00]) }),
+              step({ writeWiimoteRegister(device, address: 0xB0_0033, data: [0x03]) }),  // extended mode
+              step({ writeWiimoteRegister(device, address: 0xB0_0030, data: [0x08]) }),
+              wiimoteModeGeneration.isCurrent(generation) else { return }
+        sendWiimoteReport(device, [0x12, 0x04, 0x33])                     // continuous buttons+accel+IR
     }
 
     /// Write to the Wiimote's control registers: report 0x16, 0x04 = register
@@ -655,7 +676,7 @@ extension ControllerService {
 
     /// Parse a Wii Remote input report, diff the button mask, and emit
     /// edge-triggered presses.
-    nonisolated func handleWiimoteHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
+    nonisolated func handleWiimoteHIDReport(device: IOHIDDevice, reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
         if Self.hidDumpEnabled {
             Self.logChangedReport(reportID: reportID, report: report, length: length)
         }
@@ -664,6 +685,16 @@ extension ControllerService {
             report: UnsafePointer(report),
             length: length
         ) else { return }
+
+        // Status reports (0x20) HALT all further data reporting until the
+        // host re-sends the reporting mode (WiiBrew) — re-assert it for the
+        // interface that delivered the report, per the engagement state.
+        let statusEngaged: Bool? = reportID == 0x20
+            ? storage.lock.withLock { storage.wiimotePointerEngaged }
+            : nil
+        if let statusEngaged {
+            Self.sendWiimoteReport(device, statusEngaged ? [0x12, 0x04, 0x33] : [0x12, 0x00, 0x30])
+        }
 
         if let level = parsed.wiimoteBatteryLevel {
             DispatchQueue.main.async { [weak self] in
@@ -675,11 +706,22 @@ extension ControllerService {
 
         guard let buttons = parsed.wiimoteButtons else { return }
 
+        // One lock section serves the pointer-engagement read AND the button
+        // diff, so both come from the same instant.
+        let (pointerEngaged, changed): (Bool, WiimoteButtons) = storage.lock.withLock {
+            let previous = WiimoteButtons(rawValue: storage.lastWiimoteButtons)
+            let diff = WiimoteButtons(rawValue: previous.rawValue ^ buttons.rawValue)
+            if !diff.isEmpty {
+                storage.lastWiimoteButtons = buttons.rawValue
+                storage.lastInputTime = CFAbsoluteTimeGetCurrent()
+            }
+            return (storage.wiimotePointerEngaged, diff)
+        }
+
         // Pointer: while the mapped "Pointer (Hold)" action is engaged, IR
         // aiming drives the cursor when the camera sees IR sources (sensor
         // bar / candles); otherwise gravity tilt drives pointer velocity.
         // Signs assume the pointing grip — face-up, IR end toward the screen.
-        let pointerEngaged = storage.lock.withLock { storage.wiimotePointerEngaged }
         if pointerEngaged {
             let irEnabled = Self.wiimoteFlag(Config.wiimoteIREnabledKey)
             let tiltEnabled = Self.wiimoteFlag(Config.wiimoteTiltEnabledKey)
@@ -687,7 +729,7 @@ extension ControllerService {
 
             if irEnabled, let ir = parsed.wiimoteIRPoints, !ir.isEmpty {
                 wiimotePointerState.noteIRSeen(at: now)
-                Self.moveWiimotePointerByIR(ir)
+                moveWiimotePointerByIR(ir)
             } else if tiltEnabled,
                       // Grace period: candle flicker can drop blobs for a few
                       // frames; don't let tilt yank a pitched remote's cursor
@@ -707,19 +749,10 @@ extension ControllerService {
                     deadzone: deadzone
                 )
                 if dx != 0 || dy != 0 {
-                    wiimoteTiltMouse.moveMouse(dx: dx, dy: dy)
+                    wiimotePointerSimulator?.moveMouse(dx: dx, dy: dy)
                 }
             }
         }
-
-        storage.lock.lock()
-        let previous = WiimoteButtons(rawValue: storage.lastWiimoteButtons)
-        let changed = WiimoteButtons(rawValue: previous.rawValue ^ buttons.rawValue)
-        if !changed.isEmpty {
-            storage.lastWiimoteButtons = buttons.rawValue
-            storage.lastInputTime = CFAbsoluteTimeGetCurrent()
-        }
-        storage.lock.unlock()
 
         guard !changed.isEmpty else { return }
 

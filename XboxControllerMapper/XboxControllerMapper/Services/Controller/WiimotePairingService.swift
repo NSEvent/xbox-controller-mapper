@@ -25,6 +25,7 @@ final class WiimotePairingService: NSObject, ObservableObject {
 	private var inquiry: IOBluetoothDeviceInquiry?
 	private var pairingAgent: IOBluetoothDevicePair?
 	private var timedOut = false
+	private var timeoutWorkItem: DispatchWorkItem?
 
 	var statusText: String {
 		switch phase {
@@ -51,15 +52,21 @@ final class WiimotePairingService: NSObject, ObservableObject {
 		self.inquiry = inquiry
 		inquiry?.start()
 
-		// Overall window: the user may need several sync taps.
-		DispatchQueue.main.asyncAfter(deadline: .now() + 90) { [weak self] in
+		// Overall window: the user may need several sync taps. Cancellable so
+		// a stale timer from a cancelled session can't kill a later scan.
+		timeoutWorkItem?.cancel()
+		let workItem = DispatchWorkItem { [weak self] in
 			guard let self, self.isBusy else { return }
 			self.timedOut = true
 			self.stop(failure: "No Wii Remote answered in 90s — check batteries, tap SYNC, and try again.")
 		}
+		timeoutWorkItem = workItem
+		DispatchQueue.main.asyncAfter(deadline: .now() + 90, execute: workItem)
 	}
 
 	func stop(failure: String? = nil) {
+		timeoutWorkItem?.cancel()
+		timeoutWorkItem = nil
 		inquiry?.stop()
 		inquiry = nil
 		pairingAgent?.stop()
