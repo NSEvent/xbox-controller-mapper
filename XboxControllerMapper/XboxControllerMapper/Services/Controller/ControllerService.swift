@@ -119,6 +119,8 @@ final class ControllerStorage: @unchecked Sendable {
 	    // GameController profile omits, are read from raw HID instead.
 	    var lastEightBitDoHomeState: Bool = false
 	    var lastEightBitDoStarState: Bool = false
+	    // Wii Remote HID button state (WiimoteButtons raw bitmask)
+	    var lastWiimoteButtons: UInt16 = 0
 	    var appleTVRemoteTouchReleaseWorkItem: DispatchWorkItem?
     var appleTVRemoteActiveSystemKeyTypes: Set<Int> = []
     var appleTVRemoteSystemKeyTypeSuppressUntil: [Int: TimeInterval] = [:]
@@ -314,6 +316,13 @@ class ControllerService: ObservableObject {
     // 8BitDo D-input pad HID monitoring (Home + Star not exposed by GameController)
     var eightBitDoHIDManager: IOHIDManager?
     var eightBitDoHIDRegistrations: [EightBitDoHIDRegistration] = []
+
+    // Wii Remote raw HID monitoring (system-paired Wiimotes deliver opaque
+    // vendor reports, so buttons come from raw report parsing, not elements)
+    var wiimoteHIDManager: IOHIDManager?
+    var wiimoteHIDRegistrations: [WiimoteHIDRegistration] = []
+    var wiimoteHIDActiveDevice: IOHIDDevice?
+    var wiimoteHIDCallbackContext: UnsafeMutableRawPointer?
 
     /// Detects a stickless d-pad clone (8BitDo Zero 2 impersonating a Pro
     /// Controller in Switch mode or a DualShock 4 in Mac mode) from input
@@ -819,6 +828,7 @@ class ControllerService: ObservableObject {
         setupSteamControllerHIDMonitoring()
         setupGenericHIDMonitoring()
         setupAppleTVRemoteHIDMonitoring()
+        setupWiimoteHIDMonitoring()
 		if let connectedController {
 			startEightBitDoHIDMonitoringIfNeeded(for: connectedController, reason: "input monitoring start")
 		}

@@ -21,6 +21,30 @@ struct HIDReportParseResult: Equatable {
     /// stickless 8BitDo clones these carry the d-pad; nil when unavailable.
     var leftStickX: Float? = nil
     var leftStickY: Float? = nil
+    /// Wii Remote core-button state (all eleven buttons as one mask so the
+    /// handler can diff old^new in a single operation). Nil for non-Wiimote
+    /// reports.
+    var wiimoteButtons: WiimoteButtons? = nil
+    /// Wii Remote battery level 0...1 from the 0x20 status report.
+    var wiimoteBatteryLevel: Float? = nil
+}
+
+/// Wii Remote core-button bitmask: low byte = the report's first button byte,
+/// high byte = the second (raw = UInt16(bb1) | UInt16(bb2) << 8).
+struct WiimoteButtons: OptionSet, Equatable, Sendable {
+    let rawValue: UInt16
+
+    static let dpadLeft  = WiimoteButtons(rawValue: 0x0001)
+    static let dpadRight = WiimoteButtons(rawValue: 0x0002)
+    static let dpadDown  = WiimoteButtons(rawValue: 0x0004)
+    static let dpadUp    = WiimoteButtons(rawValue: 0x0008)
+    static let plus      = WiimoteButtons(rawValue: 0x0010)
+    static let two       = WiimoteButtons(rawValue: 0x0100)
+    static let one       = WiimoteButtons(rawValue: 0x0200)
+    static let b         = WiimoteButtons(rawValue: 0x0400)
+    static let a         = WiimoteButtons(rawValue: 0x0800)
+    static let minus     = WiimoteButtons(rawValue: 0x1000)
+    static let home      = WiimoteButtons(rawValue: 0x8000)
 }
 
 /// One parser per controller family. Owns its (reportID, length, offset,

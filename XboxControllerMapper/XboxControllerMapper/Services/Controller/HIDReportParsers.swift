@@ -88,6 +88,46 @@ struct DualShockHIDParser: HIDReportParser {
     }
 }
 
+// MARK: - Wii Remote
+
+/// Parses Nintendo Wii Remote (RVL-CNT-01 / -TR) HID input reports.
+///
+/// Layout verified by live capture on an original RVL-CNT-01 (2026-09-08).
+/// Byte 0 is the report ID, included by the input callback:
+///
+///   Core buttons 0x30 (3 bytes): [0x30, BB1, BB2] — sent on change.
+///   Data reports 0x31-0x37 also begin [id, BB1, BB2] with sensor payloads after.
+///   Status 0x20 (7 bytes): [0x20, BB1, BB2, flags, 0, 0, battery] — battery
+///     raw scale ≈ 0xC0 = full; flags bit 0x01 = battery low.
+///
+/// BB1: Left 0x01, Right 0x02, Down 0x04, Up 0x08, Plus 0x10.
+/// BB2: Two 0x01, One 0x02, B 0x04, A 0x08, Minus 0x10, Home 0x80.
+///
+/// Distinct from NintendoHIDParser's report 0x30: the Pro Controller's is
+/// ≥ 5 bytes with buttons at byte 4; the Wiimote's is exactly 3 bytes. The two
+/// parsers are also never fed the same device (separate PID matchers).
+struct WiimoteHIDParser: HIDReportParser {
+    /// Full-charge reference per WiiBrew — raw 0xC0 ≈ fresh batteries.
+    private static let batteryFullScale: Float = 0xC0
+
+    func parse(reportID: UInt32, report: UnsafePointer<UInt8>, length: Int) -> HIDReportParseResult? {
+        switch (reportID, length) {
+        case (0x30...0x37, let len) where len >= 3:
+            return HIDReportParseResult(wiimoteButtons: Self.buttons(report))
+        case (0x20, let len) where len >= 7:
+            var result = HIDReportParseResult(wiimoteButtons: Self.buttons(report))
+            result.wiimoteBatteryLevel = min(1.0, Float(report[6]) / Self.batteryFullScale)
+            return result
+        default:
+            return nil
+        }
+    }
+
+    private static func buttons(_ report: UnsafePointer<UInt8>) -> WiimoteButtons {
+        WiimoteButtons(rawValue: UInt16(report[1]) | (UInt16(report[2]) << 8))
+    }
+}
+
 // MARK: - Nintendo Pro Controller
 
 /// Parses Nintendo Pro Controller HID input reports for the Home button, and

@@ -117,6 +117,66 @@ final class HIDReportParserTests: XCTestCase {
         XCTAssertEqual(result?.batteryCharging, true)
     }
 
+    // MARK: - Wii Remote
+
+    func testWiimote_CoreReport_decodesLiveCapturedPresses() {
+        // Byte sequences captured live from an original RVL-CNT-01 (2026-09-08):
+        // buffer = [reportID, BB1, BB2].
+        let cases: [(bytes: [UInt8], expected: WiimoteButtons)] = [
+            ([0x30, 0x00, 0x08], .a),
+            ([0x30, 0x00, 0x02], .one),
+            ([0x30, 0x00, 0x04], .b),
+            ([0x30, 0x08, 0x00], .dpadUp),
+            ([0x30, 0x00, 0x00], []),
+        ]
+        for testCase in cases {
+            let result = parse(WiimoteHIDParser(), reportID: 0x30, bytes: testCase.bytes)
+            XCTAssertEqual(result?.wiimoteButtons, testCase.expected, "bytes \(testCase.bytes)")
+            XCTAssertNil(result?.wiimoteBatteryLevel, "core report carries no battery")
+        }
+    }
+
+    func testWiimote_CoreReport_allElevenButtons() {
+        let bytes: [UInt8] = [0x30, 0x1F, 0x9F]  // every defined bit in BB1 + BB2
+        let result = parse(WiimoteHIDParser(), reportID: 0x30, bytes: bytes)
+        let expected: WiimoteButtons = [
+            .dpadLeft, .dpadRight, .dpadDown, .dpadUp, .plus,
+            .two, .one, .b, .a, .minus, .home,
+        ]
+        XCTAssertEqual(result?.wiimoteButtons, expected)
+    }
+
+    func testWiimote_DataReportsCarryButtonsToo() {
+        // Reports 0x31-0x37 (accelerometer/extension modes) still lead with
+        // the two core button bytes after the report ID.
+        for reportID: UInt32 in [0x31, 0x37] {
+            let bytes: [UInt8] = [UInt8(reportID), 0x10, 0x80, 0x12, 0x34, 0x56]
+            let result = parse(WiimoteHIDParser(), reportID: reportID, bytes: bytes)
+            XCTAssertEqual(result?.wiimoteButtons, [.plus, .home], "report 0x\(String(reportID, radix: 16))")
+        }
+    }
+
+    func testWiimote_StatusReport_batteryAndButtons() {
+        // [0x20, BB1, BB2, flags, 0, 0, battery]; raw 0xC0 ≈ full.
+        let full = parse(WiimoteHIDParser(), reportID: 0x20, bytes: [0x20, 0x00, 0x08, 0x00, 0x00, 0x00, 0xC0])
+        XCTAssertEqual(full?.wiimoteButtons, .a)
+        XCTAssertEqual(full?.wiimoteBatteryLevel, 1.0)
+
+        let half = parse(WiimoteHIDParser(), reportID: 0x20, bytes: [0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x60])
+        XCTAssertEqual(half?.wiimoteBatteryLevel, 0.5)
+
+        // Raw above the full-scale reference clamps to 1.
+        let over = parse(WiimoteHIDParser(), reportID: 0x20, bytes: [0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF])
+        XCTAssertEqual(over?.wiimoteBatteryLevel, 1.0)
+    }
+
+    func testWiimote_ShortAndUnknownReportsReturnNil() {
+        XCTAssertNil(parse(WiimoteHIDParser(), reportID: 0x30, bytes: [0x30, 0x00]))
+        XCTAssertNil(parse(WiimoteHIDParser(), reportID: 0x20, bytes: [0x20, 0x00, 0x00, 0x00, 0x00, 0x00]))
+        // Acknowledgement report 0x22 carries no state we consume.
+        XCTAssertNil(parse(WiimoteHIDParser(), reportID: 0x22, bytes: [0x22, 0x00, 0x00, 0x00, 0x01]))
+    }
+
     // MARK: - Nintendo
 
     func testNintendo_StandardReport_homeFromOffset4Bit4() {
