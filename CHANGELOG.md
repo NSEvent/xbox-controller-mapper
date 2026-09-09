@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.3] - 2026-09-08
+
+### Fixed
+
+- Fully release Apple TV Remote and held-modifier pointer input hooks when stopping them, including startup/stop races, preventing stale hooks from accumulating during long sessions and contributing to system-wide input lag.
+- Local source installs preserve the Developer ID signing identity and verify the installed bundle, keeping macOS permission grants stable across rebuilds.
+
 ## [2.7.2] - 2026-09-06
 
 ### Added

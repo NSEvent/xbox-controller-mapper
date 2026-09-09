@@ -162,7 +162,7 @@ if [[ -f "$TAP_CASK" ]]; then
     echo "Tap cask updated to ${MARKETING_VERSION} (sha256 ${DMG_SHA})"
 fi
 
-WEBSITE_RELEASE_UPDATER="$HOME/projects/kevintang.xyz/scripts/update-controllerkeys-release-version.py"
+WEBSITE_RELEASE_UPDATER="${WEBSITE_RELEASE_UPDATER:-$HOME/projects/kevintang.xyz/scripts/update-controllerkeys-release-version.py}"
 if [[ -f "$WEBSITE_RELEASE_UPDATER" ]]; then
     echo ""
     echo "=== Updating ControllerKeys marketing site ==="
