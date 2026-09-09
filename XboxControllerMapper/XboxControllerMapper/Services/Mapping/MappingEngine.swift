@@ -1018,6 +1018,10 @@ class MappingEngine: ObservableObject {
                 handleCommandWheelPressed(button, holdMode: holdMode)
                 return
 
+            case .interceptWiimotePointer:
+                handleWiimotePointerPressed(button)
+                return
+
             case .interceptGyroAction(let action):
                 // consumingPress marks the press consumed atomically with the
                 // gyro state change, so the release is suppressed from
@@ -1426,6 +1430,7 @@ class MappingEngine: ObservableObject {
 		// release happened, so the set membership must clear even when the release
 		// is cancelled by a routing boundary or otherwise consumed. Idempotent.
 		handleGyroActionReleased(button)
+		handleWiimotePointerReleased(button)
 
 		let wasCancelledByRoutingBoundary = state.lock.withLock {
 			state.cancelledPhysicalButtonReleases.remove(physicalButton) != nil

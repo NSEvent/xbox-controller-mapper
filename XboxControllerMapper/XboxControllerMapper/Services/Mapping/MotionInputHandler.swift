@@ -80,4 +80,36 @@ extension MappingEngine {
             state.gyroPauseButtons.remove(button)
         }
     }
+
+    /// "Pointer (Hold)": Wiimote tilt/IR pointer control while held. Engages
+    /// on the first held binding, disengages when the last one releases —
+    /// mirrors the gyro hold set so a disconnect-time synthetic release also
+    /// cleans up.
+    nonisolated func handleWiimotePointerPressed(_ button: ControllerButton) {
+        let becameActive = state.lock.withLock { () -> Bool in
+            _ = state.pressConsumedByAction.insert(button)
+            let wasEmpty = state.wiimotePointerButtons.isEmpty
+            state.wiimotePointerButtons.insert(button)
+            return wasEmpty
+        }
+        if becameActive {
+            Task { @MainActor [controllerService] in
+                controllerService.setWiimotePointerEngaged(true)
+            }
+        }
+        inputLogService?.log(buttons: [button], type: .singlePress, action: "Pointer")
+    }
+
+    /// Cheap enough to call unconditionally from the release chain.
+    nonisolated func handleWiimotePointerReleased(_ button: ControllerButton) {
+        let becameInactive = state.lock.withLock { () -> Bool in
+            guard state.wiimotePointerButtons.remove(button) != nil else { return false }
+            return state.wiimotePointerButtons.isEmpty
+        }
+        if becameInactive {
+            Task { @MainActor [controllerService] in
+                controllerService.setWiimotePointerEngaged(false)
+            }
+        }
+    }
 }

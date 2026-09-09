@@ -340,6 +340,8 @@ struct KeyboardVisualView: View {
                     if gyroKeys == .all {
                         KeyButton(keyCode: KeyCodeMapping.gyroHold, label: "Gyro Hold", width: 70, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                         KeyButton(keyCode: KeyCodeMapping.gyroPause, label: "Gyro Pause", width: 75, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                        // Wiimote tilt/IR pointer while held (no-op elsewhere)
+                        KeyButton(keyCode: KeyCodeMapping.wiimotePointerHold, label: "🎯 Pointer", width: 70, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                     }
                 }
                 Spacer()

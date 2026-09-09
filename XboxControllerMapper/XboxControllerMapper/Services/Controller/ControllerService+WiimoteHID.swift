@@ -477,6 +477,7 @@ extension ControllerService {
         wiimoteHIDActiveDevice = nil
         wiimoteDisconnectWorkItem?.cancel()
         wiimoteDisconnectWorkItem = nil
+        storage.lock.withLock { storage.wiimotePointerEngaged = false }
 
         releaseLatchedWiimoteButtons()
     }
@@ -544,6 +545,18 @@ extension ControllerService {
         if abs(dx) > 0.01 || abs(dy) > 0.01 {
             wiimoteTiltMouse.moveMouse(dx: dx, dy: dy)
         }
+    }
+
+    /// Engine-facing engage/disengage for the mapped "Pointer (Hold)" action.
+    /// Idempotent; any button bound to the action can drive it.
+    func setWiimotePointerEngaged(_ engaged: Bool) {
+        let changed = storage.lock.withLock { () -> Bool in
+            guard storage.wiimotePointerEngaged != engaged else { return false }
+            storage.wiimotePointerEngaged = engaged
+            return true
+        }
+        guard changed else { return }
+        setWiimoteMotionReporting(engaged)
     }
 
     /// Switch the remote between on-change core buttons (0x30) and continuous
@@ -632,11 +645,12 @@ extension ControllerService {
 
         guard let buttons = parsed.wiimoteButtons else { return }
 
-        // Pointer: while B (the underside trigger) is held, IR aiming drives
-        // the cursor when the camera sees IR sources (sensor bar / candles);
-        // otherwise gravity tilt drives pointer velocity. Signs assume the
-        // pointing grip — remote face-up, IR end toward the screen.
-        if buttons.contains(.b) {
+        // Pointer: while the mapped "Pointer (Hold)" action is engaged, IR
+        // aiming drives the cursor when the camera sees IR sources (sensor
+        // bar / candles); otherwise gravity tilt drives pointer velocity.
+        // Signs assume the pointing grip — face-up, IR end toward the screen.
+        let pointerEngaged = storage.lock.withLock { storage.wiimotePointerEngaged }
+        if pointerEngaged {
             if let ir = parsed.wiimoteIRPoints, !ir.isEmpty {
                 Self.moveWiimotePointerByIR(ir)
             } else if let ax = parsed.wiimoteAccelX, let ay = parsed.wiimoteAccelY {
@@ -659,14 +673,6 @@ extension ControllerService {
         storage.lock.unlock()
 
         guard !changed.isEmpty else { return }
-
-        // B edges toggle accelerometer streaming for the tilt mouse.
-        if changed.contains(.b) {
-            let engaged = buttons.contains(.b)
-            DispatchQueue.main.async { [weak self] in
-                self?.setWiimoteMotionReporting(engaged)
-            }
-        }
 
         for entry in Self.wiimoteButtonMap where changed.contains(entry.wiimote) {
             let button = entry.button

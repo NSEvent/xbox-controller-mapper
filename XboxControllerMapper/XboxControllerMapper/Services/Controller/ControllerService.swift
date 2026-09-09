@@ -122,6 +122,8 @@ final class ControllerStorage: @unchecked Sendable {
 	    var lastEightBitDoStarState: Bool = false
 	    // Wii Remote HID button state (WiimoteButtons raw bitmask)
 	    var lastWiimoteButtons: UInt16 = 0
+	    // Wiimote tilt/IR pointer engaged (driven by the mapped Pointer action)
+	    var wiimotePointerEngaged: Bool = false
 	    var appleTVRemoteTouchReleaseWorkItem: DispatchWorkItem?
     var appleTVRemoteActiveSystemKeyTypes: Set<Int> = []
     var appleTVRemoteSystemKeyTypeSuppressUntil: [Int: TimeInterval] = [:]
