@@ -41,8 +41,73 @@ struct WiimoteHIDRegistration {
     let dedupeKey: String
 }
 
-/// IOHIDManager device-matched callback. Runs on the main run loop (the
-/// manager is scheduled there); hop to the MainActor for service state.
+/// Dedicated run-loop thread for Wiimote HID report delivery. Reports MUST NOT
+/// be scheduled on the main run loop: any main-thread hitch (UI animation,
+/// layout) stalls delivery, and the queued reports flush in one burst seconds
+/// late — a release report stuck in that queue leaves the button (and any
+/// mapped mouse click) held down. Verified by trace 2026-09-09: three reports
+/// spanning a 3.7s hold all delivered in the same millisecond. Same lesson the
+/// Steam backend learned (SteamHIDRunLoop).
+private final class WiimoteHIDRunLoop: @unchecked Sendable {
+    private let lock = NSLock()
+    private var runLoop: CFRunLoop?
+
+    func perform(_ work: @escaping @Sendable () -> Void) {
+        let runLoop = startIfNeeded()
+        CFRunLoopPerformBlock(runLoop, CFRunLoopMode.defaultMode.rawValue, work)
+        CFRunLoopWakeUp(runLoop)
+    }
+
+    /// Returns false when the wait timed out — the work may still be running
+    /// (or queued) on the HID run loop, so callers must not free resources it
+    /// uses.
+    @discardableResult
+    func performAndWait(_ work: @escaping @Sendable () -> Void) -> Bool {
+        let semaphore = DispatchSemaphore(value: 0)
+        perform {
+            work()
+            semaphore.signal()
+        }
+        return semaphore.wait(timeout: .now() + 1.0) == .success
+    }
+
+    private func startIfNeeded() -> CFRunLoop {
+        lock.lock()
+        if let runLoop {
+            lock.unlock()
+            return runLoop
+        }
+
+        let ready = DispatchSemaphore(value: 0)
+        let thread = Thread {
+            let currentRunLoop = CFRunLoopGetCurrent()
+            var sourceContext = CFRunLoopSourceContext()
+            if let keepAliveSource = CFRunLoopSourceCreate(kCFAllocatorDefault, 0, &sourceContext) {
+                CFRunLoopAddSource(currentRunLoop, keepAliveSource, CFRunLoopMode.defaultMode)
+            }
+            self.lock.lock()
+            self.runLoop = currentRunLoop
+            self.lock.unlock()
+            ready.signal()
+            CFRunLoopRun()
+        }
+        thread.name = "ControllerKeys Wiimote HID"
+        thread.qualityOfService = .userInteractive
+        thread.start()
+        lock.unlock()
+
+        ready.wait()
+        lock.lock()
+        let currentRunLoop = runLoop!
+        lock.unlock()
+        return currentRunLoop
+    }
+}
+
+private let wiimoteHIDRunLoop = WiimoteHIDRunLoop()
+
+/// IOHIDManager device-matched callback. Runs on the dedicated HID run loop;
+/// hop to the MainActor for service state.
 private nonisolated func wiimoteHIDDeviceMatched(
     context: UnsafeMutableRawPointer?,
     result: IOReturn,
@@ -74,7 +139,7 @@ private nonisolated func wiimoteHIDDeviceRemoved(
 @MainActor
 extension ControllerService {
 
-    private static let wiimoteHIDReportBufferSize = 64
+    nonisolated private static let wiimoteHIDReportBufferSize = 64
 
     /// Wiimote core buttons → mappable ControllerButton identities. 1/2 ride
     /// the X/Y slots and +/− the menu/view slots so every Wiimote button is
@@ -110,12 +175,21 @@ extension ControllerService {
         IOHIDManagerRegisterDeviceMatchingCallback(manager, wiimoteHIDDeviceMatched, retainedContext)
         IOHIDManagerRegisterDeviceRemovalCallback(manager, wiimoteHIDDeviceRemoved, retainedContext)
 
-        IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
-        IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+        // Schedule on the dedicated HID thread — never the main run loop
+        // (see WiimoteHIDRunLoop).
+        wiimoteHIDRunLoop.perform {
+            IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+            IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
 
-        if let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice> {
-            for device in devices {
-                wiimoteDeviceAppeared(device)
+            if let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice> {
+                for device in devices {
+                    wiimoteHIDDeviceMatched(
+                        context: retainedContext,
+                        result: kIOReturnSuccess,
+                        sender: nil,
+                        device: device
+                    )
+                }
             }
         }
     }
@@ -164,7 +238,9 @@ extension ControllerService {
             service.handleWiimoteHIDReport(reportID: reportID, report: report, length: Int(reportLength))
         }, retainedContext)
 
-        IOHIDDeviceScheduleWithRunLoop(device, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+        wiimoteHIDRunLoop.perform {
+            IOHIDDeviceScheduleWithRunLoop(device, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+        }
         NSLog("[ControllerKeys] Wii Remote HID monitoring started")
 
         // Initialize the remote: core-button reporting on change, player LED 1
@@ -182,20 +258,27 @@ extension ControllerService {
         if let index = wiimoteHIDRegistrations.firstIndex(where: { $0.device == device }) {
             let registration = wiimoteHIDRegistrations.remove(at: index)
             removedKey = registration.dedupeKey
-            IOHIDDeviceRegisterInputReportCallback(
-                registration.device,
-                registration.reportBuffer,
-                Self.wiimoteHIDReportBufferSize,
-                nil,
-                nil
-            )
-            IOHIDDeviceUnscheduleFromRunLoop(
-                registration.device,
-                CFRunLoopGetCurrent(),
-                CFRunLoopMode.defaultMode.rawValue
-            )
-            Unmanaged<WiimoteHIDCallbackContext>.fromOpaque(registration.callbackContext).release()
-            registration.reportBuffer.deallocate()
+            let buffer = registration.reportBuffer
+            let completed = wiimoteHIDRunLoop.performAndWait {
+                IOHIDDeviceRegisterInputReportCallback(
+                    device,
+                    buffer,
+                    Self.wiimoteHIDReportBufferSize,
+                    nil,
+                    nil
+                )
+                IOHIDDeviceUnscheduleFromRunLoop(
+                    device,
+                    CFRunLoopGetCurrent(),
+                    CFRunLoopMode.defaultMode.rawValue
+                )
+            }
+            if completed {
+                Unmanaged<WiimoteHIDCallbackContext>.fromOpaque(registration.callbackContext).release()
+                registration.reportBuffer.deallocate()
+            } else {
+                NSLog("[ControllerKeys] Wii Remote HID teardown timed out; leaking buffer to avoid use-after-free")
+            }
         }
 
         releaseLatchedWiimoteButtons()
@@ -290,38 +373,47 @@ extension ControllerService {
     }
 
     func cleanupWiimoteHIDMonitoring() {
-        for registration in wiimoteHIDRegistrations {
-            IOHIDDeviceRegisterInputReportCallback(
-                registration.device,
-                registration.reportBuffer,
-                Self.wiimoteHIDReportBufferSize,
-                nil,
-                nil
-            )
-        }
-
-        for registration in wiimoteHIDRegistrations {
-            IOHIDDeviceUnscheduleFromRunLoop(
-                registration.device,
-                CFRunLoopGetCurrent(),
-                CFRunLoopMode.defaultMode.rawValue
-            )
-        }
-
-        if let manager = wiimoteHIDManager {
-            IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
-            IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
-        }
+        let registrations = wiimoteHIDRegistrations
+        wiimoteHIDRegistrations.removeAll()
+        let manager = wiimoteHIDManager
         wiimoteHIDManager = nil
 
-        for registration in wiimoteHIDRegistrations {
-            Unmanaged<WiimoteHIDCallbackContext>.fromOpaque(registration.callbackContext).release()
-            registration.reportBuffer.deallocate()
+        // Same ordering as the per-device teardown: unregister callbacks and
+        // unschedule ON the HID run loop, and only free the buffers/contexts
+        // once that completed (a timed-out wait means the loop may still touch
+        // them — leak instead of use-after-free, like the Steam teardown).
+        let completed = wiimoteHIDRunLoop.performAndWait {
+            for registration in registrations {
+                IOHIDDeviceRegisterInputReportCallback(
+                    registration.device,
+                    registration.reportBuffer,
+                    Self.wiimoteHIDReportBufferSize,
+                    nil,
+                    nil
+                )
+                IOHIDDeviceUnscheduleFromRunLoop(
+                    registration.device,
+                    CFRunLoopGetCurrent(),
+                    CFRunLoopMode.defaultMode.rawValue
+                )
+            }
+            if let manager {
+                IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+                IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+            }
         }
-        wiimoteHIDRegistrations.removeAll()
 
-        if let ctx = wiimoteHIDCallbackContext {
-            Unmanaged<WiimoteHIDCallbackContext>.fromOpaque(ctx).release()
+        if completed {
+            for registration in registrations {
+                Unmanaged<WiimoteHIDCallbackContext>.fromOpaque(registration.callbackContext).release()
+                registration.reportBuffer.deallocate()
+            }
+            if let ctx = wiimoteHIDCallbackContext {
+                Unmanaged<WiimoteHIDCallbackContext>.fromOpaque(ctx).release()
+                wiimoteHIDCallbackContext = nil
+            }
+        } else {
+            NSLog("[ControllerKeys] Wii Remote HID manager teardown timed out; leaking registrations to avoid use-after-free")
             wiimoteHIDCallbackContext = nil
         }
         wiimoteHIDActiveDevice = nil
