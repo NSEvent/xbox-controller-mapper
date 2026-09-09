@@ -66,8 +66,9 @@ struct ChordRow: View {
                 .accessibilityHidden(true)
 
             // Tappable content area
-            HStack {
-                HStack(spacing: 4) {
+            Button(action: onEdit) {
+                HStack {
+                    HStack(spacing: 4) {
                     ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
 							ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
                     }
@@ -107,7 +108,8 @@ struct ChordRow: View {
                 Spacer()
             }
             .contentShape(Rectangle())
-            .onTapGesture { onEdit() }
+            }
+            .buttonStyle(.plain)
 
             HStack(spacing: 12) {
                 Button(action: onEdit) {
@@ -213,8 +215,9 @@ struct SequenceRow: View {
                 .accessibilityHidden(true)
 
             // Tappable content area
-            HStack {
-                HStack(spacing: 4) {
+            Button(action: onEdit) {
+                HStack {
+                    HStack(spacing: 4) {
                     ForEach(Array(sequence.steps.enumerated()), id: \.offset) { index, button in
                         if index > 0 {
                             Image(systemName: "arrow.right")
@@ -253,7 +256,8 @@ struct SequenceRow: View {
                 Spacer()
             }
             .contentShape(Rectangle())
-            .onTapGesture { onEdit() }
+            }
+            .buttonStyle(.plain)
 
             HStack(spacing: 12) {
                 Button(action: onEdit) {
