@@ -326,6 +326,12 @@ struct Config {
     static let lastControllerWasAppleTVRemoteKey: String = "lastControllerWasAppleTVRemote"
     /// UserDefaults key for remembering if last connected controller was a Wii Remote
     static let lastControllerWasWiimoteKey: String = "lastControllerWasWiimote"
+    /// Wii Remote pointer tuning (read live by the Wiimote HID backend)
+    static let wiimoteTiltRollSpeedKey: String = "wiimoteTiltRollSpeed"
+    static let wiimoteTiltPitchSpeedKey: String = "wiimoteTiltPitchSpeed"
+    static let wiimoteTiltDeadzoneKey: String = "wiimoteTiltDeadzone"
+    static let wiimoteIRSpeedKey: String = "wiimoteIRSpeed"
+    static let wiimoteIRSmoothingKey: String = "wiimoteIRSmoothing"
     /// UserDefaults key to enable touchpad debug logging
     static let touchpadDebugLoggingKey: String = "touchpad.debug"
     /// Env var to enable touchpad debug logging

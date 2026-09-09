@@ -505,22 +505,21 @@ extension ControllerService {
 
     // MARK: Tilt mouse (hold B, tilt to move the pointer)
 
-    /// Tilt below this (in g) parks the cursor so a steady hand holds still.
-    nonisolated private static let wiimoteTiltDeadzoneG: Float = 0.12
-    /// Max pointer speed in px per report at full 1g tilt (~100 reports/s).
-    nonisolated private static let wiimoteTiltMaxPerReport: Float = 24.0
-
-    /// Quadratic response: gentle tilts give fine control, hard tilts sprint.
-    nonisolated private static func wiimoteTiltVelocity(_ g: Float) -> CGFloat {
-        let magnitude = abs(g)
-        guard magnitude > wiimoteTiltDeadzoneG else { return 0 }
-        let normalized = min(1.0, (magnitude - wiimoteTiltDeadzoneG) / (1.0 - wiimoteTiltDeadzoneG))
-        let speed = normalized * normalized * wiimoteTiltMaxPerReport
-        return CGFloat(g < 0 ? -speed : speed)
+    /// Pointer tuning, user-adjustable in the Wii Remote settings tab.
+    /// UserDefaults is thread-safe and internally cached — fine at 100 Hz.
+    nonisolated private static func wiimoteTuning(_ key: String, default defaultValue: Double) -> Double {
+        let value = UserDefaults.standard.double(forKey: key)
+        return value == 0 ? defaultValue : value
     }
 
-    /// Smoothing factor for the IR midpoint (higher = snappier, noisier).
-    nonisolated private static let wiimoteIRAlpha: CGFloat = 0.5
+    /// Quadratic response: gentle tilts give fine control, hard tilts sprint.
+    nonisolated private static func wiimoteTiltVelocity(_ g: Float, maxPerReport: Float, deadzone: Float) -> CGFloat {
+        let magnitude = abs(g)
+        guard magnitude > deadzone else { return 0 }
+        let normalized = min(1.0, (magnitude - deadzone) / (1.0 - deadzone))
+        let speed = normalized * normalized * maxPerReport
+        return CGFloat(g < 0 ? -speed : speed)
+    }
 
     /// Absolute-style IR aiming, delivered as relative moves so drags and
     /// held clicks keep working: smooth the midpoint of the visible blobs,
@@ -536,12 +535,14 @@ extension ControllerService {
             mx = CGFloat(points[0].x)
             my = CGFloat(points[0].y)
         }
-        guard let delta = wiimotePointerState.advance(target: CGPoint(x: mx, y: my), alpha: wiimoteIRAlpha) else {
+        let alpha = CGFloat(wiimoteTuning(Config.wiimoteIRSmoothingKey, default: 0.5))
+        guard let delta = wiimotePointerState.advance(target: CGPoint(x: mx, y: my), alpha: alpha) else {
             return
         }
+        let gain = CGFloat(wiimoteTuning(Config.wiimoteIRSpeedKey, default: 1.0))
         let bounds = CGDisplayBounds(CGMainDisplayID())
-        let dx = -delta.x * (bounds.width / 1024.0)
-        let dy = -delta.y * (bounds.height / 768.0)
+        let dx = -delta.x * (bounds.width / 1024.0) * gain
+        let dy = -delta.y * (bounds.height / 768.0) * gain
         if abs(dx) > 0.01 || abs(dy) > 0.01 {
             wiimoteTiltMouse.moveMouse(dx: dx, dy: dy)
         }
@@ -655,8 +656,17 @@ extension ControllerService {
                 Self.moveWiimotePointerByIR(ir)
             } else if let ax = parsed.wiimoteAccelX, let ay = parsed.wiimoteAccelY {
                 wiimotePointerState.reset()
-                let dx = Self.wiimoteTiltVelocity(ax)
-                let dy = Self.wiimoteTiltVelocity(ay)
+                let deadzone = Float(Self.wiimoteTuning(Config.wiimoteTiltDeadzoneKey, default: 0.12))
+                let dx = Self.wiimoteTiltVelocity(
+                    ax,
+                    maxPerReport: Float(Self.wiimoteTuning(Config.wiimoteTiltRollSpeedKey, default: 30)),
+                    deadzone: deadzone
+                )
+                let dy = Self.wiimoteTiltVelocity(
+                    ay,
+                    maxPerReport: Float(Self.wiimoteTuning(Config.wiimoteTiltPitchSpeedKey, default: 44)),
+                    deadzone: deadzone
+                )
                 if dx != 0 || dy != 0 {
                     wiimoteTiltMouse.moveMouse(dx: dx, dy: dy)
                 }

@@ -192,6 +192,9 @@ struct ContentView: View {
 					case 15:
 						RingSettingsView()
 							.scrollContentBackground(.hidden)
+					case 17:
+						WiimoteSettingsView()
+							.scrollContentBackground(.hidden)
 					case 2:
 						JoystickSettingsView(
 							initialOverrideLayerId: selectedLayerId,
@@ -1106,6 +1109,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
     case history = 13
     case input = 14
 	case ring = 15
+	case wiimote = 17
 
     static let hiddenDefaultsKey = "hiddenMainWindowSectionTags"
 
@@ -1120,6 +1124,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         .wheel,
         .input,
 		.ring,
+		.wiimote,
         .joysticks,
         .touchpad,
         .leds,
@@ -1150,6 +1155,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .history: return "History"
         case .input: return "Input"
 		case .ring: return "Ring"
+		case .wiimote: return "Wii Remote"
         }
     }
 
@@ -1168,7 +1174,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
             return .map
         case .macros, .scripts, .wheel, .keyboard:
             return .automate
-		case .input, .ring, .joysticks, .touchpad, .leds, .microphone:
+		case .input, .ring, .wiimote, .joysticks, .touchpad, .leds, .microphone:
             return .hardware
         case .stats, .history:
             return .activity
@@ -1187,6 +1193,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .wheel: return "circle.grid.cross"
         case .input: return "speedometer"
 		case .ring: return "circle.dashed"
+		case .wiimote: return "av.remote"
         case .keyboard: return "keyboard"
         case .joysticks: return "circle.circle"
         case .touchpad: return "rectangle.and.hand.point.up.left"
@@ -1211,6 +1218,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .wheel: return ["radial", "menu", "command", "pie"]
         case .input: return ["latency", "realtime", "timing", "mode"]
 		case .ring: return ["oura", "motion", "tilt", "tap", "flick", "bluetooth", "pairing", "calibration", "recenter"]
+		case .wiimote: return ["wii", "wiimote", "nintendo", "pairing", "sync", "tilt", "ir", "pointer", "sensor bar", "sensitivity"]
         case .joysticks: return ["sticks", "deadzone", "sensitivity", "curve", "analog"]
         case .touchpad: return ["trackpad", "gyro", "regions", "quadrants", "pad"]
         case .leds: return ["lightbar", "color", "lighting", "rgb"]
