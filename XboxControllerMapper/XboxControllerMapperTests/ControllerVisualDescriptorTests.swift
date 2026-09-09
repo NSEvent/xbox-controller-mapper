@@ -10,6 +10,7 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 			.dualSenseEdge: .dualSenseEdge,
 			.dualShock: .dualShock,
 			.nintendo: .nintendo,
+			.wiimote: .wiimote,
 			.steam: .steam,
 			.eightBitDoZero2: .eightBitDo(.zero2),
 			.eightBitDoMicro: .eightBitDo(.micro),
