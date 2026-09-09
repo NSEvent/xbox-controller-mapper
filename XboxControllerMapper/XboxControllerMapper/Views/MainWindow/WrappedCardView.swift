@@ -6,6 +6,7 @@ struct WrappedCardView: View {
     let isDualSense: Bool
     let isNintendo: Bool
     let isSteamController: Bool
+    var isWiimote: Bool = false
 
     private var personality: ControllerPersonality { stats.personality }
 
@@ -70,9 +71,9 @@ struct WrappedCardView: View {
                                 .foregroundColor(.white.opacity(0.6))
                                 .frame(width: 22)
 
-                            ButtonIconView(button: item.button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController)
+                            ButtonIconView(button: item.button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isWiimote: isWiimote)
 
-                            Text(item.button.displayName(forDualSense: isDualSense, forNintendo: isNintendo))
+                            Text(item.button.displayName(forDualSense: isDualSense, forNintendo: isNintendo, forWiimote: isWiimote))
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(.white)
 

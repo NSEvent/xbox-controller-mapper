@@ -29,6 +29,7 @@ struct ChordsTab: View {
 						isNintendo: presentationState.isNintendo,
 						isSteamController: presentationState.isSteamController,
 						isAppleTVRemote: presentationState.isAppleTVRemote,
+						isWiimote: presentationState.isWiimote,
 						onEdit: { chord in
                             editingChord = chord
                         },

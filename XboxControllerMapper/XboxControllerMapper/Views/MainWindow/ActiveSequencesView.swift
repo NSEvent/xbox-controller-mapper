@@ -38,7 +38,8 @@ struct ActiveSequencesView: View {
 									isDualSense: presentationState.isPlayStation,
 									isNintendo: presentationState.isNintendo,
 									isSteamController: presentationState.isSteamController,
-									isAppleTVRemote: presentationState.isAppleTVRemote
+									isAppleTVRemote: presentationState.isAppleTVRemote,
+									isWiimote: presentationState.isWiimote
 								)
                             }
                         }

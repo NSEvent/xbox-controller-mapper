@@ -36,6 +36,9 @@ struct WiimoteHIDRegistration {
     let device: IOHIDDevice
     let reportBuffer: UnsafeMutablePointer<UInt8>
     let callbackContext: UnsafeMutableRawPointer
+    /// Serial-number key used to collapse the duplicate IOHID interfaces a
+    /// single paired Wiimote exposes (see wiimoteDedupeKey).
+    let dedupeKey: String
 }
 
 /// IOHIDManager device-matched callback. Runs on the main run loop (the
@@ -117,8 +120,30 @@ extension ControllerService {
         }
     }
 
+    /// A paired Wiimote surfaces as TWO IOHID device objects (the Bluetooth
+    /// event driver plus a user-device shim) with identical VID/PID and serial.
+    /// Registering both delivers every report twice — and the shim can replay
+    /// a press after the real release, leaving the button stuck down. Key on
+    /// the serial (the remote's BT address) so only one interface per physical
+    /// remote is registered.
+    nonisolated private static func wiimoteDedupeKey(_ device: IOHIDDevice) -> String {
+        if let serial = IOHIDDeviceGetProperty(device, kIOHIDSerialNumberKey as CFString) as? String,
+           !serial.isEmpty {
+            return serial
+        }
+        if let location = IOHIDDeviceGetProperty(device, kIOHIDLocationIDKey as CFString) as? Int {
+            return "loc-\(location)"
+        }
+        return "unkeyed"
+    }
+
     func wiimoteDeviceAppeared(_ device: IOHIDDevice) {
         guard !wiimoteHIDRegistrations.contains(where: { $0.device == device }) else { return }
+        let key = Self.wiimoteDedupeKey(device)
+        guard !wiimoteHIDRegistrations.contains(where: { $0.dedupeKey == key }) else {
+            NSLog("[ControllerKeys] Wii Remote duplicate HID interface skipped (serial %@)", key)
+            return
+        }
 
         let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Self.wiimoteHIDReportBufferSize)
         let ctx = WiimoteHIDCallbackContext(service: self)
@@ -127,7 +152,8 @@ extension ControllerService {
             WiimoteHIDRegistration(
                 device: device,
                 reportBuffer: buffer,
-                callbackContext: retainedContext
+                callbackContext: retainedContext,
+                dedupeKey: key
             )
         )
 

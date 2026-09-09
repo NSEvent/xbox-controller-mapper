@@ -803,7 +803,8 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
 		let buttonName = button.displayName(
 			forDualSense: presentationState.isPlayStation,
 			forNintendo: presentationState.isNintendo,
-			forAppleTVRemote: presentationState.isAppleTVRemote
+			forAppleTVRemote: presentationState.isAppleTVRemote,
+			forWiimote: presentationState.isWiimote
 		)
 
 		VStack(spacing: 2) {
@@ -820,7 +821,8 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
 					isDualSense: presentationState.isPlayStation,
 					isNintendo: presentationState.isNintendo,
 					isSteamController: presentationState.isSteamController,
-					isAppleTVRemote: presentationState.isAppleTVRemote
+					isAppleTVRemote: presentationState.isAppleTVRemote,
+					isWiimote: presentationState.isWiimote
 				)
 					.scaleEffect(scale)
 					.frame(width: buttonWidth(for: button) * scale, height: buttonHeight(for: button) * scale)

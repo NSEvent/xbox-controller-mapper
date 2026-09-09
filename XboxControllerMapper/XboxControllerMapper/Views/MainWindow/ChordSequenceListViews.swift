@@ -8,13 +8,14 @@ struct ChordListView: View, Equatable {
 	    let isNintendo: Bool
 	    let isSteamController: Bool
 	    let isAppleTVRemote: Bool
+	    let isWiimote: Bool
 	    let onEdit: (ChordMapping) -> Void
     let onDelete: (ChordMapping) -> Void
     let onClearAction: (ChordMapping) -> Void
     let onMove: (IndexSet, Int) -> Void
 
     static func == (lhs: ChordListView, rhs: ChordListView) -> Bool {
-			lhs.chords == rhs.chords && lhs.isDualSense == rhs.isDualSense && lhs.isNintendo == rhs.isNintendo && lhs.isSteamController == rhs.isSteamController && lhs.isAppleTVRemote == rhs.isAppleTVRemote
+			lhs.chords == rhs.chords && lhs.isDualSense == rhs.isDualSense && lhs.isNintendo == rhs.isNintendo && lhs.isSteamController == rhs.isSteamController && lhs.isAppleTVRemote == rhs.isAppleTVRemote && lhs.isWiimote == rhs.isWiimote
     }
 
     var body: some View {
@@ -26,6 +27,7 @@ struct ChordListView: View, Equatable {
 						isNintendo: isNintendo,
 						isSteamController: isSteamController,
 						isAppleTVRemote: isAppleTVRemote,
+						isWiimote: isWiimote,
 						onEdit: { onEdit(chord) },
                     onDelete: { onDelete(chord) },
                     onClearAction: { onClearAction(chord) }
@@ -50,6 +52,7 @@ struct ChordRow: View {
 	    let isNintendo: Bool
 	    let isSteamController: Bool
 	    let isAppleTVRemote: Bool
+	    let isWiimote: Bool
 	    var onEdit: () -> Void
     var onDelete: () -> Void
     var onClearAction: () -> Void
@@ -69,7 +72,7 @@ struct ChordRow: View {
             HStack {
                 HStack(spacing: 4) {
                     ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
-							ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
+							ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote, isWiimote: isWiimote)
                     }
                 }
 
@@ -155,13 +158,14 @@ struct SequenceListView: View, Equatable {
 	    let isNintendo: Bool
 	    let isSteamController: Bool
 	    let isAppleTVRemote: Bool
+	    let isWiimote: Bool
 	    let onEdit: (SequenceMapping) -> Void
     let onDelete: (SequenceMapping) -> Void
     let onClearAction: (SequenceMapping) -> Void
     let onMove: (IndexSet, Int) -> Void
 
     static func == (lhs: SequenceListView, rhs: SequenceListView) -> Bool {
-			lhs.sequences == rhs.sequences && lhs.isDualSense == rhs.isDualSense && lhs.isNintendo == rhs.isNintendo && lhs.isSteamController == rhs.isSteamController && lhs.isAppleTVRemote == rhs.isAppleTVRemote
+			lhs.sequences == rhs.sequences && lhs.isDualSense == rhs.isDualSense && lhs.isNintendo == rhs.isNintendo && lhs.isSteamController == rhs.isSteamController && lhs.isAppleTVRemote == rhs.isAppleTVRemote && lhs.isWiimote == rhs.isWiimote
     }
 
     var body: some View {
@@ -173,6 +177,7 @@ struct SequenceListView: View, Equatable {
 						isNintendo: isNintendo,
 						isSteamController: isSteamController,
 						isAppleTVRemote: isAppleTVRemote,
+						isWiimote: isWiimote,
 						onEdit: { onEdit(sequence) },
                     onDelete: { onDelete(sequence) },
                     onClearAction: { onClearAction(sequence) }
@@ -197,6 +202,7 @@ struct SequenceRow: View {
 	    let isNintendo: Bool
 	    let isSteamController: Bool
 	    let isAppleTVRemote: Bool
+	    let isWiimote: Bool
 	    var onEdit: () -> Void
     var onDelete: () -> Void
     var onClearAction: () -> Void
@@ -222,7 +228,7 @@ struct SequenceRow: View {
                                 .foregroundColor(.white.opacity(0.3))
                                 .accessibilityHidden(true)
                         }
-							ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
+							ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote, isWiimote: isWiimote)
                     }
                 }
 

@@ -505,6 +505,9 @@ struct ButtonMappingsTab: View {
 			if presentationState.isNintendo {
 				layouts.insert(.nintendo)
 			}
+			if presentationState.isWiimote {
+				layouts.insert(.wiimote)
+			}
 			if presentationState.isXboxElite {
 				layouts.insert(.xboxElite)
 			} else if controllerService.connectedController?.extendedGamepad is GCXboxGamepad {
@@ -532,6 +535,12 @@ struct ButtonMappingsTab: View {
 
 		if controllerService.appleTVRemoteHIDDevice != nil || controllerService.appleTVRemoteHIDTouchDevice != nil {
 			layouts.insert(.appleTVRemote)
+		}
+		// A Wiimote counts as connected whenever its raw HID interface is
+		// registered — including when it joined as an auxiliary input while
+		// another controller held the active slot.
+		if !controllerService.wiimoteHIDRegistrations.isEmpty {
+			layouts.insert(.wiimote)
 		}
 		if controllerService.isOuraRingConnected {
 			layouts.insert(.ouraRing)
