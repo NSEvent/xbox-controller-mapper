@@ -27,6 +27,11 @@ struct HIDReportParseResult: Equatable {
     var wiimoteButtons: WiimoteButtons? = nil
     /// Wii Remote battery level 0...1 from the 0x20 status report.
     var wiimoteBatteryLevel: Float? = nil
+    /// Wii Remote accelerometer in g units from the 0x31 report (zero point
+    /// 0x80, ≈26 counts per g). Nil when the report carries no accel data.
+    var wiimoteAccelX: Float? = nil
+    var wiimoteAccelY: Float? = nil
+    var wiimoteAccelZ: Float? = nil
 }
 
 /// Wii Remote core-button bitmask: low byte = the report's first button byte,

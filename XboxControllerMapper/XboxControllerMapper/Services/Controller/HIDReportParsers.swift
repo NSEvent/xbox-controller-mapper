@@ -112,6 +112,13 @@ struct WiimoteHIDParser: HIDReportParser {
 
     func parse(reportID: UInt32, report: UnsafePointer<UInt8>, length: Int) -> HIDReportParseResult? {
         switch (reportID, length) {
+        case (0x31, let len) where len >= 6:
+            // Core buttons + accelerometer: [0x31, BB1, BB2, AX, AY, AZ].
+            var result = HIDReportParseResult(wiimoteButtons: Self.buttons(report))
+            result.wiimoteAccelX = Self.accelG(report[3])
+            result.wiimoteAccelY = Self.accelG(report[4])
+            result.wiimoteAccelZ = Self.accelG(report[5])
+            return result
         case (0x30...0x37, let len) where len >= 3:
             return HIDReportParseResult(wiimoteButtons: Self.buttons(report))
         case (0x20, let len) where len >= 7:
@@ -125,6 +132,11 @@ struct WiimoteHIDParser: HIDReportParser {
 
     private static func buttons(_ report: UnsafePointer<UInt8>) -> WiimoteButtons {
         WiimoteButtons(rawValue: UInt16(report[1]) | (UInt16(report[2]) << 8))
+    }
+
+    /// Raw accel byte → g units (zero point 0x80, ≈26 counts per g).
+    private static func accelG(_ raw: UInt8) -> Float {
+        (Float(raw) - 128.0) / 26.0
     }
 }
 

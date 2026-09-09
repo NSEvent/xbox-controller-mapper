@@ -170,6 +170,24 @@ final class HIDReportParserTests: XCTestCase {
         XCTAssertEqual(over?.wiimoteBatteryLevel, 1.0)
     }
 
+    func testWiimote_AccelReport_buttonsAndGravity() {
+        // [0x31, BB1, BB2, AX, AY, AZ]; zero point 0x80, ≈26 counts/g.
+        let bytes: [UInt8] = [0x31, 0x00, 0x04, 0x80, 0x9A, 0x66]
+        let result = parse(WiimoteHIDParser(), reportID: 0x31, bytes: bytes)
+        XCTAssertEqual(result?.wiimoteButtons, .b)
+        XCTAssertEqual(result?.wiimoteAccelX ?? -9, 0.0, accuracy: 0.001)
+        XCTAssertEqual(result?.wiimoteAccelY ?? -9, 1.0, accuracy: 0.001)
+        XCTAssertEqual(result?.wiimoteAccelZ ?? -9, -1.0, accuracy: 0.001)
+    }
+
+    func testWiimote_AccelReport_tooShortFallsBackToButtonsOnly() {
+        // A 5-byte 0x31 (accel truncated) still yields buttons via the
+        // generic 0x30-0x37 branch, with no accel fields.
+        let result = parse(WiimoteHIDParser(), reportID: 0x31, bytes: [0x31, 0x00, 0x08, 0x80, 0x80])
+        XCTAssertEqual(result?.wiimoteButtons, .a)
+        XCTAssertNil(result?.wiimoteAccelX)
+    }
+
     func testWiimote_ShortAndUnknownReportsReturnNil() {
         XCTAssertNil(parse(WiimoteHIDParser(), reportID: 0x30, bytes: [0x30, 0x00]))
         XCTAssertNil(parse(WiimoteHIDParser(), reportID: 0x20, bytes: [0x20, 0x00, 0x00, 0x00, 0x00, 0x00]))

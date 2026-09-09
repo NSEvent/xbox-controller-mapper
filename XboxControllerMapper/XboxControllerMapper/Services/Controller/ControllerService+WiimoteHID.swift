@@ -106,6 +106,11 @@ private final class WiimoteHIDRunLoop: @unchecked Sendable {
 
 private let wiimoteHIDRunLoop = WiimoteHIDRunLoop()
 
+/// Dedicated simulator for the tilt-mouse so the Wiimote backend doesn't
+/// reach into MappingEngine's instance. Thread-safe (@unchecked Sendable,
+/// internally queued), called from the HID run-loop thread.
+private let wiimoteTiltMouse = InputSimulator()
+
 /// IOHIDManager device-matched callback. Runs on the dedicated HID run loop;
 /// hop to the MainActor for service state.
 private nonisolated func wiimoteHIDDeviceMatched(
@@ -448,6 +453,31 @@ extension ControllerService {
         }
     }
 
+    // MARK: Tilt mouse (hold B, tilt to move the pointer)
+
+    /// Tilt below this (in g) parks the cursor so a steady hand holds still.
+    nonisolated private static let wiimoteTiltDeadzoneG: Float = 0.12
+    /// Max pointer speed in px per report at full 1g tilt (~100 reports/s).
+    nonisolated private static let wiimoteTiltMaxPerReport: Float = 11.0
+
+    /// Quadratic response: gentle tilts give fine control, hard tilts sprint.
+    nonisolated private static func wiimoteTiltVelocity(_ g: Float) -> CGFloat {
+        let magnitude = abs(g)
+        guard magnitude > wiimoteTiltDeadzoneG else { return 0 }
+        let normalized = min(1.0, (magnitude - wiimoteTiltDeadzoneG) / (1.0 - wiimoteTiltDeadzoneG))
+        let speed = normalized * normalized * wiimoteTiltMaxPerReport
+        return CGFloat(g < 0 ? -speed : speed)
+    }
+
+    /// Switch the remote between on-change core buttons (0x30) and continuous
+    /// buttons+accelerometer (0x31). Continuous accel streams ~100 reports/s,
+    /// so it runs only while B is held.
+    func setWiimoteMotionReporting(_ enabled: Bool) {
+        guard let device = wiimoteHIDRegistrations.first?.device else { return }
+        sendWiimoteOutputReport(device, bytes: enabled ? [0x12, 0x04, 0x31] : [0x12, 0x00, 0x30])
+        NSLog("[ControllerKeys] Wii Remote tilt mouse %@", enabled ? "engaged" : "disengaged")
+    }
+
     /// Parse a Wii Remote input report, diff the button mask, and emit
     /// edge-triggered presses.
     nonisolated func handleWiimoteHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
@@ -470,6 +500,18 @@ extension ControllerService {
 
         guard let buttons = parsed.wiimoteButtons else { return }
 
+        // Tilt mouse: while B (the underside trigger) is held, gravity tilt
+        // drives pointer velocity. Signs assume the pointing grip — remote
+        // face-up, IR end toward the screen: roll right → +X on screen,
+        // nose down → +Y on screen.
+        if buttons.contains(.b), let ax = parsed.wiimoteAccelX, let ay = parsed.wiimoteAccelY {
+            let dx = -Self.wiimoteTiltVelocity(ax)
+            let dy = Self.wiimoteTiltVelocity(ay)
+            if dx != 0 || dy != 0 {
+                wiimoteTiltMouse.moveMouse(dx: dx, dy: dy)
+            }
+        }
+
         storage.lock.lock()
         let previous = WiimoteButtons(rawValue: storage.lastWiimoteButtons)
         let changed = WiimoteButtons(rawValue: previous.rawValue ^ buttons.rawValue)
@@ -480,6 +522,14 @@ extension ControllerService {
         storage.lock.unlock()
 
         guard !changed.isEmpty else { return }
+
+        // B edges toggle accelerometer streaming for the tilt mouse.
+        if changed.contains(.b) {
+            let engaged = buttons.contains(.b)
+            DispatchQueue.main.async { [weak self] in
+                self?.setWiimoteMotionReporting(engaged)
+            }
+        }
 
         for entry in Self.wiimoteButtonMap where changed.contains(entry.wiimote) {
             let button = entry.button
