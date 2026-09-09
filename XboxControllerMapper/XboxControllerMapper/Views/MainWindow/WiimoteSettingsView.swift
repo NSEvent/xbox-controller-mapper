@@ -10,7 +10,7 @@ struct WiimoteSettingsView: View {
 	@AppStorage(Config.wiimoteTiltPitchSpeedKey) private var tiltPitchSpeed: Double = 44
 	@AppStorage(Config.wiimoteTiltDeadzoneKey) private var tiltDeadzone: Double = 0.12
 	@AppStorage(Config.wiimoteIRSpeedKey) private var irSpeed: Double = 1.0
-	@AppStorage(Config.wiimoteIRSmoothingKey) private var irSmoothing: Double = 0.5
+	@AppStorage(Config.wiimoteIRSmoothingKey) private var irSmoothing: Double = 0.25
 
 	var body: some View {
 		Form {
@@ -84,7 +84,7 @@ struct WiimoteSettingsView: View {
 					value: $irSmoothing,
 					range: 0.10...0.90,
 					format: "%.2f",
-					help: "Lower = steadier but laggier; higher = snappier but jitterier (candles flicker!)."
+					help: "Base smoothing — lower = steadier aim (smoothing auto-lightens during fast sweeps). Raise only if aiming feels laggy."
 				)
 				Text("Hold the mapped 🎯 Pointer button and aim at the screen. With two IR sources visible (a sensor bar, or two candles ~20 cm apart under the display), aiming is direct; otherwise the pointer falls back to tilt.")
 					.font(.system(size: 11))
@@ -98,7 +98,7 @@ struct WiimoteSettingsView: View {
 					tiltPitchSpeed = 44
 					tiltDeadzone = 0.12
 					irSpeed = 1.0
-					irSmoothing = 0.5
+					irSmoothing = 0.25
 				}
 			}
 		}

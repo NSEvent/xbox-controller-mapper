@@ -118,13 +118,18 @@ private final class WiimotePointerState: @unchecked Sendable {
 
     /// Exponentially smooth toward `target` and return the delta from the
     /// previous smoothed position (nil delta on the first sample after reset).
-    func advance(target: CGPoint, alpha: CGFloat) -> CGPoint? {
+    /// Speed-adaptive (One-Euro-style): a slow or still hand gets heavy
+    /// smoothing so candle flicker parks the cursor, while fast sweeps raise
+    /// the blend factor and stay responsive.
+    func advance(target: CGPoint, baseAlpha: CGFloat) -> CGPoint? {
         lock.lock()
         defer { lock.unlock() }
         guard let previous = smoothed else {
             smoothed = target
             return nil
         }
+        let distance = hypot(target.x - previous.x, target.y - previous.y)
+        let alpha = min(0.85, baseAlpha + distance * 0.015)
         let next = CGPoint(
             x: previous.x + (target.x - previous.x) * alpha,
             y: previous.y + (target.y - previous.y) * alpha
@@ -535,14 +540,14 @@ extension ControllerService {
             mx = CGFloat(points[0].x)
             my = CGFloat(points[0].y)
         }
-        let alpha = CGFloat(wiimoteTuning(Config.wiimoteIRSmoothingKey, default: 0.5))
-        guard let delta = wiimotePointerState.advance(target: CGPoint(x: mx, y: my), alpha: alpha) else {
+        let alpha = CGFloat(wiimoteTuning(Config.wiimoteIRSmoothingKey, default: 0.25))
+        guard let delta = wiimotePointerState.advance(target: CGPoint(x: mx, y: my), baseAlpha: alpha) else {
             return
         }
         let gain = CGFloat(wiimoteTuning(Config.wiimoteIRSpeedKey, default: 1.0))
         let bounds = CGDisplayBounds(CGMainDisplayID())
         let dx = -delta.x * (bounds.width / 1024.0) * gain
-        let dy = -delta.y * (bounds.height / 768.0) * gain
+        let dy = delta.y * (bounds.height / 768.0) * gain
         if abs(dx) > 0.01 || abs(dy) > 0.01 {
             wiimoteTiltMouse.moveMouse(dx: dx, dy: dy)
         }
