@@ -209,7 +209,7 @@ extension ControllerPreviewLayout {
                 systemImage: systemImage,
                 bluetoothSteps: [
                     loc("Open the battery cover and tap the red **SYNC button** — all four LEDs blink while the remote is discoverable (about 20 seconds)."),
-                    loc("Pair while the LEDs are blinking. **System Settings → Bluetooth cannot pair a Wii Remote** — modern macOS rejects its old-style PIN. Use **ControllerKeys → Wii Remote → Pair Wii Remote** instead, tapping SYNC again if the first attempt misses the window."),
+                    loc("While the LEDs are blinking, open **Hardware → Wii Remote** in the sidebar and click **Pair Wii Remote**. Tap SYNC again if the first attempt misses the window."),
                     loc("Once paired, ControllerKeys connects automatically: **LED 1 turns solid** and the remote shows up as **Wii Remote**.")
                 ],
                 wiredNote: nil,
