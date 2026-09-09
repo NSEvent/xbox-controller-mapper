@@ -119,6 +119,15 @@ struct WiimoteHIDParser: HIDReportParser {
             result.wiimoteAccelY = Self.accelG(report[4])
             result.wiimoteAccelZ = Self.accelG(report[5])
             return result
+        case (0x33, let len) where len >= 18:
+            // Buttons + accel + 12 bytes of extended-format IR:
+            // [0x33, BB1, BB2, AX, AY, AZ, 4 × (Xlo, Ylo, hi/size)].
+            var result = HIDReportParseResult(wiimoteButtons: Self.buttons(report))
+            result.wiimoteAccelX = Self.accelG(report[3])
+            result.wiimoteAccelY = Self.accelG(report[4])
+            result.wiimoteAccelZ = Self.accelG(report[5])
+            result.wiimoteIRPoints = Self.irPoints(report, offset: 6)
+            return result
         case (0x30...0x37, let len) where len >= 3:
             return HIDReportParseResult(wiimoteButtons: Self.buttons(report))
         case (0x20, let len) where len >= 7:
@@ -137,6 +146,24 @@ struct WiimoteHIDParser: HIDReportParser {
     /// Raw accel byte → g units (zero point 0x80, ≈26 counts per g).
     private static func accelG(_ raw: UInt8) -> Float {
         (Float(raw) - 128.0) / 26.0
+    }
+
+    /// Extended IR format: per blob, byte0 = X<7:0>, byte1 = Y<7:0>,
+    /// byte2 = Y<9:8><<6 | X<9:8><<4 | size. An unseen blob slot is 0xFF-filled.
+    private static func irPoints(_ report: UnsafePointer<UInt8>, offset: Int) -> [WiimoteIRPoint] {
+        var points: [WiimoteIRPoint] = []
+        for i in 0..<4 {
+            let b0 = report[offset + i * 3]
+            let b1 = report[offset + i * 3 + 1]
+            let b2 = report[offset + i * 3 + 2]
+            if b0 == 0xFF && b1 == 0xFF && b2 == 0xFF { continue }
+            points.append(WiimoteIRPoint(
+                x: Int(b0) | ((Int(b2) & 0x30) << 4),
+                y: Int(b1) | ((Int(b2) & 0xC0) << 2),
+                size: Int(b2) & 0x0F
+            ))
+        }
+        return points
     }
 }
 

@@ -106,10 +106,41 @@ private final class WiimoteHIDRunLoop: @unchecked Sendable {
 
 private let wiimoteHIDRunLoop = WiimoteHIDRunLoop()
 
-/// Dedicated simulator for the tilt-mouse so the Wiimote backend doesn't
+/// Dedicated simulator for the tilt/IR mouse so the Wiimote backend doesn't
 /// reach into MappingEngine's instance. Thread-safe (@unchecked Sendable,
 /// internally queued), called from the HID run-loop thread.
 private let wiimoteTiltMouse = InputSimulator()
+
+/// Smoothed IR pointer state, shared between HID-thread reports.
+private final class WiimotePointerState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var smoothed: CGPoint?
+
+    /// Exponentially smooth toward `target` and return the delta from the
+    /// previous smoothed position (nil delta on the first sample after reset).
+    func advance(target: CGPoint, alpha: CGFloat) -> CGPoint? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let previous = smoothed else {
+            smoothed = target
+            return nil
+        }
+        let next = CGPoint(
+            x: previous.x + (target.x - previous.x) * alpha,
+            y: previous.y + (target.y - previous.y) * alpha
+        )
+        smoothed = next
+        return CGPoint(x: next.x - previous.x, y: next.y - previous.y)
+    }
+
+    func reset() {
+        lock.lock()
+        smoothed = nil
+        lock.unlock()
+    }
+}
+
+private let wiimotePointerState = WiimotePointerState()
 
 /// IOHIDManager device-matched callback. Runs on the dedicated HID run loop;
 /// hop to the MainActor for service state.
@@ -468,13 +499,7 @@ extension ControllerService {
     /// Send an output report. Bluetooth HID quirk: `bytes[0]` is the report ID
     /// and must stay in the buffer.
     private func sendWiimoteOutputReport(_ device: IOHIDDevice, bytes: [UInt8]) {
-        guard let reportID = bytes.first else { return }
-        let rc = bytes.withUnsafeBufferPointer { buf in
-            IOHIDDeviceSetReport(device, kIOHIDReportTypeOutput, CFIndex(reportID), buf.baseAddress!, buf.count)
-        }
-        if rc != kIOReturnSuccess {
-            NSLog("[ControllerKeys] Wii Remote output report 0x%02X failed: 0x%08X", reportID, UInt32(bitPattern: rc))
-        }
+        Self.sendWiimoteReport(device, bytes)
     }
 
     // MARK: Tilt mouse (hold B, tilt to move the pointer)
@@ -493,13 +518,96 @@ extension ControllerService {
         return CGFloat(g < 0 ? -speed : speed)
     }
 
+    /// Smoothing factor for the IR midpoint (higher = snappier, noisier).
+    nonisolated private static let wiimoteIRAlpha: CGFloat = 0.5
+
+    /// Absolute-style IR aiming, delivered as relative moves so drags and
+    /// held clicks keep working: smooth the midpoint of the visible blobs,
+    /// scale camera-space deltas (1024×768) to screen scale, with the camera
+    /// axes mirrored (pointing right moves the blob image left).
+    nonisolated private static func moveWiimotePointerByIR(_ points: [WiimoteIRPoint]) {
+        let mx: CGFloat
+        let my: CGFloat
+        if points.count >= 2 {
+            mx = CGFloat(points[0].x + points[1].x) / 2
+            my = CGFloat(points[0].y + points[1].y) / 2
+        } else {
+            mx = CGFloat(points[0].x)
+            my = CGFloat(points[0].y)
+        }
+        guard let delta = wiimotePointerState.advance(target: CGPoint(x: mx, y: my), alpha: wiimoteIRAlpha) else {
+            return
+        }
+        let bounds = CGDisplayBounds(CGMainDisplayID())
+        let dx = -delta.x * (bounds.width / 1024.0)
+        let dy = -delta.y * (bounds.height / 768.0)
+        if abs(dx) > 0.01 || abs(dy) > 0.01 {
+            wiimoteTiltMouse.moveMouse(dx: dx, dy: dy)
+        }
+    }
+
     /// Switch the remote between on-change core buttons (0x30) and continuous
-    /// buttons+accelerometer (0x31). Continuous accel streams ~100 reports/s,
-    /// so it runs only while B is held.
+    /// buttons+accel+IR (0x33). Streaming runs only while the pointer is
+    /// engaged. Engaging also runs the IR camera init sequence so the pointer
+    /// can use absolute IR aiming when IR sources are visible, falling back
+    /// to tilt when they aren't.
     func setWiimoteMotionReporting(_ enabled: Bool) {
         guard let device = wiimoteHIDRegistrations.first?.device else { return }
-        sendWiimoteOutputReport(device, bytes: enabled ? [0x12, 0x04, 0x31] : [0x12, 0x00, 0x30])
-        NSLog("[ControllerKeys] Wii Remote tilt mouse %@", enabled ? "engaged" : "disengaged")
+        wiimotePointerState.reset()
+        if enabled {
+            DispatchQueue.global(qos: .userInitiated).async {
+                Self.initializeWiimoteIRCamera(device)
+            }
+        } else {
+            DispatchQueue.global(qos: .userInitiated).async {
+                Self.sendWiimoteReport(device, [0x12, 0x00, 0x30])
+                // Power the IR camera back down (battery).
+                Self.sendWiimoteReport(device, [0x13, 0x00])
+                Self.sendWiimoteReport(device, [0x1A, 0x00])
+            }
+        }
+        NSLog("[ControllerKeys] Wii Remote pointer %@", enabled ? "engaged" : "disengaged")
+    }
+
+    /// WiiBrew IR camera bring-up (Marcan sensitivity, extended-format mode 3).
+    /// Runs off-main with small gaps between writes — the camera's register
+    /// interface drops back-to-back writes.
+    nonisolated private static func initializeWiimoteIRCamera(_ device: IOHIDDevice) {
+        func pause() { usleep(20_000) }
+        sendWiimoteReport(device, [0x13, 0x04]); pause()          // IR clock enable 1
+        sendWiimoteReport(device, [0x1A, 0x04]); pause()          // IR clock enable 2
+        writeWiimoteRegister(device, address: 0xB0_0030, data: [0x01]); pause()
+        writeWiimoteRegister(device, address: 0xB0_0000,
+                             data: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x90, 0x00, 0x41]); pause()
+        writeWiimoteRegister(device, address: 0xB0_001A, data: [0x40, 0x00]); pause()
+        writeWiimoteRegister(device, address: 0xB0_0033, data: [0x03]); pause()  // extended mode
+        writeWiimoteRegister(device, address: 0xB0_0030, data: [0x08]); pause()
+        sendWiimoteReport(device, [0x12, 0x04, 0x33])             // continuous buttons+accel+IR
+    }
+
+    /// Write to the Wiimote's control registers: report 0x16, 0x04 = register
+    /// space, 3-byte big-endian address, size byte, 16 data bytes (padded).
+    nonisolated private static func writeWiimoteRegister(_ device: IOHIDDevice, address: UInt32, data: [UInt8]) {
+        var bytes: [UInt8] = [
+            0x16, 0x04,
+            UInt8((address >> 16) & 0xFF), UInt8((address >> 8) & 0xFF), UInt8(address & 0xFF),
+            UInt8(data.count),
+        ]
+        bytes += data
+        bytes += [UInt8](repeating: 0, count: 16 - data.count)
+        sendWiimoteReport(device, bytes)
+    }
+
+    /// Thread-agnostic output-report send (ID repeated as the buffer's first
+    /// byte — Bluetooth HID quirk).
+    nonisolated private static func sendWiimoteReport(_ device: IOHIDDevice, _ bytes: [UInt8]) {
+        guard let reportID = bytes.first else { return }
+        let rc = bytes.withUnsafeBufferPointer { buf in
+            IOHIDDeviceSetReport(device, kIOHIDReportTypeOutput, CFIndex(reportID), buf.baseAddress!, buf.count)
+        }
+        if rc != kIOReturnSuccess {
+            NSLog("[ControllerKeys] Wii Remote output report 0x%02X failed: 0x%08X", reportID, UInt32(bitPattern: rc))
+        }
     }
 
     /// Parse a Wii Remote input report, diff the button mask, and emit
@@ -524,15 +632,20 @@ extension ControllerService {
 
         guard let buttons = parsed.wiimoteButtons else { return }
 
-        // Tilt mouse: while B (the underside trigger) is held, gravity tilt
-        // drives pointer velocity. Signs assume the pointing grip — remote
-        // face-up, IR end toward the screen: roll right → +X on screen,
-        // nose down → +Y on screen.
-        if buttons.contains(.b), let ax = parsed.wiimoteAccelX, let ay = parsed.wiimoteAccelY {
-            let dx = Self.wiimoteTiltVelocity(ax)
-            let dy = Self.wiimoteTiltVelocity(ay)
-            if dx != 0 || dy != 0 {
-                wiimoteTiltMouse.moveMouse(dx: dx, dy: dy)
+        // Pointer: while B (the underside trigger) is held, IR aiming drives
+        // the cursor when the camera sees IR sources (sensor bar / candles);
+        // otherwise gravity tilt drives pointer velocity. Signs assume the
+        // pointing grip — remote face-up, IR end toward the screen.
+        if buttons.contains(.b) {
+            if let ir = parsed.wiimoteIRPoints, !ir.isEmpty {
+                Self.moveWiimotePointerByIR(ir)
+            } else if let ax = parsed.wiimoteAccelX, let ay = parsed.wiimoteAccelY {
+                wiimotePointerState.reset()
+                let dx = Self.wiimoteTiltVelocity(ax)
+                let dy = Self.wiimoteTiltVelocity(ay)
+                if dx != 0 || dy != 0 {
+                    wiimoteTiltMouse.moveMouse(dx: dx, dy: dy)
+                }
             }
         }
 

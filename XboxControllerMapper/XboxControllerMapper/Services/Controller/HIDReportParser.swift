@@ -27,11 +27,21 @@ struct HIDReportParseResult: Equatable {
     var wiimoteButtons: WiimoteButtons? = nil
     /// Wii Remote battery level 0...1 from the 0x20 status report.
     var wiimoteBatteryLevel: Float? = nil
-    /// Wii Remote accelerometer in g units from the 0x31 report (zero point
-    /// 0x80, ≈26 counts per g). Nil when the report carries no accel data.
+    /// Wii Remote accelerometer in g units from the 0x31/0x33 reports (zero
+    /// point 0x80, ≈26 counts per g). Nil when the report carries no accel.
     var wiimoteAccelX: Float? = nil
     var wiimoteAccelY: Float? = nil
     var wiimoteAccelZ: Float? = nil
+    /// Tracked IR camera blobs from the 0x33 report (camera field 1024×768).
+    /// Nil when the report carries no IR data; empty when no blobs are seen.
+    var wiimoteIRPoints: [WiimoteIRPoint]? = nil
+}
+
+/// One tracked IR blob from the Wii Remote camera.
+struct WiimoteIRPoint: Equatable, Sendable {
+    let x: Int      // 0...1023
+    let y: Int      // 0...767
+    let size: Int   // 0...15
 }
 
 /// Wii Remote core-button bitmask: low byte = the report's first button byte,
