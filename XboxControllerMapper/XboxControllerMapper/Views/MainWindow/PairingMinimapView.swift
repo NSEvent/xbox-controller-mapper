@@ -39,6 +39,8 @@ struct PairingMinimapView: View {
 				ouraRingMinimap
 			} else if visualDescriptor.isAppleTVRemote {
                 appleTVRemoteMinimap
+            } else if visualDescriptor.isWiimote {
+                wiimoteMinimap
             } else {
                 gamepadMinimap
             }
@@ -92,6 +94,18 @@ struct PairingMinimapView: View {
         let scale = remoteTargetHeight / size.height
 
         return AppleTVRemoteMinimapView(controllerService: service)
+            .frame(width: size.width, height: size.height)
+            .scaleEffect(scale)
+            .frame(width: (size.width * scale).rounded(), height: remoteTargetHeight)
+    }
+
+    // MARK: - Wii Remote
+
+    private var wiimoteMinimap: some View {
+        let size = WiimoteMinimapView.previewSize
+        let scale = remoteTargetHeight / size.height
+
+        return WiimoteMinimapView(controllerService: service)
             .frame(width: size.width, height: size.height)
             .scaleEffect(scale)
             .frame(width: (size.width * scale).rounded(), height: remoteTargetHeight)

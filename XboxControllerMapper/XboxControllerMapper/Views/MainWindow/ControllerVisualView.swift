@@ -242,6 +242,8 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 					ouraRingLayout
 				} else if isAppleTVRemote {
 					appleTVRemoteLayout
+				} else if isWiimote {
+					wiimoteLayout
 				} else {
 					standardControllerLayout
 				}
