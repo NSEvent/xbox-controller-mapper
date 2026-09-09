@@ -11,6 +11,8 @@ struct WiimoteSettingsView: View {
 	@AppStorage(Config.wiimoteTiltDeadzoneKey) private var tiltDeadzone: Double = 0.12
 	@AppStorage(Config.wiimoteIRSpeedKey) private var irSpeed: Double = 1.0
 	@AppStorage(Config.wiimoteIRSmoothingKey) private var irSmoothing: Double = 0.25
+	@AppStorage(Config.wiimoteTiltEnabledKey) private var tiltEnabled: Bool = true
+	@AppStorage(Config.wiimoteIREnabledKey) private var irEnabled: Bool = true
 
 	var body: some View {
 		Form {
@@ -50,6 +52,8 @@ struct WiimoteSettingsView: View {
 			}
 
 			Section("Pointer — Tilt") {
+				Toggle("Tilt steering (accelerometer)", isOn: $tiltEnabled)
+					.help("Move the pointer by tilting the remote. Turn off for pure IR aiming — tilt won't fight the IR pointer when candles flicker.")
 				sliderRow(
 					"Side-to-side speed",
 					value: $tiltRollSpeed,
@@ -72,6 +76,8 @@ struct WiimoteSettingsView: View {
 			}
 
 			Section("Pointer — IR (sensor bar / candles)") {
+				Toggle("IR aiming", isOn: $irEnabled)
+					.help("Point directly at the screen using IR sources.")
 				sliderRow(
 					"Speed",
 					value: $irSpeed,

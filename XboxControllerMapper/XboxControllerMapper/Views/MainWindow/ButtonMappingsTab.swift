@@ -46,6 +46,7 @@ struct ButtonMappingsTab: View {
     // Canvas pan/zoom. The pan offset is view state (resets on relaunch);
     // the zoom factor is profileManager.uiScale (persisted in the config).
     @State private var canvasPan: CGSize = .zero
+	@State private var pairingHintDismissed = false
     @State private var panDragBase: CGSize?
     @State private var pinchBase: (scale: CGFloat, pan: CGSize, anchor: CGPoint)?
     @State private var canvasEventView: NSView?
@@ -200,15 +201,21 @@ struct ButtonMappingsTab: View {
 				// doesn't also cross-fade the picker label / mismatch note / layer
 				// bar, which change on the same `isConnected` flip.
 				Group {
-					if !controllerService.isConnected {
+					if !controllerService.isConnected && !pairingHintDismissed {
 						ControllerPairingHintView(
 							previewLayout: controllerPreviewLayout,
-							onSelectLayout: { controllerPreviewLayout = $0 }
+							onSelectLayout: { controllerPreviewLayout = $0 },
+							onDismiss: { pairingHintDismissed = true }
 						)
 						.transition(.opacity.combined(with: .move(edge: .top)))
 					}
 				}
 				.animation(.easeInOut(duration: 0.25), value: controllerService.isConnected)
+				// Dismissal lasts until a controller connects again — the next
+				// disconnect shows the card fresh.
+				.onChange(of: controllerService.isConnected) { _, connected in
+					if connected { pairingHintDismissed = false }
+				}
 
                 if isSectionVisible(.timeline) {
                     removableSection(.timeline) {

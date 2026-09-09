@@ -115,6 +115,23 @@ private let wiimoteTiltMouse = InputSimulator()
 private final class WiimotePointerState: @unchecked Sendable {
     private let lock = NSLock()
     private var smoothed: CGPoint?
+    private var lastIRSample: TimeInterval = 0
+
+    /// Stamp an IR sighting; used for the tilt-fallback grace period.
+    func noteIRSeen(at time: TimeInterval) {
+        lock.lock()
+        lastIRSample = time
+        lock.unlock()
+    }
+
+    /// Whether IR was seen within `grace` seconds — candle flicker drops
+    /// blobs for a frame or two, and falling straight back to tilt while the
+    /// remote is pitched yanks the cursor.
+    func irSeenRecently(now: TimeInterval, grace: TimeInterval) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return now - lastIRSample < grace
+    }
 
     /// Exponentially smooth toward `target` and return the delta from the
     /// previous smoothed position (nil delta on the first sample after reset).
@@ -517,6 +534,13 @@ extension ControllerService {
         return value == 0 ? defaultValue : value
     }
 
+    /// Default-true boolean toggle (UserDefaults returns false for unset keys).
+    nonisolated private static func wiimoteFlag(_ key: String) -> Bool {
+        UserDefaults.standard.object(forKey: key) == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: key)
+    }
+
     /// Quadratic response: gentle tilts give fine control, hard tilts sprint.
     nonisolated private static func wiimoteTiltVelocity(_ g: Float, maxPerReport: Float, deadzone: Float) -> CGFloat {
         let magnitude = abs(g)
@@ -657,9 +681,19 @@ extension ControllerService {
         // Signs assume the pointing grip — face-up, IR end toward the screen.
         let pointerEngaged = storage.lock.withLock { storage.wiimotePointerEngaged }
         if pointerEngaged {
-            if let ir = parsed.wiimoteIRPoints, !ir.isEmpty {
+            let irEnabled = Self.wiimoteFlag(Config.wiimoteIREnabledKey)
+            let tiltEnabled = Self.wiimoteFlag(Config.wiimoteTiltEnabledKey)
+            let now = ProcessInfo.processInfo.systemUptime
+
+            if irEnabled, let ir = parsed.wiimoteIRPoints, !ir.isEmpty {
+                wiimotePointerState.noteIRSeen(at: now)
                 Self.moveWiimotePointerByIR(ir)
-            } else if let ax = parsed.wiimoteAccelX, let ay = parsed.wiimoteAccelY {
+            } else if tiltEnabled,
+                      // Grace period: candle flicker can drop blobs for a few
+                      // frames; don't let tilt yank a pitched remote's cursor
+                      // until IR has been gone for a beat.
+                      !(irEnabled && wiimotePointerState.irSeenRecently(now: now, grace: 0.4)),
+                      let ax = parsed.wiimoteAccelX, let ay = parsed.wiimoteAccelY {
                 wiimotePointerState.reset()
                 let deadzone = Float(Self.wiimoteTuning(Config.wiimoteTiltDeadzoneKey, default: 0.12))
                 let dx = Self.wiimoteTiltVelocity(

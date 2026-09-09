@@ -332,6 +332,8 @@ struct Config {
     static let wiimoteTiltDeadzoneKey: String = "wiimoteTiltDeadzone"
     static let wiimoteIRSpeedKey: String = "wiimoteIRSpeed"
     static let wiimoteIRSmoothingKey: String = "wiimoteIRSmoothing"
+    static let wiimoteTiltEnabledKey: String = "wiimoteTiltEnabled"
+    static let wiimoteIREnabledKey: String = "wiimoteIREnabled"
     /// UserDefaults key to enable touchpad debug logging
     static let touchpadDebugLoggingKey: String = "touchpad.debug"
     /// Env var to enable touchpad debug logging
