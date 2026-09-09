@@ -217,6 +217,10 @@ extension ControllerService {
     }
 
     func wiimoteDeviceAppeared(_ device: IOHIDDevice) {
+        // An interface (re)appearing cancels a pending churn-debounced
+        // disconnect — the remote never actually left.
+        wiimoteDisconnectWorkItem?.cancel()
+        wiimoteDisconnectWorkItem = nil
         guard !wiimoteHIDRegistrations.contains(where: { $0.device == device }) else { return }
         let key = Self.wiimoteDedupeKey(device)
         guard !wiimoteHIDRegistrations.contains(where: { $0.dedupeKey == key }) else {
@@ -296,8 +300,12 @@ extension ControllerService {
         // the remote left — adopt a surviving twin interface for the same
         // remote before declaring a disconnect. The adoption's status request
         // (0x15) refreshes the button mask, healing any release report lost
-        // in the churn gap.
-        if let manager = wiimoteHIDManager,
+        // in the churn gap. Rate-limited: a second removal within 2s of an
+        // adoption means the interfaces are ping-ponging (e.g. the remote is
+        // powering off) — stop adopting and let the disconnect debounce run.
+        let uptime = ProcessInfo.processInfo.systemUptime
+        if uptime - wiimoteLastAdoptionUptime > 2.0,
+           let manager = wiimoteHIDManager,
            let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice> {
             let twin = devices.first { candidate in
                 candidate != device
@@ -305,6 +313,7 @@ extension ControllerService {
             }
             if let twin {
                 NSLog("[ControllerKeys] Wii Remote interface churned — adopting surviving twin")
+                wiimoteLastAdoptionUptime = uptime
                 wiimoteDeviceAppeared(twin)
                 if wiimoteHIDActiveDevice == nil {
                     wiimoteHIDActiveDevice = twin
@@ -313,10 +322,23 @@ extension ControllerService {
             }
         }
 
-        if isConnected, connectedController == nil {
-            controllerDisconnected()
+        // Debounce the disconnect: churn can momentarily leave zero
+        // interfaces before a recreated one arrives. Flapping isConnected
+        // animates the empty-state card ("jittering" UI), so wait 1.5s and
+        // only disconnect if nothing reappeared.
+        wiimoteDisconnectWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.wiimoteDisconnectWorkItem = nil
+            guard self.wiimoteHIDRegistrations.isEmpty,
+                  self.wiimoteHIDActiveDevice == nil,
+                  self.isConnected,
+                  self.connectedController == nil else { return }
+            self.controllerDisconnected()
+            NSLog("[ControllerKeys] Wii Remote disconnected")
         }
-        NSLog("[ControllerKeys] Wii Remote disconnected")
+        wiimoteDisconnectWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: workItem)
     }
 
     /// Present the Wiimote as the connected controller — but never steal the
@@ -422,6 +444,8 @@ extension ControllerService {
             wiimoteHIDCallbackContext = nil
         }
         wiimoteHIDActiveDevice = nil
+        wiimoteDisconnectWorkItem?.cancel()
+        wiimoteDisconnectWorkItem = nil
 
         releaseLatchedWiimoteButtons()
     }

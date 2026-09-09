@@ -324,6 +324,11 @@ class ControllerService: ObservableObject {
     var wiimoteHIDRegistrations: [WiimoteHIDRegistration] = []
     var wiimoteHIDActiveDevice: IOHIDDevice?
     var wiimoteHIDCallbackContext: UnsafeMutableRawPointer?
+    /// Pending debounced disconnect — interface churn must not flap the
+    /// connected state (each flip animates the empty-state card).
+    var wiimoteDisconnectWorkItem: DispatchWorkItem?
+    /// Last twin adoption uptime, to break removal↔adoption ping-pong loops.
+    var wiimoteLastAdoptionUptime: TimeInterval = 0
 
     /// Detects a stickless d-pad clone (8BitDo Zero 2 impersonating a Pro
     /// Controller in Switch mode or a DualShock 4 in Mac mode) from input
