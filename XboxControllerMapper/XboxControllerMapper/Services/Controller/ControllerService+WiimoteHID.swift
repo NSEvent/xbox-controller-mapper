@@ -178,8 +178,10 @@ extension ControllerService {
     }
 
     func wiimoteDeviceRemoved(_ device: IOHIDDevice) {
+        var removedKey: String?
         if let index = wiimoteHIDRegistrations.firstIndex(where: { $0.device == device }) {
             let registration = wiimoteHIDRegistrations.remove(at: index)
+            removedKey = registration.dedupeKey
             IOHIDDeviceRegisterInputReportCallback(
                 registration.device,
                 registration.reportBuffer,
@@ -198,13 +200,35 @@ extension ControllerService {
 
         releaseLatchedWiimoteButtons()
 
-        if wiimoteHIDActiveDevice == device {
-            wiimoteHIDActiveDevice = nil
-            if isConnected, connectedController == nil {
-                controllerDisconnected()
+        guard wiimoteHIDActiveDevice == device else { return }
+        wiimoteHIDActiveDevice = nil
+
+        // macOS tears down and recreates the paired Wiimote's two HID
+        // interfaces independently, so the registered one dying doesn't mean
+        // the remote left — adopt a surviving twin interface for the same
+        // remote before declaring a disconnect. The adoption's status request
+        // (0x15) refreshes the button mask, healing any release report lost
+        // in the churn gap.
+        if let manager = wiimoteHIDManager,
+           let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice> {
+            let twin = devices.first { candidate in
+                candidate != device
+                    && (removedKey == nil || Self.wiimoteDedupeKey(candidate) == removedKey)
             }
-            NSLog("[ControllerKeys] Wii Remote disconnected")
+            if let twin {
+                NSLog("[ControllerKeys] Wii Remote interface churned — adopting surviving twin")
+                wiimoteDeviceAppeared(twin)
+                if wiimoteHIDActiveDevice == nil {
+                    wiimoteHIDActiveDevice = twin
+                }
+                return
+            }
         }
+
+        if isConnected, connectedController == nil {
+            controllerDisconnected()
+        }
+        NSLog("[ControllerKeys] Wii Remote disconnected")
     }
 
     /// Present the Wiimote as the connected controller — but never steal the
