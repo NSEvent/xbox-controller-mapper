@@ -9,6 +9,7 @@ struct ButtonMappingSheet: View {
 	    var isNintendo: Bool = false
 	    var isSteamController: Bool = false
 	    var isAppleTVRemote: Bool = false
+	    var isWiimote: Bool = false
 	    var selectedLayerId: UUID? = nil  // nil = editing base layer
 
     @EnvironmentObject var profileManager: ProfileManager
@@ -299,11 +300,11 @@ struct ButtonMappingSheet: View {
 
     private var header: some View {
         HStack {
-				ButtonIconView(button: button, isPressed: false, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
+				ButtonIconView(button: button, isPressed: false, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote, isWiimote: isWiimote)
 					.padding(.trailing, 8)
 
 				VStack(alignment: .leading, spacing: 4) {
-					Text("Configure \(button.displayName(forDualSense: isDualSense, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote))")
+					Text("Configure \(button.displayName(forDualSense: isDualSense, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forWiimote: isWiimote))")
 						.font(.headline)
 
                 if let currentMapping = mapping {

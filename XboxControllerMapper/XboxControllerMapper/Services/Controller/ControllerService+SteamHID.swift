@@ -486,6 +486,7 @@ extension ControllerService {
 			UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
 			UserDefaults.standard.set(false, forKey: Config.lastControllerWasAppleTVRemoteKey)
 			UserDefaults.standard.set(true, forKey: Config.lastControllerWasSteamControllerKey)
+			UserDefaults.standard.set(false, forKey: Config.lastControllerWasWiimoteKey)
 
         batteryLevel = -1
         batteryState = .unknown

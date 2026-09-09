@@ -164,9 +164,10 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
 										isDualSense: presentationState.isPlayStation,
 										isNintendo: presentationState.isNintendo,
 										isSteamController: presentationState.isSteamController,
-										isAppleTVRemote: presentationState.isAppleTVRemote
+										isAppleTVRemote: presentationState.isAppleTVRemote,
+										isWiimote: presentationState.isWiimote
 									)
-										.accessibilityLabel("Step \(index + 1): \(button.displayName(forDualSense: presentationState.isPlayStation, forNintendo: presentationState.isNintendo, forAppleTVRemote: presentationState.isAppleTVRemote))")
+										.accessibilityLabel("Step \(index + 1): \(button.displayName(forDualSense: presentationState.isPlayStation, forNintendo: presentationState.isNintendo, forAppleTVRemote: presentationState.isAppleTVRemote, forWiimote: presentationState.isWiimote))")
 										Button(action: {
 											steps.remove(at: index)
 										}) {
@@ -636,7 +637,8 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
 				isDualSense: presentationState.isPlayStation,
 				isNintendo: presentationState.isNintendo,
 				isSteamController: presentationState.isSteamController,
-				isAppleTVRemote: presentationState.isAppleTVRemote
+				isAppleTVRemote: presentationState.isAppleTVRemote,
+				isWiimote: presentationState.isWiimote
 			)
 				.scaleEffect(scale)
 		}

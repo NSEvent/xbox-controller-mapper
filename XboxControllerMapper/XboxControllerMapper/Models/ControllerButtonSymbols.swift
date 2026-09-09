@@ -20,6 +20,18 @@ extension ControllerButton {
 		}
 	}
 
+	/// SF Symbol name for the Wii Remote. The relabeled buttons (1/2/+/−)
+	/// render as text labels, so return nil for them; Home reuses the house
+	/// symbol like other Nintendo controllers.
+	func systemImageName(forWiimote isWiimote: Bool) -> String? {
+		guard isWiimote else { return systemImageName }
+		switch self {
+		case .x, .y, .menu, .view: return nil
+		case .xbox: return "house"
+		default: return systemImageName
+		}
+	}
+
 	/// SF Symbol name for Apple TV/Siri Remote controls.
 	func systemImageName(forAppleTVRemote isAppleTVRemote: Bool) -> String? {
 		guard isAppleTVRemote else { return systemImageName }

@@ -263,6 +263,7 @@ struct ContentView: View {
 					isNintendo: controllerVisualDescriptor.isNintendo,
 					isSteamController: controllerVisualDescriptor.isSteamController,
 					isAppleTVRemote: controllerVisualDescriptor.isAppleTVRemote,
+					isWiimote: controllerVisualDescriptor.isWiimote,
 					selectedLayerId: selectedLayerId
 				)
         }

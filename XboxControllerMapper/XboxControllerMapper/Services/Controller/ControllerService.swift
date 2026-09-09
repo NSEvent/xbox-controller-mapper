@@ -54,6 +54,7 @@ final class ControllerStorage: @unchecked Sendable {
     var isXboxElite: Bool = false  // Xbox Elite Series 2 controller
     var isSteamController: Bool = false
     var isAppleTVRemote: Bool = false
+    var isWiimote: Bool = false    // Nintendo Wii Remote (raw HID backend)
     /// Non-nil when the connected pad is one of the small 8BitDo models
     /// (drives the dedicated minimap preview).
     var eightBitDoModel: EightBitDoMinimapModel?
@@ -851,7 +852,8 @@ class ControllerService: ObservableObject {
 			isNintendo: UserDefaults.standard.bool(forKey: Config.lastControllerWasNintendoKey),
 			isXboxElite: UserDefaults.standard.bool(forKey: Config.lastControllerWasXboxEliteKey),
 			isSteamController: UserDefaults.standard.bool(forKey: Config.lastControllerWasSteamControllerKey),
-			isAppleTVRemote: UserDefaults.standard.bool(forKey: Config.lastControllerWasAppleTVRemoteKey)
+			isAppleTVRemote: UserDefaults.standard.bool(forKey: Config.lastControllerWasAppleTVRemoteKey),
+			isWiimote: UserDefaults.standard.bool(forKey: Config.lastControllerWasWiimoteKey)
 		)
 
         // Screenshot mode: force the preview to the requested variant and
@@ -1788,6 +1790,7 @@ class ControllerService: ObservableObject {
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasWiimoteKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasAppleTVRemoteKey)
     }
 
@@ -1967,6 +1970,7 @@ class ControllerService: ObservableObject {
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasWiimoteKey)
 
             // Trigger battery monitor refresh for Xbox controller
             batteryMonitor.refreshBatteryLevel()
@@ -2043,6 +2047,7 @@ class ControllerService: ObservableObject {
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasWiimoteKey)
 
             setupTouchpadHandlers(
 				for: controller,
@@ -2071,6 +2076,7 @@ class ControllerService: ObservableObject {
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasWiimoteKey)
 
             setupTouchpadHandlers(
 				for: controller,
@@ -2122,6 +2128,7 @@ class ControllerService: ObservableObject {
 		UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
 		UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
 		UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
+		UserDefaults.standard.set(false, forKey: Config.lastControllerWasWiimoteKey)
 
 		controllerName = appleTVRemoteDisplayName(for: controller)
 
@@ -2293,6 +2300,7 @@ class ControllerService: ObservableObject {
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasWiimoteKey)
     }
 
     // MARK: - PhysicalInputProfile Handlers (Single Joy-Con, etc.)

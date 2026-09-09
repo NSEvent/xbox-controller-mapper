@@ -202,6 +202,21 @@ extension ControllerPreviewLayout {
                 guideURL: PairingGuideURL.nintendo
             )
 
+        case .wiimote:
+            return ControllerPairingGuide(
+                title: loc("Pair Your Wii Remote"),
+                tagline: loc("Nintendo Wii Remote (RVL-CNT-01)"),
+                systemImage: systemImage,
+                bluetoothSteps: [
+                    loc("Open the battery cover and tap the red **SYNC button** — all four LEDs blink while the remote is discoverable (about 20 seconds)."),
+                    loc("Pair while the LEDs are blinking. **System Settings → Bluetooth cannot pair a Wii Remote** — modern macOS rejects its old-style PIN, so use a Wiimote pairing helper on the Mac and tap SYNC again if the first attempt misses the window."),
+                    loc("Once paired, ControllerKeys connects automatically: **LED 1 turns solid** and the remote shows up as **Wii Remote**.")
+                ],
+                wiredNote: nil,
+                tip: loc("Fresh AA batteries matter — a weak Wii Remote answers scans but drops connections, which looks exactly like a pairing bug. The Power button is hardware-only (hold to switch the remote off) and can't be mapped."),
+                guideURL: nil
+            )
+
         case .steam:
             return ControllerPairingGuide(
                 title: loc("Pair Your Steam Controller"),

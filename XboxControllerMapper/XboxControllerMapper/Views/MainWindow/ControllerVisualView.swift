@@ -164,6 +164,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 	var isXboxElite: Bool { visualDescriptor.isXboxElite }
 	var isSteamController: Bool { visualDescriptor.isSteamController }
 	var isNintendo: Bool { visualDescriptor.isNintendo }
+	var isWiimote: Bool { visualDescriptor.isWiimote }
 	var isAppleTVRemote: Bool { visualDescriptor.isAppleTVRemote }
 	var isOuraRing: Bool { visualDescriptor.isOuraRing }
 	var isBeamdeskHands: Bool { visualDescriptor.isBeamdeskHands }
@@ -1239,7 +1240,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         .controllerAnchor(button, role: .label)
 		.opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)
 		.accessibilityElement(children: .combine)
-			.accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forEightBitDo: eightBitDoModel != nil))
+			.accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forEightBitDo: eightBitDoModel != nil, forWiimote: isWiimote))
 		.accessibilityValue(mappingAccessibilityValue(mapping: currentMapping, layer: layerActivator, showsLayer: showsLayerActivator))
 		.accessibilityHint(showsLayerActivator ? "Double-tap to open layer" : "Double-tap to configure")
         .accessibilityAddTraits(.isButton)
@@ -1307,7 +1308,8 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 				isNintendo: isNintendo,
 				isSteamController: isSteamController,
 				isAppleTVRemote: isAppleTVRemote,
-				isEightBitDo: eightBitDoModel != nil
+				isEightBitDo: eightBitDoModel != nil,
+				isWiimote: isWiimote
 			)
         .scaleEffect(0.72)
         .frame(width: 22, height: 22)
@@ -1435,7 +1437,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         layer: Layer?,
         showsLayer: Bool
     ) -> String {
-			let title = button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forEightBitDo: eightBitDoModel != nil)
+			let title = button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forEightBitDo: eightBitDoModel != nil, forWiimote: isWiimote)
         if let layer, showsLayer {
             return "\(title)\nLayer Activator: \(layer.name)"
         }
@@ -1476,7 +1478,8 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 						isNintendo: isNintendo,
 						isSteamController: isSteamController,
 						isAppleTVRemote: isAppleTVRemote,
-						isEightBitDo: eightBitDoModel != nil
+						isEightBitDo: eightBitDoModel != nil,
+						isWiimote: isWiimote
 					)
 
 				// Layer activator badge — hidden when viewing a different layer
@@ -1560,7 +1563,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         .contentShape(Rectangle())
         .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)  // Dim all layer activators when viewing any layer
         .accessibilityElement(children: .combine)
-			.accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forEightBitDo: eightBitDoModel != nil))
+			.accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forEightBitDo: eightBitDoModel != nil, forWiimote: isWiimote))
 		.accessibilityValue(mappingAccessibilityValue(mapping: currentMapping, layer: layerActivator, showsLayer: showsLayerActivator))
 		.accessibilityHint(showsLayerActivator ? "Double-tap to open layer" : "Double-tap to configure")
         .accessibilityAddTraits(.isButton)

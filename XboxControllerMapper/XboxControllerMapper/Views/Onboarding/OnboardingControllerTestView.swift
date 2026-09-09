@@ -103,6 +103,7 @@ struct OnboardingControllerTestView: View {
         case .dualSenseEdge: return .dualSenseEdge
         case .dualShock: return .dualShock
         case .nintendo: return .nintendo
+        case .wiimote: return .wiimote
         case .steam: return .steam
         case .eightBitDo(let model):
             switch model {

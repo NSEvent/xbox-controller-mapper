@@ -10,6 +10,7 @@ struct ButtonIconView: View {
     let isSteamController: Bool
     let isAppleTVRemote: Bool
     let isEightBitDo: Bool
+    let isWiimote: Bool
     let showDirectionalArrows: Bool
 
     init(
@@ -20,6 +21,7 @@ struct ButtonIconView: View {
         isSteamController: Bool = false,
 		isAppleTVRemote: Bool = false,
         isEightBitDo: Bool = false,
+        isWiimote: Bool = false,
         showDirectionalArrows: Bool = false
     ) {
         self.button = button
@@ -29,6 +31,7 @@ struct ButtonIconView: View {
         self.isSteamController = isSteamController
 		self.isAppleTVRemote = isAppleTVRemote
         self.isEightBitDo = isEightBitDo
+        self.isWiimote = isWiimote
         self.showDirectionalArrows = showDirectionalArrows
     }
     
@@ -322,17 +325,20 @@ struct ButtonIconView: View {
 				}
             } else if button == .leftFunction || button == .rightFunction {
                 // Function buttons: show "LFn" or "RFn" text (similar to L1/R1)
-                Text(button.shortLabel(forDualSense: isDualSense, forNintendo: isNintendo))
+                Text(button.shortLabel(forDualSense: isDualSense, forNintendo: isNintendo, forWiimote: isWiimote))
                     .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
                     .foregroundColor(.white.opacity(0.95))
-            } else if let systemImage = isNintendo ? button.systemImageName(forNintendo: true) : button.systemImageName(forDualSense: isDualSense) {
+            } else if let systemImage = isWiimote
+                ? button.systemImageName(forWiimote: true)
+                : (isNintendo ? button.systemImageName(forNintendo: true) : button.systemImageName(forDualSense: isDualSense)) {
                 Image(systemName: systemImage)
                     .foregroundColor(.white.opacity(0.95))
             } else {
 				Text(button.shortLabel(
 					forDualSense: isDualSense,
 					forNintendo: isNintendo,
-					forAppleTVRemote: isAppleTVRemote
+					forAppleTVRemote: isAppleTVRemote,
+					forWiimote: isWiimote
 				))
                     .font(.system(size: fontSize, weight: .bold, design: .rounded))
                     .foregroundColor(.white.opacity(0.95))

@@ -75,8 +75,8 @@ extension ControllerService {
 
     /// Wiimote core buttons → mappable ControllerButton identities. 1/2 ride
     /// the X/Y slots and +/− the menu/view slots so every Wiimote button is
-    /// mappable with zero new enum cases; the Nintendo visual family provides
-    /// the button labels.
+    /// mappable with zero new enum cases; the `.wiimote` visual family
+    /// relabels them (1, 2, +, −, Home) in the UI.
     nonisolated static let wiimoteButtonMap: [(wiimote: WiimoteButtons, button: ControllerButton)] = [
         (.a, .a),
         (.b, .b),
@@ -212,7 +212,7 @@ extension ControllerService {
         storage.lock.lock()
         resetMotionStateLocked()
         resetTouchpadStateLocked()
-        storage.applyControllerTypeLocked(.nintendo(.unknown))
+        storage.applyControllerTypeLocked(.wiimote)
         storage.elitePaddleEventSource = .none
         storage.lock.unlock()
 
@@ -222,10 +222,11 @@ extension ControllerService {
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
-        UserDefaults.standard.set(true, forKey: Config.lastControllerWasNintendoKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasAppleTVRemoteKey)
+        UserDefaults.standard.set(true, forKey: Config.lastControllerWasWiimoteKey)
 
         batteryLevel = -1
         batteryState = .unknown
