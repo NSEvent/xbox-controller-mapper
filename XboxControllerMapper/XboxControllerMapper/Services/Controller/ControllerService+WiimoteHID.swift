@@ -458,7 +458,7 @@ extension ControllerService {
     /// Tilt below this (in g) parks the cursor so a steady hand holds still.
     nonisolated private static let wiimoteTiltDeadzoneG: Float = 0.12
     /// Max pointer speed in px per report at full 1g tilt (~100 reports/s).
-    nonisolated private static let wiimoteTiltMaxPerReport: Float = 11.0
+    nonisolated private static let wiimoteTiltMaxPerReport: Float = 24.0
 
     /// Quadratic response: gentle tilts give fine control, hard tilts sprint.
     nonisolated private static func wiimoteTiltVelocity(_ g: Float) -> CGFloat {
@@ -505,7 +505,7 @@ extension ControllerService {
         // face-up, IR end toward the screen: roll right → +X on screen,
         // nose down → +Y on screen.
         if buttons.contains(.b), let ax = parsed.wiimoteAccelX, let ay = parsed.wiimoteAccelY {
-            let dx = -Self.wiimoteTiltVelocity(ax)
+            let dx = Self.wiimoteTiltVelocity(ax)
             let dy = Self.wiimoteTiltVelocity(ay)
             if dx != 0 || dy != 0 {
                 wiimoteTiltMouse.moveMouse(dx: dx, dy: dy)
