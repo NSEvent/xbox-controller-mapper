@@ -36,3 +36,7 @@
 ## 2024-05-18 - [SwiftUI Button Accessibility]
 **Learning:** Using `.onTapGesture` on generic views like `HStack` prevents interactive elements from properly supporting keyboard focus and VoiceOver accessibility.
 **Action:** Always wrap interactive list rows in a `Button` with `.buttonStyle(.plain)` instead of attaching `.onTapGesture` to views, ensuring `.contentShape(Rectangle())` is applied within the button to maintain the clickable area.
+
+## 2024-11-20 - [SwiftUI Accessible Interactive Elements]
+**Learning:** Found instances where `.onTapGesture` was applied directly to layout containers (`HStack`), making them inaccessible to keyboard navigation and screen readers. Additionally, duplicate/delete icon buttons in lists were missing dynamic context in their `.help()` and `.accessibilityLabel()` modifiers (e.g., using "Duplicate step" instead of "Duplicate [step content]").
+**Action:** Always wrap interactive layout containers in a `Button` with `.buttonStyle(.plain)` instead of using `.onTapGesture`, ensuring `.contentShape(Rectangle())` is applied inside the button. For list item actions, interpolate dynamic context (e.g., `item.displayString`) into accessibility labels and tooltips.

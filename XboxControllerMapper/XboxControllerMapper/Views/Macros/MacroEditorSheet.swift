@@ -223,18 +223,21 @@ struct AddStepRow: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "plus.circle.fill")
-                .font(.system(size: 16))
-                .foregroundColor(.accentColor)
-            Text("Add Step")
-                .font(.system(size: 13))
+        Button(action: onTap) {
+            HStack(spacing: 8) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(.accentColor)
+                Text("Add Step")
+                    .font(.system(size: 13))
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, 8)
+            .background(isHovered ? Color.accentColor.opacity(0.15) : Color(nsColor: .controlBackgroundColor).opacity(0.3))
+            .cornerRadius(6)
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.vertical, 8)
-        .background(isHovered ? Color.accentColor.opacity(0.15) : Color(nsColor: .controlBackgroundColor).opacity(0.3))
-        .cornerRadius(6)
-        .contentShape(Rectangle())
+        .buttonStyle(.plain)
         .onHover { hovering in
             isHovered = hovering
             if hovering {
@@ -242,9 +245,6 @@ struct AddStepRow: View {
             } else {
                 NSCursor.pop()
             }
-        }
-        .onTapGesture {
-            onTap()
         }
     }
 }
@@ -285,8 +285,8 @@ struct MacroStepRow: View {
                     .foregroundColor(.secondary)
             }
             .buttonStyle(.plain)
-            .help("Duplicate step")
-            .accessibilityLabel("Duplicate step")
+            .help("Duplicate \(step.displayString)")
+            .accessibilityLabel("Duplicate \(step.displayString)")
 
             Button {
                 onDelete()
@@ -296,8 +296,8 @@ struct MacroStepRow: View {
                     .foregroundColor(.red.opacity(0.7))
             }
             .buttonStyle(.plain)
-            .help("Delete step")
-            .accessibilityLabel("Delete step")
+            .help("Delete \(step.displayString)")
+            .accessibilityLabel("Delete \(step.displayString)")
 
             Image(systemName: "chevron.right")
                 .font(.caption)
