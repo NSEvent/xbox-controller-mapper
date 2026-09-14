@@ -795,11 +795,7 @@ class MappingEngine: ObservableObject {
         state.lock.withLock {
             guard state.isEnabled, let profile = state.activeProfile else {
 				state.pressConsumedByAction.insert(button)
-                #if DEBUG
-                if state.isEnabled && state.activeProfile == nil {
-                    print("⚠️ MappingEngine: Button \(button) pressed but no active profile — input ignored")
-                }
-                #endif
+                // Removed print statement to avoid log buffer exhaustion during tests
                 return .blocked
             }
 
@@ -1736,11 +1732,7 @@ class MappingEngine: ObservableObject {
 
 		guard let startState = state.lock.withLock({ () -> ChordStartState? in
             guard state.isEnabled, let profile = state.activeProfile else {
-                #if DEBUG
-                if state.isEnabled && state.activeProfile == nil {
-                    print("⚠️ MappingEngine: Chord \(buttons) detected but no active profile — input ignored")
-                }
-                #endif
+                // Removed print statement to avoid log buffer exhaustion during tests
                 return nil
             }
 
