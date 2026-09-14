@@ -795,11 +795,7 @@ class MappingEngine: ObservableObject {
         state.lock.withLock {
             guard state.isEnabled, let profile = state.activeProfile else {
 				state.pressConsumedByAction.insert(button)
-                #if DEBUG
-                if state.isEnabled && state.activeProfile == nil {
-                    print("⚠️ MappingEngine: Button \(button) pressed but no active profile — input ignored")
-                }
-                #endif
+                // Removed print statement to avoid log buffer exhaustion during tests
                 return .blocked
             }
 
@@ -894,9 +890,6 @@ class MappingEngine: ObservableObject {
 
         case .layerActivated(let profile, let layerId):
 			if let layer = profile.layers.first(where: { $0.id == layerId }) {
-				#if DEBUG
-				print("🔷 Layer activated: \(layer.name)")
-				#endif
 				inputLogService?.log(buttons: [button], type: .singlePress, action: "Layer: \(layer.name)")
 			}
 			DispatchQueue.main.async { [weak self] in
@@ -907,9 +900,6 @@ class MappingEngine: ObservableObject {
 		case .layerToggled(let profile, let layerId, let isActive, let cleanup):
 			performRoutingBoundaryCleanup(cleanup)
 			if let layer = profile.layers.first(where: { $0.id == layerId }) {
-				#if DEBUG
-				print("🔷 Layer toggled \(isActive ? "on" : "off"): \(layer.name)")
-				#endif
 				inputLogService?.log(
 					buttons: [button],
 					type: .singlePress,
@@ -1469,7 +1459,7 @@ class MappingEngine: ObservableObject {
         if layerDeactivation.didDeactivate {
             #if DEBUG
             if let layerName = layerDeactivation.layerName {
-                print("🔷 Layer deactivated: \(layerName)")
+                // print Layer deactivated
             }
             #endif
 
@@ -1736,11 +1726,7 @@ class MappingEngine: ObservableObject {
 
 		guard let startState = state.lock.withLock({ () -> ChordStartState? in
             guard state.isEnabled, let profile = state.activeProfile else {
-                #if DEBUG
-                if state.isEnabled && state.activeProfile == nil {
-                    print("⚠️ MappingEngine: Chord \(buttons) detected but no active profile — input ignored")
-                }
-                #endif
+                // Removed print statement to avoid log buffer exhaustion during tests
                 return nil
             }
 
@@ -1821,9 +1807,6 @@ class MappingEngine: ObservableObject {
 				performRoutingBoundaryCleanup(cleanup)
 			}
 			if let layer = startState.profile.layers.first(where: { $0.id == change.layerId }) {
-				#if DEBUG
-				print("🔷 Layer \(change.isActive ? "activated" : "deactivated") via chord: \(layer.name)")
-				#endif
 				inputLogService?.log(
 					buttons: [change.button],
 					type: .singlePress,
