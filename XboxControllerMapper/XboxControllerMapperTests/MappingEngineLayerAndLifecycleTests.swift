@@ -779,7 +779,10 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
 		XCTAssertEqual(holdStopCount, 1, "Regular layer remap should leave realtime held-key path on release")
 	}
 
-	func testRealtimeRightStickClickRoutesNextTrackThroughHeldMediaPath() async throws {
+	/// Media transport keys are tap-semantic: in realtime mode they must NOT
+	/// take the held-key path (a held NX Next scrubs instead of skipping the
+	/// track — Discord #support 2026-08-12). They tap exactly like standard mode.
+	func testRealtimeRightStickClickTapsNextTrackInsteadOfHolding() async throws {
 		await MainActor.run {
 			installActiveProfile(
 				Profile(
@@ -804,21 +807,37 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
 
 		let events = mockInputSimulator.events
 		XCTAssertEqual(events.filter {
-			if case .keyDown(KeyCodeMapping.mediaNext) = $0 { return true }
+			if case .pressKey(KeyCodeMapping.mediaNext, _) = $0 { return true }
 			return false
-		}.count, 1)
-		XCTAssertEqual(events.filter {
-			if case .keyUp(KeyCodeMapping.mediaNext) = $0 { return true }
-			return false
-		}.count, 1)
+		}.count, 1, "media key should fire as a single tap")
 		XCTAssertEqual(events.filter {
 			if case .startHoldMapping(let mapping) = $0 { return mapping.keyCode == KeyCodeMapping.mediaNext }
 			return false
-		}.count, 1)
+		}.count, 0, "media key must not enter the realtime held-key path")
 		XCTAssertEqual(events.filter {
 			if case .stopHoldMapping(let mapping) = $0 { return mapping.keyCode == KeyCodeMapping.mediaNext }
 			return false
-		}.count, 1)
+		}.count, 0)
+	}
+
+	/// Realtime hold-path routing: media keys are excluded, ordinary keys keep it.
+	func testRealtimeHoldPathPolicyExcludesMediaKeys() {
+		let mediaMapping = KeyMapping(keyCode: KeyCodeMapping.mediaNext)
+		XCTAssertFalse(
+			ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(mapping: mediaMapping, isChordPart: false)
+		)
+		XCTAssertFalse(
+			ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(
+				mapping: KeyMapping(keyCode: KeyCodeMapping.mediaPlayPause),
+				isChordPart: false
+			)
+		)
+		XCTAssertTrue(
+			ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(
+				mapping: KeyMapping(keyCode: 50),
+				isChordPart: false
+			)
+		)
 	}
 
     /// Test 6: The layer activator button itself does not emit its own key mapping.
