@@ -54,6 +54,8 @@ struct SettingsSheet: View {
     @AppStorage("universalControlRelayHost") private var relayRemoteHost = "kmacstudio"
     @AppStorage("universalControlRelayPort") private var relayRemotePort = 38383
     @AppStorage(WindowBackgroundDefaults.opacityKey) private var windowBackgroundOpacity: Double = WindowBackgroundDefaults.defaultOpacity
+    @AppStorage(ActionFeedbackDefaults.enabledKey) private var actionFeedbackEnabled = true
+    @AppStorage(ActionFeedbackDefaults.durationKey) private var actionFeedbackDuration: Double = ActionFeedbackDefaults.defaultDuration
     @AppStorage("telemetryEnabled") private var shareUsageData = true
 
 	@ObservedObject private var license = LicenseManager.shared
@@ -447,6 +449,37 @@ struct SettingsSheet: View {
                     .controlSize(.small)
                 }
             }
+        }
+        Section {
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle("Cursor Hints", isOn: $actionFeedbackEnabled)
+                Text("Shows the triggered action in a small bubble above the cursor. Also toggleable from the toolbar on the Buttons tab.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Cursor Hint Duration")
+                    Spacer()
+                    Text(String(format: "%.1fs", actionFeedbackDuration))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: $actionFeedbackDuration, in: ActionFeedbackDefaults.durationRange)
+                HStack {
+                    Text("How long the hint stays on screen after a button press.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                    Button("Reset") {
+                        actionFeedbackDuration = ActionFeedbackDefaults.defaultDuration
+                    }
+                    .controlSize(.small)
+                }
+            }
+            .disabled(!actionFeedbackEnabled)
         }
     }
 

@@ -1,6 +1,32 @@
 import SwiftUI
 import AppKit
 
+/// Keys, bounds, and pure helpers for the cursor action-feedback (Cursor Hints) settings.
+enum ActionFeedbackDefaults {
+    static let enabledKey = "actionFeedbackEnabled"
+    static let durationKey = "actionFeedbackDuration"
+    static let defaultDuration: TimeInterval = 1.2
+    static let durationRange: ClosedRange<TimeInterval> = 0.3...3.0
+    /// Quick taps on held actions stay visible at least this long
+    static let quickTapFloor: TimeInterval = 0.8
+
+    static func clampedDuration(_ value: TimeInterval) -> TimeInterval {
+        min(max(value, durationRange.lowerBound), durationRange.upperBound)
+    }
+
+    /// The configured display duration, falling back to the default when unset
+    static func resolvedDuration(from defaults: UserDefaults) -> TimeInterval {
+        guard defaults.object(forKey: durationKey) != nil else { return defaultDuration }
+        return clampedDuration(defaults.double(forKey: durationKey))
+    }
+
+    /// The quick-tap floor must never exceed the configured duration,
+    /// or short durations would be silently overridden
+    static func minimumDisplayDuration(for duration: TimeInterval) -> TimeInterval {
+        min(quickTapFloor, duration)
+    }
+}
+
 /// Displays action feedback above the cursor when controller buttons are pressed
 @MainActor
 class ActionFeedbackIndicator {
@@ -10,12 +36,12 @@ class ActionFeedbackIndicator {
     static var isEnabled: Bool {
         get {
             // Default to true if key hasn't been set
-            if UserDefaults.standard.object(forKey: "actionFeedbackEnabled") == nil {
+            if UserDefaults.standard.object(forKey: ActionFeedbackDefaults.enabledKey) == nil {
                 return true
             }
-            return UserDefaults.standard.bool(forKey: "actionFeedbackEnabled")
+            return UserDefaults.standard.bool(forKey: ActionFeedbackDefaults.enabledKey)
         }
-        set { UserDefaults.standard.set(newValue, forKey: "actionFeedbackEnabled") }
+        set { UserDefaults.standard.set(newValue, forKey: ActionFeedbackDefaults.enabledKey) }
     }
 
     private var panel: NSPanel?
@@ -28,9 +54,13 @@ class ActionFeedbackIndicator {
     private var heldActions: [String: InputEventType] = [:]
 
     /// How long the feedback stays visible (for non-held actions)
-    private let displayDuration: TimeInterval = 1.2
+    private var displayDuration: TimeInterval {
+        ActionFeedbackDefaults.resolvedDuration(from: .standard)
+    }
     /// Minimum display time even for quick taps on held actions
-    private let minimumDisplayDuration: TimeInterval = 0.8
+    private var minimumDisplayDuration: TimeInterval {
+        ActionFeedbackDefaults.minimumDisplayDuration(for: displayDuration)
+    }
     /// Offset above the cursor
     private let cursorOffset: CGFloat = 30
 
