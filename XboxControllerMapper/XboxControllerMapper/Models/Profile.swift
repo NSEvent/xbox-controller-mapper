@@ -163,7 +163,9 @@ enum DPadPreset: String, Codable, CaseIterable, Identifiable {
 			mapping.midiControlChange = nil
             mapping.hint = nil
             mapping.isHoldModifier = false
-            mapping.repeatMapping = RepeatMapping(enabled: true, interval: 0.05)
+            // Preset directions use the held-key path (diagonal movement);
+            // repeat-while-held is opt-in and opts the direction out of it.
+            mapping.repeatMapping = RepeatMapping(enabled: false, interval: 0.05)
             mappings[button] = mapping
         }
     }
@@ -495,19 +497,19 @@ struct Profile: Codable, Identifiable, Equatable {
         // D-pad as arrow keys with repeat
         mappings[.dpadUp] = KeyMapping(
             keyCode: KeyCodeMapping.upArrow,
-            repeatMapping: RepeatMapping(enabled: true, interval: 0.05)
+            repeatMapping: RepeatMapping(enabled: false, interval: 0.05)
         )
         mappings[.dpadDown] = KeyMapping(
             keyCode: KeyCodeMapping.downArrow,
-            repeatMapping: RepeatMapping(enabled: true, interval: 0.05)
+            repeatMapping: RepeatMapping(enabled: false, interval: 0.05)
         )
         mappings[.dpadLeft] = KeyMapping(
             keyCode: KeyCodeMapping.leftArrow,
-            repeatMapping: RepeatMapping(enabled: true, interval: 0.05)
+            repeatMapping: RepeatMapping(enabled: false, interval: 0.05)
         )
         mappings[.dpadRight] = KeyMapping(
             keyCode: KeyCodeMapping.rightArrow,
-            repeatMapping: RepeatMapping(enabled: true, interval: 0.05)
+            repeatMapping: RepeatMapping(enabled: false, interval: 0.05)
         )
 
         // Special buttons
@@ -755,6 +757,26 @@ extension Profile {
         })
 
         migrateLegacyStickKeyModes()
+        migrateLegacyDPadPresetRepeatSeeds()
+    }
+
+    /// 2.7.x and earlier seeded the four preset d-pad directions with
+    /// repeatMapping enabled (20 Hz) even though the preset hold path ignored
+    /// it. Now that an enabled repeat opts a direction out of the hold path,
+    /// flip untouched seeds off on load so upgraders keep held-diagonal
+    /// movement instead of silently switching to discrete repeat. A repeat
+    /// config that differs from the exact legacy seed is user-authored and
+    /// is left alone.
+    private mutating func migrateLegacyDPadPresetRepeatSeeds() {
+        guard dpadPreset != .custom else { return }
+        let legacySeed = RepeatMapping(enabled: true, interval: 0.05)
+        for button in DPadPreset.buttons {
+            guard var mapping = buttonMappings[button],
+                  mapping.keyCode == dpadPreset.primaryKeyCode(for: button),
+                  mapping.repeatMapping == legacySeed else { continue }
+            mapping.repeatMapping?.enabled = false
+            buttonMappings[button] = mapping
+        }
     }
 
     /// Mutates `stringKeyedMappings` in place, rewriting the four schema-v2

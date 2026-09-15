@@ -30,12 +30,25 @@ final class ButtonInteractionFlowPolicyTests: XCTestCase {
     }
 
 	func testShouldUseHoldPathReturnsTrueForDPadPresetMovementMapping() {
-		let mapping = KeyMapping(keyCode: KeyCodeMapping.keyW, repeatMapping: RepeatMapping(enabled: true))
+		let mapping = KeyMapping(keyCode: KeyCodeMapping.keyW)
 
 		XCTAssertTrue(ButtonInteractionFlowPolicy.shouldUseHoldPath(
 			button: .dpadUp,
 			mapping: mapping,
 			isChordPart: true,
+			isDPadPresetDirection: true
+		))
+	}
+
+	func testShouldUseHoldPathReturnsFalseForDPadPresetDirectionWithExplicitRepeat() {
+		// An enabled repeat-while-held opts the preset direction out of the
+		// forced hold path so the user's repeat config is honored.
+		let mapping = KeyMapping(keyCode: KeyCodeMapping.keyW, repeatMapping: RepeatMapping(enabled: true))
+
+		XCTAssertFalse(ButtonInteractionFlowPolicy.shouldUseHoldPath(
+			button: .dpadUp,
+			mapping: mapping,
+			isChordPart: false,
 			isDPadPresetDirection: true
 		))
 	}

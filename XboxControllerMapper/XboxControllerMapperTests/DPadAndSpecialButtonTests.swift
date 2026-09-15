@@ -198,6 +198,66 @@ final class DPadAndSpecialButtonTests: MappingEngineTestCase {
 		}
 	}
 
+	/// Regression for Discord #support 2026-07-30: on an arrows-preset
+	/// profile, a direction with repeat-while-held explicitly enabled must
+	/// repeat instead of being forced onto the preset hold path, while
+	/// directions without repeat keep held-key movement.
+	func testArrowsPresetDirectionWithExplicitRepeatRepeatsInsteadOfHolding() async throws {
+		await MainActor.run {
+			var mappings: [ControllerButton: KeyMapping] = [:]
+			DPadPreset.arrows.apply(to: &mappings)
+			mappings[.dpadUp]?.repeatMapping = RepeatMapping(enabled: true, interval: 0.05)
+			profileManager.setActiveProfile(
+				Profile(name: "Arrows Preset Repeat", buttonMappings: mappings, dpadPreset: .arrows)
+			)
+		}
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		await MainActor.run {
+			controllerService.buttonPressed(.dpadUp)
+		}
+		let didRepeat = await waitForCondition {
+			self.mockInputSimulator.events.filter { event in
+				if case .executeMapping(let mapping) = event {
+					return mapping.keyCode == KeyCodeMapping.upArrow
+				}
+				return false
+			}.count > 1
+		}
+
+		await MainActor.run {
+			controllerService.buttonReleased(.dpadUp)
+		}
+		await waitForTasks()
+		XCTAssertTrue(didRepeat, "Explicit repeat on a preset direction should produce repeated output")
+
+		await MainActor.run {
+			let usedPresetHoldPath = mockInputSimulator.events.contains { event in
+				if case .startHoldMapping(let mapping) = event {
+					return mapping.keyCode == KeyCodeMapping.upArrow
+				}
+				return false
+			}
+			XCTAssertFalse(usedPresetHoldPath, "Repeat-enabled preset direction must not use the hold path")
+
+			// A sibling direction without repeat keeps held-key movement.
+			controllerService.buttonPressed(.dpadLeft)
+		}
+		await waitForTasks()
+
+		await MainActor.run {
+			let heldLeft = mockInputSimulator.events.contains { event in
+				if case .startHoldMapping(let mapping) = event {
+					return mapping.keyCode == KeyCodeMapping.leftArrow
+				}
+				return false
+			}
+			XCTAssertTrue(heldLeft, "Preset direction without repeat should keep the held-key path")
+			controllerService.buttonReleased(.dpadLeft)
+		}
+		await waitForTasks()
+	}
+
     // MARK: - Trigger Button Mapping Tests (High Priority)
 
     /// Tests left trigger as a button (digital, not analog)

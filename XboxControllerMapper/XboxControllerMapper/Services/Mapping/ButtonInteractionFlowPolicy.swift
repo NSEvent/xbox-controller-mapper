@@ -38,12 +38,16 @@ enum ButtonInteractionFlowPolicy {
 		mapping: KeyMapping,
 		isDPadPresetDirection: Bool
 	) -> Bool {
+		// An explicitly enabled repeat-while-held opts the direction out of
+		// the preset hold path — otherwise the user's repeat config would be
+		// silently bypassed (Discord #support 2026-07-30).
 		guard isDPadPresetDirection,
 			  let button,
 			  DPadPreset.buttons.contains(button),
 			  mapping.effectiveActionType == .keyPress,
 			  mapping.keyCode != nil,
 			  !mapping.modifiers.hasAny,
+			  !(mapping.repeatMapping?.enabled ?? false),
 			  mapping.longHoldMapping?.isEmpty ?? true,
 			  mapping.doubleTapMapping?.isEmpty ?? true else {
 			return false

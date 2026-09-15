@@ -267,6 +267,11 @@ final class LayerAndConfigCoverageTests: XCTestCase {
 	func testLegacyProfileWithAmbiguous20HzDPadMappingsMigratesToCustom() throws {
 		var mappings: [ControllerButton: KeyMapping] = [:]
 		DPadPreset.arrows.apply(to: &mappings)
+		// 2.6.2 seeded preset directions with repeat enabled at 20 Hz; apply()
+		// no longer does, so recreate the legacy on-disk shape explicitly.
+		for button in DPadPreset.buttons {
+			mappings[button]?.repeatMapping = RepeatMapping(enabled: true, interval: 0.05)
+		}
 		let affectedProfile = Profile(
 			name: "Affected 2.6.2 Profile",
 			buttonMappings: mappings,
