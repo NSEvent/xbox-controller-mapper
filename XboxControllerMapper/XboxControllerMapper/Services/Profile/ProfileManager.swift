@@ -216,18 +216,18 @@ class ProfileManager: ObservableObject {
             return
         }
 
-        #if DEBUG
-        switch action.reason {
-        case .restoreEditingProfile:
-            print("🔄 Restoring editing profile: \(profile.name)")
-        case .linkedApp(let bundleId):
-            print("🔄 Auto-switching to profile: \(profile.name) for app: \(bundleId)")
-        case .linkedController(let displayName):
-            print("🔄 Auto-switching to profile: \(profile.name) for controller: \(displayName)")
-        case .defaultProfile(let bundleId):
-            print("🔄 Auto-switching to default profile for app: \(bundleId)")
-        }
-        #endif
+        // #if DEBUG
+        // switch action.reason {
+        // case .restoreEditingProfile:
+        //     print("🔄 Restoring editing profile: \(profile.name)")
+        // case .linkedApp(let bundleId):
+        //     print("🔄 Auto-switching to profile: \(profile.name) for app: \(bundleId)")
+        // case .linkedController(let displayName):
+        //     print("🔄 Auto-switching to profile: \(profile.name) for controller: \(displayName)")
+        // case .defaultProfile(let bundleId):
+        //     print("🔄 Auto-switching to default profile for app: \(bundleId)")
+        // }
+        // #endif
 
 		setActiveProfile(profile, isAutomatic: true)
     }
