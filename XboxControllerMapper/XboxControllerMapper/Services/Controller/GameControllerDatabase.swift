@@ -377,12 +377,12 @@ class GameControllerDatabase {
 	installMappings(macMappings: macMappings, platformMappings: platformMappings)
 
 	guard loadedAnyDatabase else {
-            #if DEBUG
-            if !Self.didLogMissingDatabase {
-                Self.didLogMissingDatabase = true
-                print("[GameControllerDB] No database file found")
-            }
-            #endif
+            // #if DEBUG
+            // if !Self.didLogMissingDatabase {
+            //     Self.didLogMissingDatabase = true
+            //     print("[GameControllerDB] No database file found")
+            // }
+            // #endif
             return
         }
 
