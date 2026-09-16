@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-09-15
+
+### Added
+
+- **Cursor Hints controls in Settings**: the on-cursor hint that shows which action just fired can now be turned off in Settings → Appearance — previously the toggle existed only as a toolbar button on the Buttons tab, where several users couldn't find it. A new duration slider (0.3–3.0s) controls how long the hint stays on screen; short durations are no longer overridden by the quick-tap minimum.
+
+### Fixed
+
+- **Media keys work in Realtime mode**: Next Track, Previous Track, and Play/Pause mapped under Settings → Input → Realtime were held for the whole button press, which macOS treats as scrubbing rather than a skip — so "next track" appeared to do nothing. These keys now tap exactly like standard mode. Fast Forward and Rewind deliberately keep their hold-to-seek behavior, as do volume and brightness keys.
+- **"Repeat action while held" is honored on d-pad preset directions**: with the Arrows or WASD preset, the repeat checkbox appeared pre-checked but was silently bypassed — the preset always forced held keys, and setting the fourth direction made the whole d-pad look stuck in hold mode. Presets now leave repeat unchecked by default, checking it genuinely repeats that direction, and existing profiles are migrated so held-diagonal movement is unchanged after updating.
+
 ## [2.7.3] - 2026-09-08
 
 ### Fixed
