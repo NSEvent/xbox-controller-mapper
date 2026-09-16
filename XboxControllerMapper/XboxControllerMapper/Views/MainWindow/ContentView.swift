@@ -88,7 +88,7 @@ struct ContentView: View {
     // the button, the menu bar, or the overlay's own close button. The matching
     // ActionFeedbackIndicator / StreamOverlayManager getters read the same keys,
     // so they stay in sync. Stream show/hide is driven by .onChange below.
-    @AppStorage("actionFeedbackEnabled") private var actionFeedbackEnabled = true
+    @AppStorage(ActionFeedbackDefaults.enabledKey) private var actionFeedbackEnabled = true
     @AppStorage("streamOverlayEnabled") private var streamOverlayEnabled = false
     var body: some View {
         HSplitView {
