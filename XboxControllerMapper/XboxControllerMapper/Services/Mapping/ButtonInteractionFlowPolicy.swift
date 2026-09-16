@@ -63,14 +63,16 @@ enum ButtonInteractionFlowPolicy {
 	) -> Bool {
 		// When a different layer is active, its remap of another layer's
 		// activator should keep tap semantics instead of becoming a held key.
-		// Media keys are also tap-semantic: holding the NX event for the whole
-		// physical press makes Next/Previous scrub instead of skip, so they
-		// take the tap path exactly like standard (non-realtime) mode.
+		// Track-skip/play-pause keys are also tap-semantic: holding the NX
+		// event for the whole physical press makes Next/Previous scrub
+		// instead of skip, so they take the tap path exactly like standard
+		// (non-realtime) mode. Fast Forward/Rewind and volume/brightness
+		// stay hold-eligible (hold-to-seek and step-at-press).
 		guard !isChordPart,
 			  !isOtherLayerActivatorPress,
 			  mapping.effectiveActionType == .keyPress,
 			  let keyCode = mapping.keyCode,
-			  !KeyCodeMapping.isMediaKey(keyCode),
+			  !KeyCodeMapping.isTapOnlyMediaKey(keyCode),
 			  mapping.longHoldMapping?.isEmpty ?? true,
 			  mapping.doubleTapMapping?.isEmpty ?? true,
 			  !(mapping.repeatMapping?.enabled ?? false) else {

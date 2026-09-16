@@ -514,6 +514,14 @@ enum KeyCodeMapping {
         (keyCode >= 0xF040 && keyCode <= 0xF041)     // Brightness
     }
 
+    /// Media keys whose action is tap-semantic: a sustained NX down makes
+    /// macOS scrub/seek instead of firing the discrete action. Fast Forward
+    /// and Rewind are deliberately NOT included — their purpose is
+    /// hold-to-seek, so they stay hold-eligible (as do volume/brightness).
+    static func isTapOnlyMediaKey(_ keyCode: CGKeyCode) -> Bool {
+        keyCode == mediaPlayPause || keyCode == mediaNext || keyCode == mediaPrevious
+    }
+
     /// Checks if a key code is a special marker that shouldn't be sent as a key event
     static func isSpecialMarker(_ keyCode: CGKeyCode) -> Bool {
 		isMouseButton(keyCode) ||

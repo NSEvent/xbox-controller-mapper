@@ -820,24 +820,27 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
 		}.count, 0)
 	}
 
-	/// Realtime hold-path routing: media keys are excluded, ordinary keys keep it.
-	func testRealtimeHoldPathPolicyExcludesMediaKeys() {
-		let mediaMapping = KeyMapping(keyCode: KeyCodeMapping.mediaNext)
-		XCTAssertFalse(
-			ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(mapping: mediaMapping, isChordPart: false)
-		)
-		XCTAssertFalse(
-			ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(
-				mapping: KeyMapping(keyCode: KeyCodeMapping.mediaPlayPause),
-				isChordPart: false
+	/// Realtime hold-path routing: tap-semantic transport keys are excluded;
+	/// hold-to-seek (FF/Rewind), volume, and ordinary keys keep the hold path.
+	func testRealtimeHoldPathPolicyExcludesOnlyTapSemanticMediaKeys() {
+		for tapOnly in [KeyCodeMapping.mediaNext, KeyCodeMapping.mediaPrevious, KeyCodeMapping.mediaPlayPause] {
+			XCTAssertFalse(
+				ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(
+					mapping: KeyMapping(keyCode: tapOnly),
+					isChordPart: false
+				),
+				"tap-semantic media key \(tapOnly) must not enter the realtime hold path"
 			)
-		)
-		XCTAssertTrue(
-			ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(
-				mapping: KeyMapping(keyCode: 50),
-				isChordPart: false
+		}
+		for holdEligible in [KeyCodeMapping.mediaFastForward, KeyCodeMapping.mediaRewind, KeyCodeMapping.volumeUp, CGKeyCode(50)] {
+			XCTAssertTrue(
+				ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(
+					mapping: KeyMapping(keyCode: holdEligible),
+					isChordPart: false
+				),
+				"hold-eligible key \(holdEligible) must keep the realtime hold path"
 			)
-		)
+		}
 	}
 
     /// Test 6: The layer activator button itself does not emit its own key mapping.
