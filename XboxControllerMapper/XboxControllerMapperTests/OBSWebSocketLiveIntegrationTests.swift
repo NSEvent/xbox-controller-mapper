@@ -165,7 +165,7 @@ private enum OBSMediaMTXManager {
         which.arguments = ["mediamtx"]
         let outPipe = Pipe()
         which.standardOutput = outPipe
-        which.standardError = Pipe()
+        which.standardError = FileHandle.nullDevice
         try? which.run()
         which.waitUntilExit()
         if which.terminationStatus == 0 {
@@ -239,8 +239,8 @@ private enum OBSMediaMTXManager {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/nc")
         p.arguments = ["-z", host, "\(port)"]
-        p.standardOutput = Pipe()
-        p.standardError = Pipe()
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
         do {
             try p.run()
         } catch {
