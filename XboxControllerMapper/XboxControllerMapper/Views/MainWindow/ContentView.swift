@@ -29,11 +29,15 @@ struct ContentView: View {
 	@State private var layerLEDSettingsSelection: LayerConfigurationSelection?
     @AppStorage("hasSeenConfigurationOverview") private var hasSeenConfigurationOverview = false
     @AppStorage("hasShownTrialWelcome") private var hasShownTrialWelcome = false
-    // One-shot: the trial-expired sheet at the moment (or first window-open
-    // after) the trial ends — the peak-intent conversion moment.
-    @AppStorage("hasShownExpirySheet") private var hasShownExpirySheet = false
+    // Automatic presentations of the trial-expired sheet (expiry transition,
+    // or window open while expired) happen at most once per week. Seconds
+    // since the reference date; 0 = never shown. User-initiated opens (locked
+    // toggle, menu bar, notification click) bypass the cap but reset it.
+    @AppStorage("lastExpiryPromptAt") private var lastExpiryPromptAt = 0.0
     @ObservedObject private var license = LicenseManager.shared
     @State private var showingWelcome = false
+    // Which surface asked for the welcome/license sheet — telemetry dimension.
+    @State private var welcomeSurface = "expired_sheet"
     // One-time, dismissible "leave a review" nudge for long-time licensed users.
     // Timing/one-shot logic lives in ReviewRequestManager; this only drives the
     // sheet.
@@ -105,7 +109,8 @@ struct ContentView: View {
 				ContentToolbar(
 					showingSettingsSheet: $showingSettingsSheet,
 					profileSidebarVisible: $profileSidebarVisible,
-					showingCommandPalette: $showingCommandPalette
+					showingCommandPalette: $showingCommandPalette,
+					onLockedMappingTap: { presentLicensePrompt(surface: "locked_toggle") }
 				)
                     .zIndex(1) // Keep above content
 
@@ -305,11 +310,11 @@ struct ContentView: View {
 			LayerLEDSettingsSheet(profileId: selection.profileId, layerId: selection.layerId)
 		}
         .isolatedSheet(isPresented: $showingWelcome) {
-            TrialWelcomeSheet {
+            TrialWelcomeSheet(onDone: {
                 hasShownTrialWelcome = true
                 showingWelcome = false
 				scheduleConfigurationOverviewIntroduction()
-            }
+            }, paywallSurface: welcomeSurface)
             .interactiveDismissDisabled()
         }
         .isolatedSheet(isPresented: $showingReviewRequest) {
@@ -470,20 +475,31 @@ struct ContentView: View {
 			if SettingsUIRequest.consumePending() {
                 showingSettingsSheet = true
             }
+            if let surface = LicenseUIRequest.consumePending() {
+                presentLicensePrompt(surface: surface)
+            }
         }
-        // Trial expiry is the peak-intent moment: surface the license sheet
-        // exactly once, whether the transition happens live (hourly refresh
-        // while the window is open) or is discovered at the next window open.
-        // First-run users are excluded — the onboarding → trial-welcome chain
-        // already shows the same sheet with the expired headline.
+        // Trial expiry is the peak-intent moment: surface the license sheet on
+        // the transition, whether it happens live (hourly refresh while the
+        // window is open) or is discovered at the next window open — then at
+        // most weekly thereafter, so late deciders get re-asked without the
+        // sheet becoming wallpaper. First-run users are excluded — the
+        // onboarding → trial-welcome chain already shows the same sheet with
+        // the expired headline.
         .onReceive(license.$status) { status in
             guard case .expired = status,
-                  !hasShownExpirySheet,
                   hasShownTrialWelcome,
                   !showingWelcome, !showingOnboarding,
-                  AppRuntime.screenshotVariant == nil else { return }
-            hasShownExpirySheet = true
-            showingWelcome = true
+                  AppRuntime.screenshotVariant == nil,
+                  Date().timeIntervalSinceReferenceDate - lastExpiryPromptAt >= Self.expiryPromptRepeatInterval
+            else { return }
+            presentLicensePrompt(surface: "expired_sheet")
+        }
+        // Menu-bar expired row / trial-notification click → license sheet.
+        .onReceive(NotificationCenter.default.publisher(for: .openLicensePrompt)) { _ in
+            if let surface = LicenseUIRequest.consumePending() {
+                presentLicensePrompt(surface: surface)
+            }
         }
         // Start the review-request clock the moment the app becomes licensed, so
         // the 7-day wait is anchored to activation rather than the next relaunch.
@@ -732,6 +748,19 @@ struct ContentView: View {
 		withAnimation(.easeInOut(duration: 0.16)) {
 			selectedTab = section.rawValue
 		}
+	}
+
+	/// Minimum spacing between *automatic* presentations of the expired sheet.
+	private static let expiryPromptRepeatInterval: TimeInterval = 7 * 86_400
+
+	/// Shows the trial/license sheet and stamps the auto-prompt clock so
+	/// automatic re-prompts stay weekly. `surface` flows into paywall/checkout
+	/// telemetry so each entry point's conversion is separately measurable.
+	private func presentLicensePrompt(surface: String) {
+		welcomeSurface = surface
+		lastExpiryPromptAt = Date().timeIntervalSinceReferenceDate
+		showingSettingsSheet = false
+		showingWelcome = true
 	}
 
 	private func scheduleConfigurationOverviewIntroduction() {

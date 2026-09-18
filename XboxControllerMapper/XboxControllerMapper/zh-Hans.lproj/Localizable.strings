@@ -793,6 +793,14 @@
 "This license is no longer valid (the purchase was refunded or disputed)." = "此许可证已失效（该购买已退款或存在争议）。";
 "License activated — thank you for your support!" = "许可证已激活——感谢您的支持！";
 "Couldn't reach Gumroad. Check your connection and try again." = "无法连接 Gumroad。请检查网络连接后重试。";
+
+/* Trial expiry notifications + priced buy buttons (added 2026-09-18) */
+"Buy ControllerKeys — %@" = "购买 ControllerKeys——%@";
+"Buy a license — %@" = "购买许可证——%@";
+"Last day of your ControllerKeys free trial" = "ControllerKeys 免费试用最后一天";
+"Controller mapping pauses when the trial ends. Buy or enter a license any time to keep everything working." = "试用结束后，控制器映射将暂停。随时购买或输入许可证，即可继续使用全部功能。";
+"Your ControllerKeys free trial has ended" = "ControllerKeys 免费试用已结束";
+"Controller mapping is paused. Your profiles and settings are saved — enter a license to pick up where you left off." = "控制器映射已暂停。您的配置文件和设置均已保存——输入许可证即可从上次停下的地方继续。";
 "Steam Controller, HID gamepads, Apple TV Remote" = "Steam 控制器、HID 游戏手柄、Apple TV 遥控器";
 
 /* Onboarding wizard (added 2026-08-27) */

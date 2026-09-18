@@ -469,6 +469,9 @@ struct Config {
     static let updateCheckGitHubRepo: String = "NSEvent/xbox-controller-mapper"
     /// Gumroad purchase URL
     static let updateCheckGumroadURL: String = "https://thekevintang.gumroad.com/l/xbox-controller-mapper"
+    /// List price shown on in-app buy buttons, so the ask is concrete before
+    /// the checkout page loads. Keep in sync with the Gumroad listing.
+    static let licensePriceDisplay: String = "$19.99"
     /// Minimum interval between update checks (24 hours)
     static let updateCheckInterval: TimeInterval = 86400
     /// Suppress notifications for "remind later" duration (3 days)

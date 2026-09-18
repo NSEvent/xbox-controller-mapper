@@ -10,6 +10,9 @@ struct ContentToolbar: View {
     @Binding var showingSettingsSheet: Bool
 	@Binding var profileSidebarVisible: Bool
 	@Binding var showingCommandPalette: Bool
+	/// Tap on the mapping toggle while the trial has expired — routes to the
+	/// license sheet (buy is the primary action there), not Settings.
+	var onLockedMappingTap: () -> Void
 
     var body: some View {
         HStack {
@@ -94,7 +97,7 @@ struct ContentToolbar: View {
 
             // Enable/disable toggle
             MappingActiveToggle(isEnabled: $mappingEngine.isEnabled) {
-                showingSettingsSheet = true
+                onLockedMappingTap()
             }
 
             Button {

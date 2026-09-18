@@ -185,7 +185,7 @@ struct MenuBarView: View {
                 // Trial expired: the engine stays off and the toggle is replaced
                 // by the license path, so expiry is visible (and not bypassable)
                 // from the surface most users actually see.
-                Button(action: openLicenseSettings) {
+                Button(action: openLicensePrompt) {
                     HStack(spacing: 6) {
                         Image(systemName: "lock.fill")
                             .foregroundColor(.orange)
@@ -348,6 +348,12 @@ struct MenuBarView: View {
 	/// Opens the same settings sheet from the trial/license shortcuts.
 	private func openLicenseSettings() {
 		openSettings()
+	}
+
+	/// Opens the main window with the license sheet showing — buy is the
+	/// primary action there, unlike the Settings license section.
+	private func openLicensePrompt() {
+		LicenseUIRequest.request(surface: "menubar_expired", openWindow: openMainWindow)
 	}
 
     private func openConnectionGuides() {

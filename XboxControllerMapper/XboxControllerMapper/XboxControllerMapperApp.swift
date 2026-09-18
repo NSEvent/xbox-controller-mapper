@@ -163,6 +163,18 @@ final class ServiceContainer {
                 LicenseManager.shared.enforce { engine.isEnabled = false }
             }
 
+            // Trial-lifecycle notifications (last day + expired). Without
+            // them, a menu-bar-resident install experiences expiry as the
+            // controller silently going dead, with the license sheet unseen
+            // until a main-window open that may never come. The delegate must
+            // attach synchronously — before launch finishes — so a click that
+            // cold-launches the app still reaches us; the status observation
+            // defers with the other LicenseManager touches.
+            TrialExpiryNotifier.shared.attachNotificationDelegate()
+            Task { @MainActor in
+                TrialExpiryNotifier.shared.start()
+            }
+
             // Start Sparkle's auto-update lifecycle (background checks + the
             // "Check for Updates" command). Skipped above for tests/screenshots.
             Task { @MainActor in
@@ -249,6 +261,7 @@ final class ServiceContainer {
 struct MenuBarLabel: View {
     @ObservedObject var controllerService: ControllerService
     @ObservedObject var mappingEngine: MappingEngine
+    @Environment(\.openWindow) private var openWindow
 
     private var iconImage: NSImage? {
         let baseName = controllerService.isConnected ? "gamecontroller.fill" : "gamecontroller"
@@ -305,10 +318,18 @@ struct MenuBarLabel: View {
     }
 
     var body: some View {
-        if let icon = iconImage {
-            Image(nsImage: icon)
-        } else {
-            Image(systemName: "gamecontroller")
+        Group {
+            if let icon = iconImage {
+                Image(nsImage: icon)
+            } else {
+                Image(systemName: "gamecontroller")
+            }
+        }
+        .onAppear {
+            // The menu-bar label is the only view alive for the app's entire
+            // lifetime, so it donates the SwiftUI openWindow action to
+            // AppKit-side callers (trial-notification clicks).
+            MainWindowOpener.shared.register { openWindow(id: "main") }
         }
     }
 }

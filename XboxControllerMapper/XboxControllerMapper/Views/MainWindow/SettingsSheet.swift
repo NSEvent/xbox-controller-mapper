@@ -340,7 +340,7 @@ struct SettingsSheet: View {
                 }
 
 				if let url = URL(string: Config.updateCheckGumroadURL) {
-                    Button("Buy a license") {
+                    Button(String(format: String(localized: "Buy a license — %@"), Config.licensePriceDisplay)) {
                         if NSWorkspace.shared.open(url) {
                             TelemetryService.shared.checkoutOpened(surface: "settings")
                         }

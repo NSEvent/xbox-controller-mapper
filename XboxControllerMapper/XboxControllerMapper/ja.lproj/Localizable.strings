@@ -793,6 +793,14 @@
 "This license is no longer valid (the purchase was refunded or disputed)." = "このライセンスは無効になりました（購入が返金または係争中のため）。";
 "License activated — thank you for your support!" = "ライセンスをアクティベートしました — ご支援ありがとうございます！";
 "Couldn't reach Gumroad. Check your connection and try again." = "Gumroadに接続できませんでした。接続を確認して再試行してください。";
+
+/* Trial expiry notifications + priced buy buttons (added 2026-09-18) */
+"Buy ControllerKeys — %@" = "ControllerKeysを購入 — %@";
+"Buy a license — %@" = "ライセンスを購入 — %@";
+"Last day of your ControllerKeys free trial" = "ControllerKeys無料トライアルの最終日です";
+"Controller mapping pauses when the trial ends. Buy or enter a license any time to keep everything working." = "トライアルが終了するとコントローラーマッピングは一時停止します。ライセンスを購入または入力すれば、いつでもすべての機能を使い続けられます。";
+"Your ControllerKeys free trial has ended" = "ControllerKeysの無料トライアルが終了しました";
+"Controller mapping is paused. Your profiles and settings are saved — enter a license to pick up where you left off." = "コントローラーマッピングは一時停止中です。プロファイルと設定は保存されています — ライセンスを入力すれば続きから再開できます。";
 "Steam Controller, HID gamepads, Apple TV Remote" = "Steamコントローラー、HIDゲームパッド、Apple TVリモコン";
 
 /* Onboarding wizard (added 2026-08-27) */

@@ -6,6 +6,10 @@ import AppKit
 struct TrialWelcomeSheet: View {
     @ObservedObject private var license = LicenseManager.shared
     var onDone: () -> Void
+    /// Which surface presented this sheet (expired_sheet, locked_toggle,
+    /// menubar_expired, expiry_notification) — flows into paywall/checkout
+    /// telemetry so each entry point's conversion is separately measurable.
+    var paywallSurface: String = "expired_sheet"
 
     @State private var licenseKeyInput = ""
     @State private var isVerifying = false
@@ -86,10 +90,12 @@ struct TrialWelcomeSheet: View {
 
             if isExpired {
                 // Expired: buying is the primary action; dismissing is quiet.
+                // The price is on the button so the ask is concrete before the
+                // checkout page loads.
                 Button {
-                    openCheckout(surface: "expired_sheet")
+                    openCheckout(surface: paywallSurface)
                 } label: {
-                    Text("Buy ControllerKeys on Gumroad")
+                    Text(String(format: String(localized: "Buy ControllerKeys — %@"), Config.licensePriceDisplay))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -117,7 +123,7 @@ struct TrialWelcomeSheet: View {
         .frame(width: 460)
         .onAppear {
             if isExpired {
-                TelemetryService.shared.paywallViewed(surface: "expired_sheet")
+                TelemetryService.shared.paywallViewed(surface: paywallSurface)
             } else if !license.isLicensed {
                 TelemetryService.shared.trialWelcomeViewed()
             }
