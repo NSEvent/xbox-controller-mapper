@@ -66,48 +66,50 @@ struct ChordRow: View {
                 .accessibilityHidden(true)
 
             // Tappable content area
-            HStack {
-                HStack(spacing: 4) {
-                    ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
-							ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
+            Button(action: onEdit) {
+                HStack {
+                    HStack(spacing: 4) {
+                        ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
+                                ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
+                        }
                     }
+
+                    Image(systemName: "arrow.right")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.3))
+                        .accessibilityHidden(true)
+
+                    if let systemCommand = chord.systemCommand {
+                        Text(chord.hint ?? systemCommand.displayName)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.green.opacity(0.9))
+                            .tooltipIfPresent(chord.hint != nil ? systemCommand.displayName : nil)
+                    } else if let macroId = chord.macroId,
+                              let profile = profileManager.activeProfile,
+                              let macroName = profile.macroDisplayName(for: macroId) {
+                        Text(chord.hint ?? macroName)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.purple.opacity(0.9))
+                            .tooltipIfPresent(chord.hint != nil ? macroName : nil)
+                    } else if let scriptId = chord.scriptId,
+                              let profile = profileManager.activeProfile,
+                              let script = profile.scripts.first(where: { $0.id == scriptId }) {
+                        Text(chord.hint ?? script.name)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white.opacity(0.9))
+                            .tooltipIfPresent(chord.hint != nil ? script.name : nil)
+                    } else {
+                        Text(chord.hint ?? chord.actionDisplayString)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white.opacity(0.9))
+                            .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
+                    }
+
+                    Spacer()
                 }
-
-                Image(systemName: "arrow.right")
-                    .font(.caption2)
-                    .foregroundColor(.white.opacity(0.3))
-                    .accessibilityHidden(true)
-
-                if let systemCommand = chord.systemCommand {
-                    Text(chord.hint ?? systemCommand.displayName)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.green.opacity(0.9))
-                        .tooltipIfPresent(chord.hint != nil ? systemCommand.displayName : nil)
-				} else if let macroId = chord.macroId,
-						  let profile = profileManager.activeProfile,
-						  let macroName = profile.macroDisplayName(for: macroId) {
-					Text(chord.hint ?? macroName)
-						.font(.system(size: 13, weight: .medium))
-						.foregroundColor(.purple.opacity(0.9))
-						.tooltipIfPresent(chord.hint != nil ? macroName : nil)
-				} else if let scriptId = chord.scriptId,
-						  let profile = profileManager.activeProfile,
-						  let script = profile.scripts.first(where: { $0.id == scriptId }) {
-					Text(chord.hint ?? script.name)
-						.font(.system(size: 13, weight: .medium))
-						.foregroundColor(.white.opacity(0.9))
-						.tooltipIfPresent(chord.hint != nil ? script.name : nil)
-				} else {
-					Text(chord.hint ?? chord.actionDisplayString)
-						.font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white.opacity(0.9))
-                        .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
-                }
-
-                Spacer()
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
-            .onTapGesture { onEdit() }
+            .buttonStyle(.plain)
 
             HStack(spacing: 12) {
                 Button(action: onEdit) {
@@ -213,47 +215,49 @@ struct SequenceRow: View {
                 .accessibilityHidden(true)
 
             // Tappable content area
-            HStack {
-                HStack(spacing: 4) {
-                    ForEach(Array(sequence.steps.enumerated()), id: \.offset) { index, button in
-                        if index > 0 {
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 9))
-                                .foregroundColor(.white.opacity(0.3))
-                                .accessibilityHidden(true)
+            Button(action: onEdit) {
+                HStack {
+                    HStack(spacing: 4) {
+                        ForEach(Array(sequence.steps.enumerated()), id: \.offset) { index, button in
+                            if index > 0 {
+                                Image(systemName: "arrow.right")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.white.opacity(0.3))
+                                    .accessibilityHidden(true)
+                            }
+                                ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
                         }
-							ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
                     }
+
+                    Image(systemName: "arrow.right")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.3))
+                        .accessibilityHidden(true)
+
+                    if let systemCommand = sequence.systemCommand {
+                        Text(sequence.hint ?? systemCommand.displayName)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.green.opacity(0.9))
+                            .tooltipIfPresent(sequence.hint != nil ? systemCommand.displayName : nil)
+                    } else if let macroId = sequence.macroId,
+                       let profile = profileManager.activeProfile,
+                       let macroName = profile.macroDisplayName(for: macroId) {
+                        Text(sequence.hint ?? macroName)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.purple.opacity(0.9))
+                            .tooltipIfPresent(sequence.hint != nil ? macroName : nil)
+                    } else {
+                        Text(sequence.hint ?? sequence.actionDisplayString)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white.opacity(0.9))
+                            .tooltipIfPresent(sequence.hint != nil ? sequence.actionDisplayString : nil)
+                    }
+
+                    Spacer()
                 }
-
-                Image(systemName: "arrow.right")
-                    .font(.caption2)
-                    .foregroundColor(.white.opacity(0.3))
-                    .accessibilityHidden(true)
-
-                if let systemCommand = sequence.systemCommand {
-                    Text(sequence.hint ?? systemCommand.displayName)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.green.opacity(0.9))
-                        .tooltipIfPresent(sequence.hint != nil ? systemCommand.displayName : nil)
-                } else if let macroId = sequence.macroId,
-                   let profile = profileManager.activeProfile,
-                   let macroName = profile.macroDisplayName(for: macroId) {
-                    Text(sequence.hint ?? macroName)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.purple.opacity(0.9))
-                        .tooltipIfPresent(sequence.hint != nil ? macroName : nil)
-                } else {
-                    Text(sequence.hint ?? sequence.actionDisplayString)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white.opacity(0.9))
-                        .tooltipIfPresent(sequence.hint != nil ? sequence.actionDisplayString : nil)
-                }
-
-                Spacer()
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
-            .onTapGesture { onEdit() }
+            .buttonStyle(.plain)
 
             HStack(spacing: 12) {
                 Button(action: onEdit) {
