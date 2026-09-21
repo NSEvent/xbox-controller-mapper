@@ -754,7 +754,6 @@
 "Get your license key on Gumroad" = "Gumroadでライセンスキーを取得";
 "Continue" = "続ける";
 "Start Free Trial" = "無料トライアルを開始";
-"Buy ControllerKeys on Gumroad" = "GumroadでControllerKeysを購入";
 "Not Now" = "今はしない";
 "Trial ended" = "トライアル終了";
 "Mapping On" = "マッピング オン";
@@ -784,7 +783,6 @@
 "Controller mapping is paused. Enter a license to re-enable it." = "コントローラーのマッピングは一時停止中です。ライセンスを入力すると再び有効になります。";
 "Deactivate on This Mac" = "このMacで解除";
 "Gumroad license key" = "Gumroadライセンスキー";
-"Buy a license" = "ライセンスを購入";
 "License" = "ライセンス";
 "Enter your license key." = "ライセンスキーを入力してください。";
 "Internal error building the request." = "リクエスト作成中に内部エラーが発生しました。";

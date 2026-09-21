@@ -148,6 +148,9 @@ extension TelemetryService {
     static let defaultEndpoint = URL(string: "https://analytics.kevintang.app/controllerkeys/e")!
 	static let schemaVersion = 4
 	static let funnelVersion = "trial-v4-2026-09"
+    // Encodes the live price for offer attribution. A price change must bump
+    // this AND Config.licensePriceDisplay together, or every event afterward
+    // is attributed to the wrong offer.
     static let offerVersion = "gumroad-19.99-v1"
     static let maximumOutboxCount = 100
     static let batchSize = 25

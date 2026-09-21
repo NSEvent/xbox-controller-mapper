@@ -470,7 +470,9 @@ struct Config {
     /// Gumroad purchase URL
     static let updateCheckGumroadURL: String = "https://thekevintang.gumroad.com/l/xbox-controller-mapper"
     /// List price shown on in-app buy buttons, so the ask is concrete before
-    /// the checkout page loads. Keep in sync with the Gumroad listing.
+    /// the checkout page loads. A price change must update this, the Gumroad
+    /// listing, AND TelemetryModels.offerVersion together — offerVersion
+    /// stamps the price into every telemetry event for offer attribution.
     static let licensePriceDisplay: String = "$19.99"
     /// Minimum interval between update checks (24 hours)
     static let updateCheckInterval: TimeInterval = 86400

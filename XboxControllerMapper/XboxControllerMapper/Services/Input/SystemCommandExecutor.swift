@@ -508,39 +508,16 @@ class SystemCommandExecutor: @unchecked Sendable {
         }
     }
 
-    /// Whether notification permission has been requested this session
-    private var hasRequestedNotificationPermission = false
-
     /// Post a macOS user notification, requesting permission if needed
     private func postNotification(title: String, body: String) {
-        let center = UNUserNotificationCenter.current()
-
-        let deliver = {
-            let content = UNMutableNotificationContent()
-            content.title = title
-            content.body = body
-
-            let request = UNNotificationRequest(
-                identifier: "webhook-\(UUID().uuidString)",
-                content: content,
-                trigger: nil
+        let identifier = "webhook-\(UUID().uuidString)"
+        Task { @MainActor in
+            UserNotificationHub.shared.post(
+                identifier: identifier,
+                title: title,
+                body: body,
+                sound: nil
             )
-
-            center.add(request) { error in
-                if let error = error {
-                    NSLog("[SystemCommand] Failed to post notification: %@", error.localizedDescription)
-                }
-            }
-        }
-
-        if !hasRequestedNotificationPermission {
-            hasRequestedNotificationPermission = true
-            center.requestAuthorization(options: [.alert]) { granted, _ in
-                if granted { deliver() }
-                else { NSLog("[SystemCommand] Notification permission denied") }
-            }
-        } else {
-            deliver()
         }
     }
 

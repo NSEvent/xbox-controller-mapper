@@ -31,13 +31,19 @@ struct ContentView: View {
     @AppStorage("hasShownTrialWelcome") private var hasShownTrialWelcome = false
     // Automatic presentations of the trial-expired sheet (expiry transition,
     // or window open while expired) happen at most once per week. Seconds
-    // since the reference date; 0 = never shown. User-initiated opens (locked
-    // toggle, menu bar, notification click) bypass the cap but reset it.
+    // since the reference date; 0 = never shown (a one-time migration seeds
+    // this for installs that saw the pre-cadence one-shot sheet). The clock
+    // stamps only for expired-state presentations, at both present and
+    // dismiss, so pre-expiry prompts can't suppress the at-expiry one.
     @AppStorage("lastExpiryPromptAt") private var lastExpiryPromptAt = 0.0
     @ObservedObject private var license = LicenseManager.shared
     @State private var showingWelcome = false
     // Which surface asked for the welcome/license sheet — telemetry dimension.
     @State private var welcomeSurface = "expired_sheet"
+    // True when the sheet was opened from a purchase-intent surface (locked
+    // toggle, menu bar, notification click) rather than the first-run flow —
+    // the sheet then leads with the buy button even while the trial is live.
+    @State private var welcomeIsPurchaseIntent = false
     // One-time, dismissible "leave a review" nudge for long-time licensed users.
     // Timing/one-shot logic lives in ReviewRequestManager; this only drives the
     // sheet.
@@ -313,8 +319,12 @@ struct ContentView: View {
             TrialWelcomeSheet(onDone: {
                 hasShownTrialWelcome = true
                 showingWelcome = false
+                // Stamp at dismissal so every presentation path — including
+                // the first-run flow, which doesn't go through
+                // presentLicensePrompt — starts the weekly auto-prompt clock.
+                stampExpiryPromptClockIfExpired()
 				scheduleConfigurationOverviewIntroduction()
-            }, paywallSurface: welcomeSurface)
+            }, paywallSurface: welcomeSurface, emphasizeBuy: welcomeIsPurchaseIntent)
             .interactiveDismissDisabled()
         }
         .isolatedSheet(isPresented: $showingReviewRequest) {
@@ -429,6 +439,15 @@ struct ContentView: View {
         .onAppear { selectFirstVisibleTabIfNeeded() }
 		.onAppear { scheduleConfigurationOverviewIntroduction() }
         .onAppear {
+            // One-time migration from the pre-cadence one-shot expiry sheet:
+            // seed the weekly clock so an upgrader who dismissed that sheet
+            // recently isn't re-prompted immediately — and "0 = never shown"
+            // holds for everyone afterward.
+            if lastExpiryPromptAt == 0,
+               UserDefaults.standard.bool(forKey: "hasShownExpirySheet") {
+                lastExpiryPromptAt = Date().timeIntervalSinceReferenceDate
+                UserDefaults.standard.removeObject(forKey: "hasShownExpirySheet")
+            }
             // First run: guided permissions onboarding, then the trial welcome.
             // Both are suppressed in screenshot mode so marketing captures aren't
             // blocked. Onboarding's onComplete chains into the trial welcome.
@@ -485,14 +504,21 @@ struct ContentView: View {
         // most weekly thereafter, so late deciders get re-asked without the
         // sheet becoming wallpaper. First-run users are excluded — the
         // onboarding → trial-welcome chain already shows the same sheet with
-        // the expired headline.
+        // the expired headline. An open Settings sheet also blocks the auto
+        // prompt: its license section is already showing, and yanking it
+        // closed would discard a half-typed license key.
         .onReceive(license.$status) { status in
             guard case .expired = status,
                   hasShownTrialWelcome,
-                  !showingWelcome, !showingOnboarding,
-                  AppRuntime.screenshotVariant == nil,
-                  Date().timeIntervalSinceReferenceDate - lastExpiryPromptAt >= Self.expiryPromptRepeatInterval
+                  !showingWelcome, !showingOnboarding, !showingSettingsSheet,
+                  AppRuntime.screenshotVariant == nil
             else { return }
+            let now = Date().timeIntervalSinceReferenceDate
+            // Heal a stamp written under a forward-jumped clock — otherwise
+            // the negative delta mutes the auto-prompt until real time
+            // catches up to the stamp plus a week.
+            if lastExpiryPromptAt > now { lastExpiryPromptAt = 0 }
+            guard now - lastExpiryPromptAt >= Self.expiryPromptRepeatInterval else { return }
             presentLicensePrompt(surface: "expired_sheet")
         }
         // Menu-bar expired row / trial-notification click → license sheet.
@@ -753,14 +779,34 @@ struct ContentView: View {
 	/// Minimum spacing between *automatic* presentations of the expired sheet.
 	private static let expiryPromptRepeatInterval: TimeInterval = 7 * 86_400
 
-	/// Shows the trial/license sheet and stamps the auto-prompt clock so
-	/// automatic re-prompts stay weekly. `surface` flows into paywall/checkout
-	/// telemetry so each entry point's conversion is separately measurable.
+	/// Shows the trial/license sheet for a purchase-intent surface. `surface`
+	/// flows into paywall/checkout telemetry so each entry point's conversion
+	/// is separately measurable.
+	///
+	/// The guards keep this from contending with the quasi-modal first-run
+	/// sheets, showing a paywall to a licensed user (stale notification click),
+	/// or clobbering an open Settings session — Settings has its own license
+	/// section, and closing it would discard a half-typed license key.
 	private func presentLicensePrompt(surface: String) {
+		guard !license.isLicensed,
+		      !showingOnboarding,
+		      !showingWelcome,
+		      !showingSettingsSheet,
+		      AppRuntime.screenshotVariant == nil
+		else { return }
 		welcomeSurface = surface
-		lastExpiryPromptAt = Date().timeIntervalSinceReferenceDate
-		showingSettingsSheet = false
+		welcomeIsPurchaseIntent = true
+		stampExpiryPromptClockIfExpired()
 		showingWelcome = true
+	}
+
+	/// Stamps the weekly auto-prompt clock — only for expired-state
+	/// presentations, so a pre-expiry prompt (last-day notification click)
+	/// can't suppress the guaranteed at-expiry presentation.
+	private func stampExpiryPromptClockIfExpired() {
+		if case .expired = license.status {
+			lastExpiryPromptAt = Date().timeIntervalSinceReferenceDate
+		}
 	}
 
 	private func scheduleConfigurationOverviewIntroduction() {

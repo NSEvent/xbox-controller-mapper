@@ -754,7 +754,6 @@
 "Get your license key on Gumroad" = "Lizenzschlüssel auf Gumroad abrufen";
 "Continue" = "Fortfahren";
 "Start Free Trial" = "Kostenlose Testphase starten";
-"Buy ControllerKeys on Gumroad" = "ControllerKeys auf Gumroad kaufen";
 "Not Now" = "Später";
 "Trial ended" = "Testphase beendet";
 "Mapping On" = "Zuordnung an";
@@ -784,7 +783,6 @@
 "Controller mapping is paused. Enter a license to re-enable it." = "Die Controller-Zuordnung ist pausiert. Gib eine Lizenz ein, um sie wieder zu aktivieren.";
 "Deactivate on This Mac" = "Auf diesem Mac deaktivieren";
 "Gumroad license key" = "Gumroad-Lizenzschlüssel";
-"Buy a license" = "Lizenz kaufen";
 "License" = "Lizenz";
 "Enter your license key." = "Gib deinen Lizenzschlüssel ein.";
 "Internal error building the request." = "Interner Fehler beim Erstellen der Anfrage.";

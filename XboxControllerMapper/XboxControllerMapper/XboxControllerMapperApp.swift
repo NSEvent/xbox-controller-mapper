@@ -166,11 +166,11 @@ final class ServiceContainer {
             // Trial-lifecycle notifications (last day + expired). Without
             // them, a menu-bar-resident install experiences expiry as the
             // controller silently going dead, with the license sheet unseen
-            // until a main-window open that may never come. The delegate must
-            // attach synchronously — before launch finishes — so a click that
-            // cold-launches the app still reaches us; the status observation
-            // defers with the other LicenseManager touches.
-            TrialExpiryNotifier.shared.attachNotificationDelegate()
+            // until a main-window open that may never come. The hub delegate
+            // must attach synchronously — before launch finishes — so a click
+            // that cold-launches the app still reaches us; the notifier's
+            // status observation defers with the other LicenseManager touches.
+            UserNotificationHub.shared.attach()
             Task { @MainActor in
                 TrialExpiryNotifier.shared.start()
             }

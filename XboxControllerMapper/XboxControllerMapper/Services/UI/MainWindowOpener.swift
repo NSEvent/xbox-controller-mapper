@@ -19,7 +19,10 @@ final class MainWindowOpener {
 		self.performer = performer
 		if pendingOpen {
 			pendingOpen = false
-			performer()
+			// Replay through the full sequence — the dock promotion and
+			// activation from the original open() may have lapsed during a
+			// slow cold launch, leaving the window demoted or unfocused.
+			open()
 		}
 	}
 

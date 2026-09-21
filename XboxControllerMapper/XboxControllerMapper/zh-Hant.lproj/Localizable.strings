@@ -754,7 +754,6 @@
 "Get your license key on Gumroad" = "在 Gumroad 上取得授權金鑰";
 "Continue" = "繼續";
 "Start Free Trial" = "開始免費試用";
-"Buy ControllerKeys on Gumroad" = "在 Gumroad 上購買 ControllerKeys";
 "Not Now" = "暫時不要";
 "Trial ended" = "試用已結束";
 "Mapping On" = "對應開";
@@ -784,7 +783,6 @@
 "Controller mapping is paused. Enter a license to re-enable it." = "控制器對應已暫停。輸入授權以重新啟用。";
 "Deactivate on This Mac" = "在這台 Mac 上取消啟用";
 "Gumroad license key" = "Gumroad 授權金鑰";
-"Buy a license" = "購買授權";
 "License" = "授權";
 "Enter your license key." = "請輸入您的授權金鑰。";
 "Internal error building the request." = "建立請求時發生內部錯誤。";

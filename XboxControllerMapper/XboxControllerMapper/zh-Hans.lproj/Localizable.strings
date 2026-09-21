@@ -754,7 +754,6 @@
 "Get your license key on Gumroad" = "在 Gumroad 上获取许可证密钥";
 "Continue" = "继续";
 "Start Free Trial" = "开始免费试用";
-"Buy ControllerKeys on Gumroad" = "在 Gumroad 上购买 ControllerKeys";
 "Not Now" = "暂不";
 "Trial ended" = "试用已结束";
 "Mapping On" = "映射开";
@@ -784,7 +783,6 @@
 "Controller mapping is paused. Enter a license to re-enable it." = "控制器映射已暂停。输入许可证以重新启用。";
 "Deactivate on This Mac" = "在这台 Mac 上取消激活";
 "Gumroad license key" = "Gumroad 许可证密钥";
-"Buy a license" = "购买许可证";
 "License" = "许可证";
 "Enter your license key." = "请输入您的许可证密钥。";
 "Internal error building the request." = "构建请求时发生内部错误。";

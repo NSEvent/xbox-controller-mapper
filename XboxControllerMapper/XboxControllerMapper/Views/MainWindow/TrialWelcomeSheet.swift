@@ -10,6 +10,12 @@ struct TrialWelcomeSheet: View {
     /// menubar_expired, expiry_notification) — flows into paywall/checkout
     /// telemetry so each entry point's conversion is separately measurable.
     var paywallSurface: String = "expired_sheet"
+    /// True when opened from a purchase-intent surface (notification click,
+    /// menu-bar row, locked toggle). The sheet then leads with the priced buy
+    /// button even while the trial is still live — a last-day notification
+    /// promising "buy or enter a license" must not land on a first-run layout
+    /// whose primary action is "Start Free Trial".
+    var emphasizeBuy: Bool = false
 
     @State private var licenseKeyInput = ""
     @State private var isVerifying = false
@@ -88,10 +94,10 @@ struct TrialWelcomeSheet: View {
             .frame(maxWidth: .infinity)
             .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.06)))
 
-            if isExpired {
-                // Expired: buying is the primary action; dismissing is quiet.
-                // The price is on the button so the ask is concrete before the
-                // checkout page loads.
+            if showsBuyPrimary {
+                // Expired or purchase-intent: buying is the primary action;
+                // dismissing is quiet. The price is on the button so the ask
+                // is concrete before the checkout page loads.
                 Button {
                     openCheckout(surface: paywallSurface)
                 } label: {
@@ -122,10 +128,17 @@ struct TrialWelcomeSheet: View {
         .padding(24)
         .frame(width: 460)
         .onAppear {
-            if isExpired {
+            if showsBuyPrimary {
                 TelemetryService.shared.paywallViewed(surface: paywallSurface)
             } else if !license.isLicensed {
                 TelemetryService.shared.trialWelcomeViewed()
+            }
+            // This sheet is the user-attributable moment to ask for
+            // notification consent — it's the surface that talks about the
+            // trial the notifications track. The notifier itself never
+            // prompts (an hourly timer at login isn't attributable).
+            if !license.isLicensed {
+                UserNotificationHub.shared.requestAuthorizationIfNeeded()
             }
         }
     }
@@ -133,6 +146,12 @@ struct TrialWelcomeSheet: View {
     private var isExpired: Bool {
         if case .expired = license.status { return true }
         return false
+    }
+
+    /// Buy leads whenever the trial is over, or the user arrived via a
+    /// purchase-intent surface while still trialing.
+    private var showsBuyPrimary: Bool {
+        isExpired || (emphasizeBuy && !license.isLicensed)
     }
 
     private var headline: String {

@@ -156,6 +156,11 @@ final class LicenseManager: ObservableObject {
         }
     }
 
+    /// True when `--demo-license` is forcing the status (demos/QA). Consumers
+    /// with persistent side effects — the trial notifications' one-shot
+    /// markers — must not act on a forced state.
+    static var isDemoForced: Bool { demoForcedStatus != nil }
+
     /// Recomputes `status` from the keychain (license first, then trial clock).
     func refresh() {
 		if skipsPersistentLicenseStorage {
