@@ -929,6 +929,16 @@ class ControllerService: ObservableObject {
 	}
 
     private func setupNotifications() {
+        // macOS 27 reverts the light bar (to white) while the app is backgrounded
+        // when only the GCDeviceLight path landed — restore the user's color as
+        // soon as we're frontmost again. Harmless no-op re-apply elsewhere.
+        NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.reapplyCurrentLEDSettings()
+            }
+            .store(in: &cancellables)
+
         NotificationCenter.default.publisher(for: .GCControllerDidConnect)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] notification in
