@@ -487,6 +487,8 @@ struct MacroStepEditorSheet: View {
                             }
                             .buttonStyle(.plain)
                             .foregroundColor(.accentColor)
+                            .help(showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
+                            .accessibilityLabel(showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
                         }
                     }
 
@@ -507,6 +509,8 @@ struct MacroStepEditorSheet: View {
                             }
                             .buttonStyle(.plain)
                             .foregroundColor(.accentColor)
+                            .help(showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
+                            .accessibilityLabel(showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
                         }
                     }
                     Section("Duration") {
