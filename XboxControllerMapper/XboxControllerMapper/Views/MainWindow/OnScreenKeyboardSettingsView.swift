@@ -94,22 +94,24 @@ struct QuickTextRowView<SuggestionsView: View>: View {
                     Button("Cancel", action: onCancel)
                 } else {
                     // Tappable content area
-                    HStack {
-                        Text(quickText.text)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
+                    Button(action: onStartEdit) {
+                        HStack {
+                            Text(quickText.text)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
 
-                        if quickText.containsVariables {
-                            Image(systemName: "function")
-                                .font(.caption2)
-                                .foregroundColor(.blue)
-                                .help("Contains variables that will be expanded")
+                            if quickText.containsVariables {
+                                Image(systemName: "function")
+                                    .font(.caption2)
+                                    .foregroundColor(.blue)
+                                    .help("Contains variables that will be expanded")
+                            }
+
+                            Spacer()
                         }
-
-                        Spacer()
+                        .contentShape(Rectangle())
                     }
-                    .contentShape(Rectangle())
-                    .onTapGesture { onStartEdit() }
+                    .buttonStyle(.plain)
 
                     Button(action: onStartEdit) {
                         Image(systemName: "pencil")
@@ -167,28 +169,30 @@ struct AppBarItemRowView: View {
                 .frame(width: 20)
 
             // Tappable content area
-            HStack {
-                // App icon
-                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: item.bundleIdentifier),
-                   let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
-                    Image(nsImage: icon)
-                        .resizable()
-                        .frame(width: 24, height: 24)
-                } else {
-                    Image(systemName: "app.fill")
-                        .resizable()
-                        .frame(width: 24, height: 24)
-                        .foregroundColor(.secondary)
+            Button(action: onEdit) {
+                HStack {
+                    // App icon
+                    if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: item.bundleIdentifier),
+                       let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .frame(width: 24, height: 24)
+                    } else {
+                        Image(systemName: "app.fill")
+                            .resizable()
+                            .frame(width: 24, height: 24)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text(item.displayName)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    Spacer()
                 }
-
-                Text(item.displayName)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                Spacer()
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
-            .onTapGesture { onEdit() }
+            .buttonStyle(.plain)
 
             Button(action: onEdit) {
                 Image(systemName: "pencil")
@@ -239,35 +243,37 @@ struct WebsiteLinkRowView: View {
                 .frame(width: 20)
 
             // Tappable content area
-            HStack {
-                // Favicon
-                if let data = link.faviconData,
-                   let nsImage = NSImage(data: data) {
-                    Image(nsImage: nsImage)
-                        .resizable()
-                        .frame(width: 24, height: 24)
-                        .cornerRadius(4)
-                } else {
-                    Image(systemName: "globe")
-                        .frame(width: 24, height: 24)
-                        .foregroundColor(.secondary)
-                }
+            Button(action: onEdit) {
+                HStack {
+                    // Favicon
+                    if let data = link.faviconData,
+                       let nsImage = NSImage(data: data) {
+                        Image(nsImage: nsImage)
+                            .resizable()
+                            .frame(width: 24, height: 24)
+                            .cornerRadius(4)
+                    } else {
+                        Image(systemName: "globe")
+                            .frame(width: 24, height: 24)
+                            .foregroundColor(.secondary)
+                    }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(link.displayName)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Text(link.domain ?? link.url)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(link.displayName)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Text(link.domain ?? link.url)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
 
-                Spacer()
+                    Spacer()
+                }
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
-            .onTapGesture { onEdit() }
+            .buttonStyle(.plain)
 
             Button(action: onEdit) {
                 Image(systemName: "pencil")
