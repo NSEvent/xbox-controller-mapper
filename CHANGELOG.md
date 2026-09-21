@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-09-21
+
+### Added
+
+- **Trial expiry notifications and clearer purchase points**: the trial now sends a heads-up notification before it expires and one at expiry, with a weekly re-prompt cadence afterward instead of a single one-shot. Buy buttons show the actual price everywhere they appear — menu bar, locked toggles, and notification clicks — including during an active trial. Notification permission is requested from the trial welcome sheet, at the moment you're looking at trial UI, never from a background timer.
+
+### Fixed
+
+- **DS4/DualSense light bar survives backgrounding on macOS 27**: macOS 27 scopes the GameController framework's light control to the foreground app, so the light bar reverted to white whenever ControllerKeys went to the background — losing per-layer colors. ControllerKeys now also sends the raw Bluetooth HID light-bar report on macOS 27, re-applies your colors when returning to the foreground, and routes the DualSense keep-alive through the raw report so controllers don't idle-sleep mid-game. Behavior on macOS 26 and earlier is unchanged.
+- **Notification reliability**: trial, battery, and webhook notifications now share one authorization-aware delivery path — foreground banners for battery/webhook events are no longer silently muted, expiry notifications are no longer permanently lost when permission was initially denied, and license prompts no longer interrupt an open Settings sheet.
+
 ## [2.8.0] - 2026-09-15
 
 ### Added
