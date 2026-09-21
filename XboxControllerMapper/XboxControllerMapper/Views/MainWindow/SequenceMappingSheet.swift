@@ -270,6 +270,8 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
                                 .cornerRadius(6)
                             }
                             .buttonStyle(.plain)
+                            .help(showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
+                            .accessibilityLabel(showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
                             .foregroundColor(.accentColor)
                         }
                     }
