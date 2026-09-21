@@ -36,3 +36,7 @@
 ## 2024-05-18 - [SwiftUI Button Accessibility]
 **Learning:** Using `.onTapGesture` on generic views like `HStack` prevents interactive elements from properly supporting keyboard focus and VoiceOver accessibility.
 **Action:** Always wrap interactive list rows in a `Button` with `.buttonStyle(.plain)` instead of attaching `.onTapGesture` to views, ensuring `.contentShape(Rectangle())` is applied within the button to maintain the clickable area.
+
+## 2024-05-15 - Missing Accessibility Labels for Dynamic Icon Buttons
+**Learning:** Icon-only buttons whose icons change dynamically based on state (e.g. keyboard vs keyboard.chevron.compact.down) are often missed when it comes to tooltips (`.help()`) and `.accessibilityLabel()`, because their state changes context.
+**Action:** Always add `.help()` and `.accessibilityLabel()` with dynamic strings (using ternaries if simple enough) that correspond exactly to the current visual icon state to ensure VoiceOver users are aware of the changing action.
