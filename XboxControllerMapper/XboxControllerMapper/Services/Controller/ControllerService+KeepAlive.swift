@@ -91,6 +91,20 @@ extension ControllerService {
     /// IOKit HID SetReport returns kIOReturnUnsupported for DualSense over BT,
     /// but GCController.light uses a private path that succeeds.
     private func sendDualSenseTickle() {
+        // macOS 27 ignores background GCDeviceLight writes (foreground-scoped),
+        // which would let the controller idle-sleep mid-game — exactly when
+        // ControllerKeys is backgrounded. The raw BT report with the current
+        // settings is a visually-no-op host-activity signal that still lands.
+        if Self.rawBluetoothLEDReportsNeeded, let device = hidDevice {
+            let settings = storage.lock.withLock { storage.currentLEDSettings } ?? DualSenseLEDSettings()
+            sendBluetoothOutputReport(device: device, settings: settings)
+
+            #if DEBUG
+            print("[KeepAlive] Sent tickle (DualSense raw BT report)")
+            #endif
+            return
+        }
+
         guard let controller = connectedController,
               let light = controller.light else { return }
 
