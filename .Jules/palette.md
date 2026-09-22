@@ -36,3 +36,6 @@
 ## 2024-05-18 - [SwiftUI Button Accessibility]
 **Learning:** Using `.onTapGesture` on generic views like `HStack` prevents interactive elements from properly supporting keyboard focus and VoiceOver accessibility.
 **Action:** Always wrap interactive list rows in a `Button` with `.buttonStyle(.plain)` instead of attaching `.onTapGesture` to views, ensuring `.contentShape(Rectangle())` is applied within the button to maintain the clickable area.
+## 2024-05-13 - [Icon Button Accessibility Gap in Modals and Sheets]
+**Learning:** Found a pattern where small UI utility elements, like dismiss buttons (`xmark`) in floating sheets (`FeedbackKit.swift`) or selection toggles in lists (`CommunityProfilePreview.swift`), are implemented as icon-only buttons but completely lack `.help()` tooltips and/or `.accessibilityLabel()`.
+**Action:** Always verify that every `Button` wrapping an `Image` without accompanying text has both `.help()` and `.accessibilityLabel()` defined to ensure full accessibility and usability across all input methods.
