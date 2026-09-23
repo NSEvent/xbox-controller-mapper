@@ -416,6 +416,7 @@ struct ActionMappingEditor: View {
                 Label("Browse Bookmarks", systemImage: "book")
                     .font(.subheadline)
             }
+                        .buttonStyle(.link)
             .sheet(isPresented: $state.showingBookmarkPicker) {
                 BookmarkPickerSheet { url in
                     state.linkURL = url
