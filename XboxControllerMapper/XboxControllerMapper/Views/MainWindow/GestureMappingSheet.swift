@@ -202,6 +202,7 @@ struct GestureMappingSheet: View {
                 Label("Create New Macro...", systemImage: "plus.circle")
                     .font(.subheadline)
             }
+                        .buttonStyle(.link)
         } else {
             VStack(spacing: 8) {
                 Text("No macros defined in this profile.")
@@ -212,6 +213,7 @@ struct GestureMappingSheet: View {
                     Label("Create New Macro...", systemImage: "plus.circle")
                         .font(.subheadline)
                 }
+                        .buttonStyle(.link)
             }
             .frame(maxWidth: .infinity)
             .padding()
@@ -238,6 +240,7 @@ struct GestureMappingSheet: View {
                 Label("Create New Script...", systemImage: "plus.circle")
                     .font(.subheadline)
             }
+                        .buttonStyle(.link)
         } else {
             VStack(spacing: 8) {
                 Text("No scripts defined in this profile.")
@@ -248,6 +251,7 @@ struct GestureMappingSheet: View {
                     Label("Create New Script...", systemImage: "plus.circle")
                         .font(.subheadline)
                 }
+                        .buttonStyle(.link)
             }
             .frame(maxWidth: .infinity)
             .padding()
@@ -317,6 +321,7 @@ struct GestureMappingSheet: View {
                         Label("Browse Bookmarks", systemImage: "book")
                             .font(.subheadline)
                     }
+                        .buttonStyle(.link)
                     .sheet(isPresented: $editorState.showingBookmarkPicker) {
                         BookmarkPickerSheet { url in
                             editorState.linkURL = url

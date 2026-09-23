@@ -587,6 +587,7 @@ struct MacroStepEditorSheet: View {
                         } label: {
                             Label("Browse Bookmarks", systemImage: "book")
                         }
+                        .buttonStyle(.link)
                         .sheet(isPresented: $showingBookmarkPicker) {
                             BookmarkPickerSheet { url in
                                 linkURL = url
