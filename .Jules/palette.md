@@ -39,3 +39,6 @@
 ## 2024-05-19 - Adding button styles for visual polish
 **Learning:** Found various placeholder "Create New..." and "Browse Bookmarks" buttons that were lacking the appropriate button style making them look like basic inline text and less clickable.
 **Action:** Applied `.buttonStyle(.link)` to these empty state list buttons.
+## 2024-05-19 - Fixing deadlocks caused by excessive test logging
+**Learning:** Excessive synchronous `print` statements in hot paths like `MappingEngine` or `ProfileManager` exhaust system log buffers and cause the macOS test runner (XCTest) to deadlock, resulting in CI failures with "0 unexpected" failures and exit code 1.
+**Action:** Commented out repetitive log statements such as `print("🔷 Layer activated:")` in the test environments to ensure the CI pipeline runs smoothly.

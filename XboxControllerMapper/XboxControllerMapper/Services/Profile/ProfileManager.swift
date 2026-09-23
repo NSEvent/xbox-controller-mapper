@@ -219,13 +219,13 @@ class ProfileManager: ObservableObject {
         #if DEBUG
         switch action.reason {
         case .restoreEditingProfile:
-            print("🔄 Restoring editing profile: \(profile.name)")
+            // // print("🔄 Restoring editing...")
         case .linkedApp(let bundleId):
-            print("🔄 Auto-switching to profile: \(profile.name) for app: \(bundleId)")
+            // print("🔄 Auto-switching...")
         case .linkedController(let displayName):
-            print("🔄 Auto-switching to profile: \(profile.name) for controller: \(displayName)")
+            // print("🔄 Auto-switching...")
         case .defaultProfile(let bundleId):
-            print("🔄 Auto-switching to default profile for app: \(bundleId)")
+            // print("🔄 Auto-switching...")
         }
         #endif
 
