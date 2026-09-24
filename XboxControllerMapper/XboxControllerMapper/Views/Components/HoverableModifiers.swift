@@ -47,7 +47,10 @@ struct HoverableGlassRowModifier: ViewModifier {
             }
 
         if let onTap = onTap {
-            base.onTapGesture { onTap() }
+            Button(action: onTap) {
+                base
+            }
+            .buttonStyle(.plain)
         } else {
             base
         }
