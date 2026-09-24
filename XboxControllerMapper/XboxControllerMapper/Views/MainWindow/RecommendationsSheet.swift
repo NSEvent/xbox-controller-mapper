@@ -91,43 +91,44 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
 	) -> some View {
         let isSelected = selectedIds.contains(rec.id)
 
-        return HStack(spacing: 10) {
-            // Checkbox
-            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 18))
-                .foregroundColor(isSelected ? .accentColor : .secondary)
-                .onTapGesture { toggleSelection(rec.id) }
+        return Button(action: { toggleSelection(rec.id) }) {
+            HStack(spacing: 10) {
+                // Checkbox
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 18))
+                    .foregroundColor(isSelected ? .accentColor : .secondary)
 
-            // Type icon
-            typeIcon(for: rec.type)
+                // Type icon
+                typeIcon(for: rec.type)
 
-            // Recommendation content
-            VStack(alignment: .leading, spacing: 6) {
-                // Title line
-				titleView(for: rec, presentationState: presentationState)
+                // Recommendation content
+                VStack(alignment: .leading, spacing: 6) {
+                    // Title line
+					titleView(for: rec, presentationState: presentationState)
 
-                // Before → After with button icons
-				beforeAfterView(for: rec, presentationState: presentationState)
+                    // Before → After with button icons
+					beforeAfterView(for: rec, presentationState: presentationState)
+                }
+
+                Spacer()
+
+                // Priority indicator
+                Circle()
+                    .fill(priorityColor(rec.priority))
+                    .frame(width: 8, height: 8)
             }
-
-            Spacer()
-
-            // Priority indicator
-            Circle()
-                .fill(priorityColor(rec.priority))
-                .frame(width: 8, height: 8)
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? Color.accentColor.opacity(0.08) : Color.white.opacity(0.03))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isSelected ? Color.accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
+            )
+            .contentShape(Rectangle())
         }
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? Color.accentColor.opacity(0.08) : Color.white.opacity(0.03))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(isSelected ? Color.accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
-        )
-        .contentShape(Rectangle())
-        .onTapGesture { toggleSelection(rec.id) }
+        .buttonStyle(.plain)
     }
 
 	@ViewBuilder
