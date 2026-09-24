@@ -95,21 +95,23 @@ struct MacroEditorSheet: View {
             ScrollView {
                 LazyVStack(spacing: 4) {
                     ForEach(Array(identifiedSteps.enumerated()), id: \.element.id) { index, identifiedStep in
-                        MacroStepRow(
-                            step: identifiedStep.step,
-                            index: index,
-                            onDuplicate: { duplicateStep(at: index) },
-                            onDelete: { deleteStep(at: index) }
-                        )
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
-                        .cornerRadius(6)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
+                        Button {
                             editingStepIndex = index
                             showingStepEditor = true
+                        } label: {
+                            MacroStepRow(
+                                step: identifiedStep.step,
+                                index: index,
+                                onDuplicate: { duplicateStep(at: index) },
+                                onDelete: { deleteStep(at: index) }
+                            )
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                            .cornerRadius(6)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
                         .onDrag {
                             draggedStep = identifiedStep
                             return NSItemProvider(object: identifiedStep.id.uuidString as NSString)
@@ -223,18 +225,21 @@ struct AddStepRow: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "plus.circle.fill")
-                .font(.system(size: 16))
-                .foregroundColor(.accentColor)
-            Text("Add Step")
-                .font(.system(size: 13))
+        Button(action: onTap) {
+            HStack(spacing: 8) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(.accentColor)
+                Text("Add Step")
+                    .font(.system(size: 13))
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, 8)
+            .background(isHovered ? Color.accentColor.opacity(0.15) : Color(nsColor: .controlBackgroundColor).opacity(0.3))
+            .cornerRadius(6)
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.vertical, 8)
-        .background(isHovered ? Color.accentColor.opacity(0.15) : Color(nsColor: .controlBackgroundColor).opacity(0.3))
-        .cornerRadius(6)
-        .contentShape(Rectangle())
+        .buttonStyle(.plain)
         .onHover { hovering in
             isHovered = hovering
             if hovering {
@@ -242,9 +247,6 @@ struct AddStepRow: View {
             } else {
                 NSCursor.pop()
             }
-        }
-        .onTapGesture {
-            onTap()
         }
     }
 }
