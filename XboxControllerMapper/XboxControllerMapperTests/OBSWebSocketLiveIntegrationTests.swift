@@ -166,7 +166,11 @@ private enum OBSMediaMTXManager {
         let outPipe = Pipe()
         which.standardOutput = outPipe
         which.standardError = Pipe()
-        try? which.run()
+        do {
+            try which.run()
+        } catch {
+            throw XCTSkip("Failed to run which mediamtx: \(error)")
+        }
         which.waitUntilExit()
         if which.terminationStatus == 0 {
             let data = outPipe.fileHandleForReading.readDataToEndOfFile()
