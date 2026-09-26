@@ -1,6 +1,7 @@
 import XCTest
 import Foundation
 import CryptoKit
+import Security
 @testable import ControllerKeys
 
 private enum MockTransportError: Error {
@@ -107,8 +108,24 @@ final class OBSWebSocketTests: XCTestCase {
     // MARK: - SystemCommand Codable / Display
 
     func testOBSWebSocketCommand_Encoding() throws {
+		// A fixed localhost URL shares a stable key with real OBS settings and
+		// previous signed test runners. Keep this integration fixture isolated
+		// and skip unavailable Keychain access instead of opening a modal prompt.
+		let testURL = "ws://controllerkeys-test-\(UUID().uuidString).invalid:4455"
+		let testKey = KeychainService.stableKey(for: "obs-websocket:\(testURL)")
+		var interactionAllowed: DarwinBoolean = false
+		XCTAssertEqual(SecKeychainGetUserInteractionAllowed(&interactionAllowed), errSecSuccess)
+		XCTAssertEqual(SecKeychainSetUserInteractionAllowed(false), errSecSuccess)
+		defer {
+			KeychainService.deletePassword(key: testKey)
+			SecKeychainSetUserInteractionAllowed(interactionAllowed.boolValue)
+		}
+		guard KeychainService.storePassword("probe", key: testKey) != nil,
+			KeychainService.retrievePassword(key: testKey) == "probe" else {
+			throw XCTSkip("Noninteractive keychain unavailable in this test session")
+		}
         let command = SystemCommand.obsWebSocket(
-            url: "ws://127.0.0.1:4455",
+			url: testURL,
             password: "secret",
             requestType: "SetCurrentProgramScene",
             requestData: "{\"sceneName\":\"Live\"}"
@@ -118,7 +135,7 @@ final class OBSWebSocketTests: XCTestCase {
         let json = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
 
         XCTAssertEqual(json["type"] as? String, "obsWebSocket")
-        XCTAssertEqual(json["url"] as? String, "ws://127.0.0.1:4455")
+		XCTAssertEqual(json["url"] as? String, testURL)
         // Without a writable keychain the password is either passed through as-is or
         // discarded entirely ("Keychain store failed, discarding OBS password") —
         // both mean this session can't exercise the keychain-reference path.
