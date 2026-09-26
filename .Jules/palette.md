@@ -36,3 +36,6 @@
 ## 2024-05-18 - [SwiftUI Button Accessibility]
 **Learning:** Using `.onTapGesture` on generic views like `HStack` prevents interactive elements from properly supporting keyboard focus and VoiceOver accessibility.
 **Action:** Always wrap interactive list rows in a `Button` with `.buttonStyle(.plain)` instead of attaching `.onTapGesture` to views, ensuring `.contentShape(Rectangle())` is applied within the button to maintain the clickable area.
+## 2026-09-26 - [Button Wrappers in Lists Breaking Drag-and-Drop]
+**Learning:** Wrapping a full row in a `Button` inside a SwiftUI `List` that uses `.onMove` on macOS can swallow the drag-start gesture, breaking drag-and-drop reordering. If a row already contains labeled action buttons (like 'Edit' or 'Delete') that are accessible to VoiceOver and keyboard navigation, wrapping the entire structural area in an additional button is unnecessary and harmful.
+**Action:** Before converting a generic row view (like an `HStack` with an `.onTapGesture`) into a `Button` for accessibility, check if the `List` relies on `.onMove` for drag-and-drop and if explicit accessible action buttons already exist for the row's operations. If so, leave the structure as-is.
