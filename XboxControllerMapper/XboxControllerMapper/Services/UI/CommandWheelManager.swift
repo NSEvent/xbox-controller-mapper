@@ -551,8 +551,12 @@ class CommandWheelManager: ObservableObject {
             process.arguments = ["-na", "Firefox", "--args", "--private-window", urlStr]
         case let id where id.contains("com.apple.Safari"):
             // Safari: use AppleScript to open a private window
-            // Escape quotes to prevent AppleScript injection
-            let escapedURL = urlStr.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+            // Escape quotes and newlines to prevent AppleScript injection
+            let escapedURL = urlStr
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+                .replacingOccurrences(of: "\n", with: "\\n")
+                .replacingOccurrences(of: "\r", with: "\\r")
             let script = """
             tell application "Safari"
                 activate
