@@ -1,6 +1,6 @@
 import Foundation
 import AppKit
-import GameController
+@preconcurrency import GameController
 import Combine
 import CoreHaptics
 import IOKit
@@ -222,7 +222,9 @@ class ControllerService: ObservableObject {
     }
 
     @Published var isConnected = false
-    @Published var connectedController: GCController?
+    @Published var connectedController: GCController? {
+		didSet { activeTouchpadRouting.invalidate() }
+    }
     @Published var currentControllerIdentity: ControllerIdentity?
     @Published var controllerName: String = ""
 	@Published var controllerMappingSource: String?
@@ -267,6 +269,7 @@ class ControllerService: ObservableObject {
 
     let controllerQueue = DispatchQueue(label: "com.xboxmapper.controller", qos: .userInteractive)
     let storage = ControllerStorage()
+    nonisolated let activeTouchpadRouting = ActiveTouchpadRouting()
 
     /// Monotonically increasing generation counter for the current connection.
     /// Incremented each time `controllerConnected(_:)` runs. Used in diagnostic
@@ -958,6 +961,7 @@ class ControllerService: ObservableObject {
     }
 
 	func cleanup() {
+		activeTouchpadRouting.invalidate()
 		guideMonitor.stop()
 		stopDiscovery()
 		for controller in GCController.controllers() {
@@ -1179,6 +1183,7 @@ class ControllerService: ObservableObject {
         }
         updateBatteryInfo()
         startDisplayUpdateTimer()
+		activeTouchpadRouting.activate(ObjectIdentifier(controller))
     }
 
 	private func activeGameControllerDisconnected(_ controller: GCController) {
@@ -1192,6 +1197,7 @@ class ControllerService: ObservableObject {
 	}
 
 	func prepareForActiveControllerSwitch() {
+		activeTouchpadRouting.invalidate()
 		let wasAppleTVRemote = storage.lock.withLock { storage.isAppleTVRemote }
 		if wasAppleTVRemote {
 			releaseAppleTVRemoteButtonsIfNeeded()
@@ -1661,7 +1667,7 @@ class ControllerService: ObservableObject {
 		}
 	}
 
-	private func routeGameControllerButtonInput(from controller: GCController, button: ControllerButton, pressed: Bool) {
+	nonisolated private func routeGameControllerButtonInput(from controller: GCController, button: ControllerButton, pressed: Bool) {
 		Task { @MainActor [weak self, weak controller] in
 			guard let self, let controller else { return }
 			guard self.prepareGameControllerInput(from: controller, meaningful: pressed) else { return }
@@ -1671,7 +1677,7 @@ class ControllerService: ObservableObject {
 		}
 	}
 
-	private func routeGameControllerStickInput(
+	nonisolated private func routeGameControllerStickInput(
 		from controller: GCController,
 		x: Float,
 		y: Float,
@@ -1685,7 +1691,7 @@ class ControllerService: ObservableObject {
 		}
 	}
 
-	private func routeGameControllerTriggerInput(
+	nonisolated private func routeGameControllerTriggerInput(
 		from controller: GCController,
 		value: Float,
 		pressed: Bool,
@@ -1699,15 +1705,29 @@ class ControllerService: ObservableObject {
 		}
 	}
 
-	func routeGameControllerTouchpadInput(
+	nonisolated func routeGameControllerTouchpadInput(
 		from controller: GCController,
 		meaningful: Bool,
-		update: @escaping (ControllerService) -> Void
+		update: @escaping @Sendable (ControllerService) -> Void
 	) {
+		// The selected controller's samples bypass the UI thread entirely.
+		// Only an inactive controller needs main-actor takeover arbitration.
+		if activeTouchpadRouting.performIfActive(
+			ObjectIdentifier(controller),
+			meaningful: meaningful || hasActiveGameControllerInput(),
+			update: { update(self) }
+		) { return }
+
 		Task { @MainActor [weak self, weak controller] in
 			guard let self, let controller else { return }
 			guard self.prepareGameControllerInput(from: controller, meaningful: meaningful) else { return }
-			update(self)
+			self.controllerQueue.async { [weak self, weak controller] in
+				guard let self, let controller else { return }
+				_ = self.activeTouchpadRouting.performIfActive(
+					ObjectIdentifier(controller), meaningful: meaningful,
+					update: { update(self) }
+				)
+			}
 		}
 	}
 
@@ -1727,7 +1747,7 @@ class ControllerService: ObservableObject {
 			guard Self.shouldActivateInactiveControllerInput(
 				meaningful: meaningful,
 				activeControllerHasInput: hasActiveGameControllerInput(),
-				activeControllerLastInputTime: activeGameControllerLastInputTime,
+				activeControllerLastInputTime: max(activeGameControllerLastInputTime, activeTouchpadRouting.lastActivity),
 				now: now,
 				quietInterval: inactiveControllerTakeoverQuietInterval
 			) else { return false }

@@ -260,7 +260,8 @@ Invariants the store integration maintains:
 ## Threading Model
 
 - **controllerQueue** (`DispatchQueue`, `.userInteractive`): All button press/release logic, chord detection, mapping execution
-- **Main thread**: UI updates, IOKit HID manager run loop, GameController callbacks
+- **Main thread**: UI updates, IOKit HID manager run loop, controller takeover arbitration, default GameController callbacks
+- **PlayStation input**: `handlerQueue = controllerQueue` keeps DualSense/DS4 callbacks off the UI thread. The active touchpad route runs directly; `ActiveTouchpadRouting` serializes samples with disconnect/switch cleanup and tracks activity for takeover arbitration. Other input routes still dispatch their UI-owned work to the main actor.
 - **ControllerStorage** (`NSLock`): Thread-safe joystick/trigger/touchpad state shared between polling timer and input callbacks
 - **Display update timer**: 15Hz UI refresh for stick/trigger positions (vs ~120Hz internal polling)
 
