@@ -47,3 +47,7 @@
 ## 2024-08-30 - Replace .onTapGesture with Button for A11y
 **Learning:** Using `.onTapGesture` prevents interactive UI elements from being focusable by VoiceOver and keyboard navigation. Wrapping them in a `Button` with `.buttonStyle(.plain)` restores full accessibility and interactive traits.
 **Action:** When making custom views tappable (like custom rows or list items), use `Button(action:)` combined with `.buttonStyle(.plain)` instead of `.onTapGesture`. Ensure `.contentShape(Rectangle())` is applied to maintain the hit area.
+## 2026-09-26 - [Maintainer] Do NOT convert draggable rows to Buttons
+**Rule:** Rows inside `.onMove` / `.onDrag` containers (chord & sequence lists, profile sidebar, macro steps, command wheel actions) intentionally use `.onTapGesture`. Wrapping them in a `Button` can swallow the mouse-down that starts a drag on macOS, and each row already has an explicit, labeled Edit button for keyboard/VoiceOver users. Never wrap a view that contains its own buttons in another `Button`. PRs doing either will be closed.
+## 2026-09-26 - [Maintainer] Stay in scope; never touch debug logging
+**Rule:** Do not delete or comment out `#if DEBUG` `print` statements (MappingEngine, LED, ProfileManager, etc.) and do not commit helper scripts. Each PR must change only the files its title describes. Do not add labels/tooltips to buttons that already show the same visible text.
