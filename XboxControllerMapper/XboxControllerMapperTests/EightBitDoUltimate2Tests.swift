@@ -209,11 +209,15 @@ final class EightBitDoUltimate2DatabaseTests: XCTestCase {
 	private static var retainedDatabases: [GameControllerDatabase] = []
 
 	func testBundledDatabaseCarriesUltimate2BluetoothMacRow() throws {
-		let path = try XCTUnwrap(
-			Bundle(for: GameControllerDatabase.self).path(forResource: "gamecontrollerdb", ofType: "txt"),
-			"Bundled gamecontrollerdb.txt should ship in the app"
-		)
-		let content = try String(contentsOfFile: path, encoding: .utf8)
+		// Read the shipped resource from source: direct `xcrun xctest` runs
+		// don't expose the host app's bundle resources.
+		let databaseURL = URL(fileURLWithPath: #filePath)
+			.deletingLastPathComponent()
+			.deletingLastPathComponent()
+			.appendingPathComponent("XboxControllerMapper")
+			.appendingPathComponent("Resources")
+			.appendingPathComponent("gamecontrollerdb.txt")
+		let content = try String(contentsOf: databaseURL, encoding: .utf8)
 		let database = GameControllerDatabase(databaseContentOverride: content)
 		Self.retainedDatabases.append(database)
 
