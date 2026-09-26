@@ -290,6 +290,11 @@ There are other controller mapping apps for macOS, but none offered everything I
   - The Micro's Home button — which macOS normally swallows — is recovered and shown with the 8BitDo logo; the firmware profile (star) button stays as a non-mappable hint
   - It all works the moment you pair, and a clone-detection check keeps your other controllers unaffected
 
+- **S29 Bluetooth Button Ring Support**: Use the S29 "TikTok scroller" ring as a tiny wireless controller
+  - Swipes and holds map to Up/Down/Left/Right (shared with the d-pad), plus dedicated Camera and Home buttons
+  - Undoes the ring's firmware quirks: hold streams become real press/release pairs, and the shared volume-down code is split back into Camera tap, Camera double-tap, and Down hold
+  - Takes exclusive control of the ring while mapping is on, so its built-in swipe/volume actions don't also fire
+
 - **8BitDo Ultimate 2 Wireless Support**: Elite-style on-screen layout with all four back paddles
   - Home and the four extra back buttons — which macOS doesn't report — are read directly from the controller, so every button is mappable
   - Paddles share the Xbox Elite paddle slots, so Elite profiles carry straight over
@@ -345,6 +350,7 @@ There are other controller mapping apps for macOS, but none offered everything I
 | **Nintendo** | Switch Pro Controller, Joy-Con (single or paired L+R) |
 | **Valve** | Steam Controller (touchpads, gyro, grips, haptics — no Steam required) |
 | **Apple** | Siri Remote / Apple TV Remote 2nd gen (clickpad cursor, edge scroll, mappable side buttons) |
+| **Rings** | S29 Bluetooth button ring (swipes, holds, Camera + Home) |
 | **8BitDo** | **Zero 2 & Micro** (dedicated on-screen layouts + corrected d-pad), **Ultimate 2 Wireless** (Home + 4 back paddles), Pro 2, SN30 Pro, SN30 Pro+, Ultimate, Lite, and more |
 | **Logitech** | F310, F510, F710 |
 | **PowerA** | Enhanced Wired, Fusion Pro |

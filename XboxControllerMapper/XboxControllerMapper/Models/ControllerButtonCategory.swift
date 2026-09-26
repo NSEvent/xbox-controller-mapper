@@ -52,6 +52,8 @@ extension ControllerButton {
 			.beamdeskRightSwipeLeft, .beamdeskRightSwipeRight,
 			.beamdeskRightSwipeForward, .beamdeskRightSwipeBack, .beamdeskRightThumbTap:
 			return .special
+		case .s29Camera, .s29Home:
+			return .special
 		}
 	}
 }

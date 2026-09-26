@@ -228,6 +228,7 @@ class ControllerService: ObservableObject {
 	@Published var controllerMappingSource: String?
     @Published private(set) var isOuraRingConnected = false
     @Published private(set) var isBeamdeskHandsConnected = false
+    @Published private(set) var isS29RingConnected = false
 
     /// Currently pressed buttons (UI use only, updated asynchronously)
     @Published var activeButtons: Set<ControllerButton> = []
@@ -1315,12 +1316,21 @@ class ControllerService: ObservableObject {
 		storage.rawHIDGuideLastEventTime = nil
         storage.lock.unlock()
 
+		publishVirtualInputSourceIfNeeded()
+    }
+
+	/// When no physical controller is active, show the highest-precedence
+	/// connected virtual/auxiliary input: Oura Ring, then S29 Ring, then
+	/// Beamdesk hands.
+	private func publishVirtualInputSourceIfNeeded() {
 		if isOuraRingConnected {
 			publishOuraRingConnection()
+		} else if isS29RingConnected {
+			publishS29RingConnection()
 		} else if isBeamdeskHandsConnected {
 			publishBeamdeskHandsConnection()
 		}
-    }
+	}
 
     func setOuraRingConnected(_ connected: Bool) {
 		guard isOuraRingConnected != connected else { return }
@@ -1337,9 +1347,7 @@ class ControllerService: ObservableObject {
 				controllerMappingSource = nil
 				activeButtons.removeAll()
 				stopDisplayUpdateTimer()
-				if isBeamdeskHandsConnected {
-					publishBeamdeskHandsConnection()
-				}
+				publishVirtualInputSourceIfNeeded()
 			} else {
 				releaseOuraRingButtons()
 			}
@@ -1358,7 +1366,7 @@ class ControllerService: ObservableObject {
 			publishBeamdeskHandsConnection()
 		} else {
 			releaseBeamdeskHandsButtons()
-			if !hasActiveHardwareInputSource && !isOuraRingConnected {
+			if !hasActiveHardwareInputSource && !isOuraRingConnected && !isS29RingConnected {
 				isConnected = false
 				currentControllerIdentity = nil
 				controllerName = ""
@@ -1366,6 +1374,28 @@ class ControllerService: ObservableObject {
 				activeButtons.removeAll()
 				stopDisplayUpdateTimer()
 			}
+		}
+	}
+
+	/// The S29 ring is a real HID device, but like the Oura ring it is an
+	/// auxiliary input: its buttons always reach the mapping engine, and it
+	/// only becomes the displayed controller when no gamepad is active.
+	/// `S29RingInputService` releases held ring buttons before reporting a
+	/// disconnect, so only the display state is handled here.
+	func setS29RingConnected(_ connected: Bool) {
+		guard isS29RingConnected != connected else { return }
+		isS29RingConnected = connected
+
+		if connected {
+			publishS29RingConnection()
+		} else if !hasActiveHardwareInputSource {
+			isConnected = false
+			currentControllerIdentity = nil
+			controllerName = ""
+			controllerMappingSource = nil
+			activeButtons.removeAll()
+			stopDisplayUpdateTimer()
+			publishVirtualInputSourceIfNeeded()
 		}
 	}
 
@@ -1381,6 +1411,12 @@ class ControllerService: ObservableObject {
 		isOuraRingConnected &&
 		controllerName == "Oura Ring" &&
 		controllerMappingSource == "Oura Ring"
+	}
+
+	var isS29RingActiveInputSource: Bool {
+		isS29RingConnected &&
+		controllerName == S29RingIdentity.displayName &&
+		controllerMappingSource == S29RingIdentity.displayName
 	}
 
 	var isBeamdeskHandsActiveInputSource: Bool {
@@ -1401,8 +1437,20 @@ class ControllerService: ObservableObject {
 		}
     }
 
-	private func publishBeamdeskHandsConnection() {
+	private func publishS29RingConnection() {
 		guard !hasActiveHardwareInputSource, !isOuraRingConnected else { return }
+		isConnected = true
+		currentControllerIdentity = nil
+		controllerName = S29RingIdentity.displayName
+		controllerMappingSource = S29RingIdentity.displayName
+		reportControllerConnectionForTelemetry(fallback: .wearable)
+		if !AppRuntime.isRunningTests {
+			startDisplayUpdateTimer()
+		}
+	}
+
+	private func publishBeamdeskHandsConnection() {
+		guard !hasActiveHardwareInputSource, !isOuraRingConnected, !isS29RingConnected else { return }
 		isConnected = true
 		currentControllerIdentity = nil
 		controllerName = "Beamdesk Hands"

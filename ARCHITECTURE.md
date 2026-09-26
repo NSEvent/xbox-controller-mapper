@@ -247,6 +247,8 @@ Invariants the store integration maintains:
 | `GameControllerDatabase` | Services/GameControllerDatabase.swift | SDL database parsing and lookup |
 | `GenericHIDController` | Services/GenericHIDController.swift | Raw HID input for third-party controllers |
 | `HIDControllerDriverDescriptor` | Services/Controller/HIDControllerDriverDescriptor.swift | Testable raw-HID matching criteria for specialized controller backends |
+| `S29RingInputService` | Services/S29Ring/S29RingInputService.swift | S29 button ring: identity-checked exclusive (seized) HID session on a dedicated run-loop thread; follows the mapping on/off switch |
+| `S29RingReportDecoder` | Services/S29Ring/S29RingReportDecoder.swift | Pure S29 report decoder (reports + timestamps in, logical press/release out): swipes, hold pulses, volume-down disambiguation, stroke bursts |
 | `OnScreenKeyboardManager` | Services/OnScreenKeyboardManager.swift | Floating keyboard overlay window |
 | `CommandWheelManager` | Services/CommandWheelManager.swift | Radial menu for app/website switching |
 | `InputLogService` | Services/InputLogService.swift | Debug input logging |

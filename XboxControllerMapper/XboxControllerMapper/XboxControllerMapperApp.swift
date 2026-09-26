@@ -97,6 +97,7 @@ final class ServiceContainer {
     let updateCheckService: UpdateCheckService
     let ouraRingInputService: OuraRingInputService
     let beamdeskInputService: BeamdeskInputService
+    let s29RingInputService: S29RingInputService
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -130,6 +131,15 @@ final class ServiceContainer {
             usageStatsService: usageStatsService
         )
         self.beamdeskInputService = BeamdeskInputService(controllerService: controllerService)
+        // S29 ring: seized raw-HID input. Follows the mapping switch so turning
+        // mapping off (or trial expiry) hands the ring back to macOS.
+        let s29RingInputService = S29RingInputService(
+            controllerService: controllerService,
+            hardwareMonitoringEnabled: AppRuntime.screenshotVariant == nil
+        )
+        self.s29RingInputService = s29RingInputService
+        s29RingInputService.bindMappingEnabled(self.mappingEngine.$isEnabled)
+        s29RingInputService.startIfPermitted()
         // The cross-Mac relay listener publishes a Bonjour service, which
         // triggers the Local Network prompt. Only start it at launch if the user
         // has actually set up the relay — otherwise the prompt is deferred to
@@ -617,6 +627,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		CodexMicroBridgeService.shared.stop()
 		services.ouraRingInputService.stop()
 		services.beamdeskInputService.stop()
+		services.s29RingInputService.stop()
 		services.mappingEngine.shutdown()
 		services.controllerService.cleanup()
 		services.usageStatsService.endSession()
@@ -661,6 +672,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         permissions.onInputMonitoringGranted = {
             ServiceContainer.shared.controllerService.startInputMonitoringHID()
+            ServiceContainer.shared.s29RingInputService.startIfPermitted()
         }
         permissions.requestBluetoothAction = {
             ServiceContainer.shared.controllerService.startBluetoothBattery()

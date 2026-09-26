@@ -35,6 +35,8 @@ struct PairingMinimapView: View {
         Group {
 			if visualDescriptor.isBeamdeskHands {
 				beamdeskHandsMinimap
+			} else if visualDescriptor.isS29Ring {
+				s29RingMinimap
 			} else if visualDescriptor.isOuraRing {
 				ouraRingMinimap
 			} else if visualDescriptor.isAppleTVRemote {
@@ -105,6 +107,16 @@ struct PairingMinimapView: View {
 			.frame(width: size.width, height: size.height)
 			.scaleEffect(scale)
 			.frame(width: targetWidth, height: (size.height * scale).rounded())
+    }
+
+    private var s29RingMinimap: some View {
+        let size = S29RingMinimapView.previewSize
+        let scale = targetWidth / size.width
+
+        return S29RingMinimapView(pressedButtons: pressedButtons)
+            .frame(width: size.width, height: size.height)
+            .scaleEffect(scale)
+            .frame(width: targetWidth, height: (size.height * scale).rounded())
     }
 
     private var beamdeskHandsMinimap: some View {

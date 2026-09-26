@@ -167,6 +167,8 @@ extension ControllerButton {
 		case .beamdeskLeftSwipeForward, .beamdeskRightSwipeForward: return "arrow.up"
 		case .beamdeskLeftSwipeBack, .beamdeskRightSwipeBack: return "arrow.down"
 		case .beamdeskLeftThumbTap, .beamdeskRightThumbTap: return "hand.tap"
+		case .s29Camera: return "camera"
+		case .s29Home: return "house"
 		case .xboxPaddle1: return "l.button.roundedbottom.horizontal"
 		case .xboxPaddle2: return "r.button.roundedbottom.horizontal"
 		case .xboxPaddle3: return "l.button.roundedbottom.horizontal.fill"

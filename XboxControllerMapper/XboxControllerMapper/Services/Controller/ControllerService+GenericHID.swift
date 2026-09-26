@@ -79,6 +79,10 @@ extension ControllerService {
     func genericDeviceAppeared(_ device: IOHIDDevice) {
         // Skip if we already have a connected controller (GameController or generic)
         guard !isConnected else { return }
+        // The S29 ring rides the Bluetooth LE matching criteria too; it has its
+        // own seized decoder (S29RingInputService) and must never be adopted
+        // as a generic gamepad.
+        guard !S29RingIdentity.matches(device: device) else { return }
 
         let vendorID = IOHIDDeviceGetProperty(device, kIOHIDVendorIDKey as CFString) as? Int ?? 0
         let productID = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int ?? 0

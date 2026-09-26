@@ -143,6 +143,10 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     case beamdeskRightSwipeBack
     case beamdeskRightThumbTap
 
+    // S29 Bluetooth button ring (Up/Down/Left/Right reuse the d-pad buttons)
+    case s29Camera                // Camera button (tap, double-tap, or hold)
+    case s29Home                  // Home button (tap or hold)
+
     var id: String { rawValue }
 
 }

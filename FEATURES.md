@@ -142,6 +142,8 @@ This document lists all features for verification after refactoring.
 - [ ] Database refresh UI in Settings (Third-Party Controllers section)
 - [ ] Version fallback lookup (exact version, then version 0)
 - [ ] 8BitDo Ultimate 2 Wireless: Elite-style preview; Home + 4 back paddles read from raw HID (Button usages 13/17/18/6/3)
+- [ ] S29 button ring: identity requires VID 0x05AC + PID 0x0220 + name "S29" + Bluetooth LE (never seizes a real Apple keyboard)
+- [ ] S29 button ring: seized while mapping is on; swipes/holds → d-pad, Camera + Home buttons; released and unseized on disconnect or mapping off
 
 ## UI / UX
 

@@ -85,6 +85,17 @@ extension ControllerButton {
         }
     }
 
+    /// Buttons that exist only on the S29 Bluetooth button ring. Its four
+    /// directions reuse the d-pad buttons so they map like any d-pad.
+    var isS29RingOnly: Bool {
+        switch self {
+        case .s29Camera, .s29Home:
+            return true
+        default:
+            return false
+        }
+    }
+
     /// Whether this button represents one of the eight touchpad quadrant
     /// variants (4 regions × {touch, click}). Used by the mapping engine for
     /// dispatch and by UI to know how to render the region group.
@@ -378,6 +389,7 @@ extension ControllerButton {
         allCases.filter {
             !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
                 && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
+                && !$0.isS29RingOnly
         }
     }
 
@@ -392,7 +404,7 @@ extension ControllerButton {
         allCases.filter {
             !$0.isDualSenseOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
                 && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
-                && $0 != .share
+                && !$0.isS29RingOnly && $0 != .share
         }
     }
 
@@ -402,6 +414,7 @@ extension ControllerButton {
             $0 != .share && !$0.isDualSenseEdgeOnly && !$0.isGestureButton
                 && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
                 && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
+                && !$0.isS29RingOnly
         }
     }
 
@@ -411,6 +424,7 @@ extension ControllerButton {
         allCases.filter {
             !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
                 && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
+                && !$0.isS29RingOnly
         }
     }
 
@@ -455,5 +469,20 @@ extension ControllerButton {
 
     static var beamdeskHandButtons: [ControllerButton] {
         beamdeskLeftHandButtons + beamdeskRightHandButtons
+    }
+
+    /// Directions on the S29 ring (swipes and holds) — the d-pad buttons.
+    static var s29RingDirectionButtons: [ControllerButton] {
+        [.dpadUp, .dpadDown, .dpadLeft, .dpadRight]
+    }
+
+    /// Dedicated S29 ring buttons.
+    static var s29RingActionButtons: [ControllerButton] {
+        [.s29Camera, .s29Home]
+    }
+
+    /// Every logical control the S29 ring produces.
+    static var s29RingButtons: [ControllerButton] {
+        s29RingDirectionButtons + s29RingActionButtons
     }
 }

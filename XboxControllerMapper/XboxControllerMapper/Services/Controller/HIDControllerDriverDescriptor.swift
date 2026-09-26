@@ -8,6 +8,9 @@ enum HIDMatchingCriterion: Hashable {
 	case vendorProduct(vendorID: Int, productID: Int)
 	case usage(page: Int, usage: Int)
 	case transport(String)
+	/// All three must match in one dictionary (IOHIDManager ANDs the keys of a
+	/// single matching dictionary and ORs separate dictionaries).
+	case vendorProductTransport(vendorID: Int, productID: Int, transport: String)
 
 	var dictionary: [String: Any] {
 		switch self {
@@ -24,6 +27,12 @@ enum HIDMatchingCriterion: Hashable {
 		case let .transport(name):
 			return [
 				kIOHIDTransportKey as String: name,
+			]
+		case let .vendorProductTransport(vendorID, productID, transport):
+			return [
+				kIOHIDVendorIDKey as String: vendorID,
+				kIOHIDProductIDKey as String: productID,
+				kIOHIDTransportKey as String: transport,
 			]
 		}
 	}
@@ -105,6 +114,24 @@ nonisolated enum EightBitDoUltimate2HIDButtonTable {
 
 	static var rawButtons: Set<ControllerButton> {
 		Set(buttonsByUsage.values)
+	}
+}
+
+/// Candidate matching for the S29 ring. Scoped to the spoofed Apple VID/PID
+/// *over Bluetooth LE* so a USB Apple keyboard never even reaches the device
+/// callback; `S29RingIdentity.matches` then also requires the "S29" product
+/// name before anything is opened (let alone seized).
+struct S29RingHIDDriverDescriptor: HIDControllerDriverDescriptor {
+	let displayName = S29RingIdentity.displayName
+
+	var matchingCriteria: [HIDMatchingCriterion] {
+		S29RingIdentity.bluetoothLowEnergyTransports.map {
+			.vendorProductTransport(
+				vendorID: S29RingIdentity.vendorID,
+				productID: S29RingIdentity.productID,
+				transport: $0
+			)
+		}
 	}
 }
 

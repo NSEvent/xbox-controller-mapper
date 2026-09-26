@@ -538,6 +538,9 @@ struct ButtonMappingsTab: View {
 		if controllerService.isOuraRingConnected {
 			layouts.insert(.ouraRing)
 		}
+		if controllerService.isS29RingConnected {
+			layouts.insert(.s29Ring)
+		}
 
 		return layouts
 	}

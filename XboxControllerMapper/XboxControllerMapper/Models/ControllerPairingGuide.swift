@@ -289,6 +289,20 @@ extension ControllerPreviewLayout {
 				pairingButtons: [.ouraTap, .ouraTapHold, .ouraFlickLeft, .ouraFlickRight]
 			)
 
+		case .s29Ring:
+			return ControllerPairingGuide(
+				title: loc("Pair Your S29 Ring"),
+				tagline: loc("S29 Bluetooth button ring"),
+				systemImage: systemImage,
+				bluetoothSteps: [
+					loc("On your Mac, open **System Settings → Bluetooth**."),
+					loc("Put the S29 ring in **pairing mode**."),
+					loc("Under **Nearby Devices**, select **S29** to connect.")
+				],
+				tip: loc("While ControllerKeys is running it takes exclusive control of the ring, so the ring's built-in swipe and volume actions stop and every control is yours to map. Turning mapping off hands the ring back to macOS."),
+				pairingButtons: [.s29Home]
+			)
+
 		case .beamdeskHands:
 			return ControllerPairingGuide(
 				title: loc("Connect Beamdesk Hands"),

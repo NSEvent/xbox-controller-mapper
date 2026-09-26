@@ -18,6 +18,7 @@ enum ControllerVisualFamily: Equatable {
 	case eightBitDoUltimate2
 	case appleTVRemote
 	case ouraRing
+	case s29Ring
 	case beamdeskHands
 }
 
@@ -34,6 +35,16 @@ struct ControllerVisualDescriptor: Equatable {
 
 	var isBeamdeskHands: Bool {
 		family == .beamdeskHands
+	}
+
+	var isS29Ring: Bool {
+		family == .s29Ring
+	}
+
+	/// Non-gamepad devices with their own canvas: no sticks, triggers,
+	/// shoulders, or system-button rows.
+	private var isAuxiliaryInputDevice: Bool {
+		isOuraRing || isBeamdeskHands || isS29Ring
 	}
 
 	var isPlayStation: Bool {
@@ -92,7 +103,7 @@ struct ControllerVisualDescriptor: Equatable {
 	}
 
 	var hasSticks: Bool {
-		!isStickless && !isOuraRing && !isBeamdeskHands && !isAppleTVRemote
+		!isStickless && !isAuxiliaryInputDevice && !isAppleTVRemote
 	}
 
 	var supportsMotionGestures: Bool {
@@ -106,8 +117,7 @@ struct ControllerVisualDescriptor: Equatable {
 
 	var hasTriggers: Bool {
 		eightBitDoModel != .zero2
-			&& !isOuraRing
-			&& !isBeamdeskHands
+			&& !isAuxiliaryInputDevice
 			&& !isAppleTVRemote
 	}
 
@@ -120,6 +130,8 @@ struct ControllerVisualDescriptor: Equatable {
 			return Set(ControllerButton.ouraRingButtons)
 		case .beamdeskHands:
 			return Set(ControllerButton.beamdeskHandButtons)
+		case .s29Ring:
+			return Set(ControllerButton.s29RingButtons)
 		case .appleTVRemote:
 			return Set(ControllerButton.appleTVRemoteButtons)
 		case .dualShock:
@@ -179,6 +191,7 @@ struct ControllerVisualDescriptor: Equatable {
 		case .eightBitDoUltimate2: return "8BitDo Ultimate 2"
 		case .appleTVRemote: return "Apple TV Remote"
 		case .ouraRing: return "Oura Ring"
+		case .s29Ring: return S29RingIdentity.displayName
 		case .beamdeskHands: return "Beamdesk Hands"
 		}
 	}
@@ -226,7 +239,7 @@ struct ControllerVisualDescriptor: Equatable {
 			return .xboxElite
 		case .appleTVRemote:
 			return nil
-		case .ouraRing:
+		case .ouraRing, .s29Ring:
 			return nil
 		case .beamdeskHands:
 			return nil
@@ -234,7 +247,7 @@ struct ControllerVisualDescriptor: Equatable {
 	}
 
 	func shoulderButtons(side: JoystickSide) -> [ControllerButton] {
-		if isOuraRing || isBeamdeskHands || isAppleTVRemote { return [] }
+		if isAuxiliaryInputDevice || isAppleTVRemote { return [] }
 		switch side {
 		case .left:
 			return hasTriggers ? [.leftTrigger, .leftBumper] : [.leftBumper]
@@ -244,7 +257,7 @@ struct ControllerVisualDescriptor: Equatable {
 	}
 
 	var leftSystemButtons: [ControllerButton] {
-		if isOuraRing || isBeamdeskHands { return [] }
+		if isAuxiliaryInputDevice { return [] }
 		var buttons: [ControllerButton] = [.view]
 		if eightBitDoModel != .zero2 {
 			buttons.append(.xbox)
@@ -253,7 +266,7 @@ struct ControllerVisualDescriptor: Equatable {
 	}
 
 	var rightSystemButtons: [ControllerButton] {
-		if isOuraRing || isBeamdeskHands { return [] }
+		if isAuxiliaryInputDevice { return [] }
 		var buttons: [ControllerButton] = [.menu]
 		if isDualSense {
 			buttons.append(.micMute)
@@ -308,6 +321,8 @@ extension ControllerVisualDescriptor {
 			return ControllerVisualDescriptor(family: .appleTVRemote)
 		case .ouraRing:
 			return ControllerVisualDescriptor(family: .ouraRing)
+		case .s29Ring:
+			return ControllerVisualDescriptor(family: .s29Ring)
 		case .beamdeskHands:
 			return ControllerVisualDescriptor(family: .beamdeskHands)
 		}
@@ -347,17 +362,22 @@ extension ControllerVisualDescriptor {
 		active(
 			from: service.threadSafeControllerPresentationState,
 			ouraRingIsActive: service.isOuraRingActiveInputSource,
-			beamdeskHandsAreActive: service.isBeamdeskHandsActiveInputSource
+			beamdeskHandsAreActive: service.isBeamdeskHandsActiveInputSource,
+			s29RingIsActive: service.isS29RingActiveInputSource
 		)
 	}
 
 	static func active(
 		from state: ControllerPresentationState,
 		ouraRingIsActive: Bool,
-		beamdeskHandsAreActive: Bool
+		beamdeskHandsAreActive: Bool,
+		s29RingIsActive: Bool = false
 	) -> ControllerVisualDescriptor {
 		if ouraRingIsActive {
 			return ControllerVisualDescriptor(family: .ouraRing)
+		}
+		if s29RingIsActive {
+			return ControllerVisualDescriptor(family: .s29Ring)
 		}
 		if beamdeskHandsAreActive {
 			return ControllerVisualDescriptor(family: .beamdeskHands)

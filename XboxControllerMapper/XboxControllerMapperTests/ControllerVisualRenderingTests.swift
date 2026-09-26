@@ -259,6 +259,8 @@ private struct StaticControllerMinimapPreview: View {
 		Group {
 			if descriptor.isBeamdeskHands {
 				beamdeskHandsMinimap
+			} else if descriptor.isS29Ring {
+				s29RingMinimap
 			} else if descriptor.isOuraRing {
 				ouraRingMinimap
 			} else if descriptor.isAppleTVRemote {
@@ -291,6 +293,16 @@ private struct StaticControllerMinimapPreview: View {
 		.frame(width: size.width, height: size.height)
 		.scaleEffect(scale)
 		.frame(width: targetWidth, height: (size.height * scale).rounded())
+	}
+
+	private var s29RingMinimap: some View {
+		let size = S29RingMinimapView.previewSize
+		let scale = targetWidth / size.width
+
+		return S29RingMinimapView(pressedButtons: pressedButtons)
+			.frame(width: size.width, height: size.height)
+			.scaleEffect(scale)
+			.frame(width: targetWidth, height: (size.height * scale).rounded())
 	}
 
 	private var beamdeskHandsMinimap: some View {

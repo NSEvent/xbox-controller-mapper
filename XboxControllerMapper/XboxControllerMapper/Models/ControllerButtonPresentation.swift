@@ -107,6 +107,8 @@ extension ControllerButton {
         case .beamdeskRightSwipeForward: return "Right Hand Swipe Forward"
         case .beamdeskRightSwipeBack: return "Right Hand Swipe Back"
         case .beamdeskRightThumbTap: return "Right Hand Thumb Tap"
+        case .s29Camera: return "Camera"
+        case .s29Home: return "Home"
         }
     }
 
@@ -314,6 +316,8 @@ extension ControllerButton {
         case .beamdeskRightSwipeForward: return "R↑"
         case .beamdeskRightSwipeBack: return "R↓"
         case .beamdeskRightThumbTap: return "R Tap"
+        case .s29Camera: return "Cam"
+        case .s29Home: return "Home"
         }
     }
 
