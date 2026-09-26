@@ -36,3 +36,6 @@
 ## 2024-05-18 - [SwiftUI Button Accessibility]
 **Learning:** Using `.onTapGesture` on generic views like `HStack` prevents interactive elements from properly supporting keyboard focus and VoiceOver accessibility.
 **Action:** Always wrap interactive list rows in a `Button` with `.buttonStyle(.plain)` instead of attaching `.onTapGesture` to views, ensuring `.contentShape(Rectangle())` is applied within the button to maintain the clickable area.
+## 2024-07-28 - Do not wrap list rows containing explicit action buttons
+**Learning:** In SwiftUI, wrapping a list row containing an `.onTapGesture` in a transparent `Button` to make it accessible to VoiceOver can create a 'Ghost Tab Stop' and redundant screen reader announcements if the row *already* contains explicit action buttons (like Edit or Delete icons). This degrades the keyboard navigation experience by creating invisible focus points and requiring double-tabbing.
+**Action:** When evaluating `.onTapGesture` accessibility, check if the list row already has adjacent, explicit action buttons. If it does, leave the `.onTapGesture` as a pointer convenience. Ensure accessibility by adding context to the explicit buttons (e.g., using `item.name` in their `.help()` and `.accessibilityLabel()`) rather than making the entire row focusable.
