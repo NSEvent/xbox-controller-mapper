@@ -263,44 +263,49 @@ struct CommandPaletteView: View {
 
     private func row(_ destination: CommandPaletteDestination, index: Int) -> some View {
         let isSelected = index == selectedIndex
-        return HStack(spacing: 12) {
-            Image(systemName: destination.systemImage)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(isSelected ? Color.white : .secondary)
-                .frame(width: 26, height: 26)
-                .background(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(isSelected ? Color.accentColor.opacity(0.85) : Color.white.opacity(0.06))
-                )
+        return Button(action: {
+            onSelect(destination)
+            dismiss()
+        }) {
+            HStack(spacing: 12) {
+                Image(systemName: destination.systemImage)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(isSelected ? Color.white : .secondary)
+                    .frame(width: 26, height: 26)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(isSelected ? Color.accentColor.opacity(0.85) : Color.white.opacity(0.06))
+                    )
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(destination.title)
-                    .font(.system(size: 13.5, weight: .medium))
-                    .foregroundStyle(.primary)
-                if let subtitle = destination.subtitle, !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(destination.title)
+                        .font(.system(size: 13.5, weight: .medium))
+                        .foregroundStyle(.primary)
+                    if let subtitle = destination.subtitle, !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
+
+                Spacer(minLength: 8)
+
+                Text(destination.groupLabel)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 7).padding(.vertical, 2)
+                    .background(Capsule().fill(Color.white.opacity(0.07)))
             }
-
-            Spacer(minLength: 8)
-
-            Text(destination.groupLabel)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 7).padding(.vertical, 2)
-                .background(Capsule().fill(Color.white.opacity(0.07)))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(isSelected ? Color.accentColor.opacity(0.16) : Color.clear)
+            )
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(isSelected ? Color.accentColor.opacity(0.16) : Color.clear)
-        )
-        .contentShape(Rectangle())
-        .onTapGesture { onSelect(destination); dismiss() }
+        .buttonStyle(.plain)
         .onHover { hovering in if hovering { model.selectedIndex = index } }
     }
 
