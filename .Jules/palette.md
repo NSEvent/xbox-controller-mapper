@@ -43,3 +43,7 @@
 ## 2024-05-13 - [Icon Button Accessibility Gap in Modals and Sheets]
 **Learning:** Found a pattern where small UI utility elements, like dismiss buttons (`xmark`) in floating sheets (`FeedbackKit.swift`) or selection toggles in lists (`CommunityProfilePreview.swift`), are implemented as icon-only buttons but completely lack `.help()` tooltips and/or `.accessibilityLabel()`.
 **Action:** Always verify that every `Button` wrapping an `Image` without accompanying text has both `.help()` and `.accessibilityLabel()` defined to ensure full accessibility and usability across all input methods.
+||||||| f1ceae4c
+## 2024-08-30 - Replace .onTapGesture with Button for A11y
+**Learning:** Using `.onTapGesture` prevents interactive UI elements from being focusable by VoiceOver and keyboard navigation. Wrapping them in a `Button` with `.buttonStyle(.plain)` restores full accessibility and interactive traits.
+**Action:** When making custom views tappable (like custom rows or list items), use `Button(action:)` combined with `.buttonStyle(.plain)` instead of `.onTapGesture`. Ensure `.contentShape(Rectangle())` is applied to maintain the hit area.
