@@ -26,3 +26,8 @@
 **Vulnerability:** A `Process()` object swallowed launch errors via `try? process.run()` and then unconditionally executed `process.waitUntilExit()`.
 **Learning:** Calling `waitUntilExit()` on a `Foundation.Process` that has not been successfully launched (e.g., if `try? process.run()` silently swallowed a launch error) throws an uncatchable Objective-C exception that crashes the application or test suite.
 **Prevention:** Always wrap `process.run()` in a proper `do-catch` block. Ensure `process.waitUntilExit()` is only executed if the launch was successful, or handle errors safely instead of silently swallowing them.
+||||||| 9353de56
+## 2026-06-27 - [AppleScript Command Injection via Unescaped Newlines]
+**Vulnerability:** The application executed AppleScript to open Safari private windows by injecting a user-controlled URL into a string literal. It escaped double quotes (`"`) and backslashes (`\`), but failed to escape newlines (`\n`) and carriage returns (`\r`).
+**Learning:** In AppleScript, newlines and carriage returns act as statement terminators. An unescaped newline within a string literal can terminate the string definition and execute subsequent lines as arbitrary AppleScript commands, leading to arbitrary shell command execution (e.g., `do shell script`). Escaping only quotes is insufficient.
+**Prevention:** When injecting untrusted input into AppleScript string literals, ensure all control characters that can break the string context, including newlines (`\n`) and carriage returns (`\r`), are explicitly escaped or neutralized.
