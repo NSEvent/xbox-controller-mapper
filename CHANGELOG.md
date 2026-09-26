@@ -12,9 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **S29 Bluetooth button ring support (experimental)**: the inexpensive S29 "scroller" ring now works as a mappable controller. Swipes and holds land on Up/Down/Left/Right (the d-pad buttons, so existing d-pad mappings just work), plus dedicated **Camera** and **Home** buttons — including Camera double-tap and Down hold, which the ring's firmware sends as the same volume-down code. ControllerKeys takes exclusive control of the ring while mapping is on so its built-in swipe and volume actions stop, and hands it back to macOS when mapping is turned off. Built from hardware captures and not yet verified on a physical ring — reports welcome.
 - **8BitDo Ultimate 2 Wireless support (experimental)**: the Ultimate 2 now connects with a dedicated Elite-style preview showing all four back paddles. Home and the extra back buttons — which macOS's GameController framework drops — are read straight from the controller, so every button is mappable, and the bundled SDL mapping covers the pad when macOS doesn't claim it at all. Not yet verified on physical hardware — reports welcome.
 
+### Changed
+
+- **Clearer trigger precision settings**: a separate Trigger Cursor Slowdown section explains how trigger pressure affects joystick and touchpad mouse speed, displays full-pull speed as a percentage, and calls out overlap with the on-screen keyboard and other mapped actions.
+
 ### Fixed
 
-- **Touchpad lag with the virtual keyboard open**: DualSense and DualShock touchpad input now runs independently of keyboard rendering, keeping cursor movement responsive across the desktop while the keyboard is visible.
+- **Touchpad input delivery during UI work**: DualSense and DualShock touchpad callbacks now run independently of main-thread keyboard rendering. Trigger precision settings still intentionally reduce cursor speed while the selected trigger is held.
 
 ## [2.9.0] - 2026-09-21
 

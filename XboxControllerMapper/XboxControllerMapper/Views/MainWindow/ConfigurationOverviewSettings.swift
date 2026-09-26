@@ -198,7 +198,7 @@ extension ConfigurationOverviewBuilder {
 		if presentation.hasTriggers || hasSavedAnalogPrecision {
 			rows.append(settingRow(
 				id: "analog-precision",
-				trigger: String(localized: "Analog Trigger Precision"),
+				trigger: String(localized: "Trigger Cursor Slowdown"),
 				action: localizedDisplayName(settings.analogPrecisionTriggerMode.displayName),
 				detail: ConfigurationOverviewBuilder.availabilityDetail(
 					String(

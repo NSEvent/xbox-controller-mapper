@@ -1099,3 +1099,19 @@
 "Turning this off removes all LED settings for this layer." = "オフにすると、このレイヤーのすべてのLED設定が削除されます。";
 "DualShock 4 supports light bar color and brightness. Player and mute LEDs are DualSense features." = "DualShock 4はライトバーの色と明るさに対応しています。プレイヤーLEDとミュートLEDはDualSenseの機能です。";
 "Over Bluetooth, player and mute LEDs are unavailable. Light bar color and brightness remain supported." = "Bluetooth接続ではプレイヤーLEDとミュートLEDは使用できません。ライトバーの色と明るさは引き続き利用できます。";
+
+/* Trigger cursor slowdown guidance */
+"Trigger Cursor Slowdown" = "トリガーでカーソルを減速";
+"Hold a trigger for finer mouse control. Squeeze further to move slower; release to return to normal speed." = "トリガーを押し続けると、マウスを細かく操作できます。深く押すほど遅くなり、離すと通常の速度に戻ります。";
+"Applies to joystick and controller touchpad mouse movement, even while the on-screen keyboard is open. No modifier key is needed." = "画面キーボードの表示中も、スティックとコントローラーのタッチパッドによるマウス移動に適用されます。修飾キーは不要です。";
+"Slowdown Trigger" = "減速用トリガー";
+"Off: trigger pressure does not change cursor speed." = "オフ：トリガーを押してもカーソル速度は変わりません。";
+"Speed at Full Pull" = "最大押し込み時の速度";
+"Percentage of normal cursor speed. For example, 5% is 20 times slower. Releasing the trigger restores normal speed." = "通常のカーソル速度に対する割合です。例えば5%は通常の20分の1の速度です。トリガーを離すと通常の速度に戻ります。";
+"Trigger Deadzone" = "トリガーのデッドゾーン";
+"Ignore light trigger presses before slowing the cursor" = "軽い押し込みでは減速しません";
+"Trigger Curve" = "トリガーのカーブ";
+"Higher values keep more speed until the trigger is nearly fully pressed" = "値が高いほど、深く押し込むまで速さを保ちます";
+"%@ also opens the on-screen keyboard. Pulling it slows the cursor across the desktop, too. Choose Off or another trigger to keep normal speed while using the keyboard." = "%@には画面キーボードを開く操作も割り当てられています。押すとデスクトップ全体でカーソルが遅くなります。キーボード使用中も通常の速度を保つには、オフか別のトリガーを選んでください。";
+"%@ also has a button action. Pulling it will slow the cursor and run that action." = "%@にはボタン操作も割り当てられています。押すとカーソルが減速し、その操作も実行されます。";
+"L2 / LT also activates swipe typing. Holding it slows normal cursor movement before you start a swipe." = "L2 / LTはスワイプ入力も有効にします。押している間は、スワイプ開始前の通常のカーソル移動も遅くなります。";

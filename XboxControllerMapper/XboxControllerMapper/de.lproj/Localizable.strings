@@ -1099,3 +1099,19 @@
 "Turning this off removes all LED settings for this layer." = "Durch Ausschalten werden alle LED-Einstellungen dieser Ebene entfernt.";
 "DualShock 4 supports light bar color and brightness. Player and mute LEDs are DualSense features." = "DualShock 4 unterstützt Lichtleistenfarbe und Helligkeit. Player- und Stummschaltungs-LEDs sind DualSense-Funktionen.";
 "Over Bluetooth, player and mute LEDs are unavailable. Light bar color and brightness remain supported." = "Über Bluetooth sind Player- und Stummschaltungs-LEDs nicht verfügbar. Lichtleistenfarbe und Helligkeit werden weiterhin unterstützt.";
+
+/* Trigger cursor slowdown guidance */
+"Trigger Cursor Slowdown" = "Cursor mit Trigger verlangsamen";
+"Hold a trigger for finer mouse control. Squeeze further to move slower; release to return to normal speed." = "Halte einen Trigger für präzisere Mausbewegungen. Je weiter du ihn drückst, desto langsamer bewegt sich der Cursor. Loslassen stellt die normale Geschwindigkeit wieder her.";
+"Applies to joystick and controller touchpad mouse movement, even while the on-screen keyboard is open. No modifier key is needed." = "Gilt für Mausbewegungen per Stick und Controller-Touchpad, auch bei geöffneter Bildschirmtastatur. Keine Zusatztaste erforderlich.";
+"Slowdown Trigger" = "Trigger zum Verlangsamen";
+"Off: trigger pressure does not change cursor speed." = "Aus: Der Trigger beeinflusst die Cursorgeschwindigkeit nicht.";
+"Speed at Full Pull" = "Tempo bei vollem Druck";
+"Percentage of normal cursor speed. For example, 5% is 20 times slower. Releasing the trigger restores normal speed." = "Anteil der normalen Cursorgeschwindigkeit. 5 % entspricht zum Beispiel einem Zwanzigstel. Loslassen stellt die normale Geschwindigkeit wieder her.";
+"Trigger Deadzone" = "Trigger-Totzone";
+"Ignore light trigger presses before slowing the cursor" = "Leichten Triggerdruck ignorieren, bevor der Cursor langsamer wird";
+"Trigger Curve" = "Trigger-Kurve";
+"Higher values keep more speed until the trigger is nearly fully pressed" = "Höhere Werte erhalten mehr Geschwindigkeit, bis der Trigger fast ganz gedrückt ist";
+"%@ also opens the on-screen keyboard. Pulling it slows the cursor across the desktop, too. Choose Off or another trigger to keep normal speed while using the keyboard." = "%@ öffnet auch die Bildschirmtastatur. Beim Drücken wird der Cursor auf dem gesamten Desktop langsamer. Wähle „Aus“ oder einen anderen Trigger, um beim Verwenden der Tastatur die normale Geschwindigkeit beizubehalten.";
+"%@ also has a button action. Pulling it will slow the cursor and run that action." = "%@ hat auch eine Tastenaktion. Beim Drücken wird der Cursor langsamer und die Aktion wird ausgeführt.";
+"L2 / LT also activates swipe typing. Holding it slows normal cursor movement before you start a swipe." = "L2 / LT aktiviert auch die Wischeingabe. Solange du den Trigger hältst, wird die normale Cursorbewegung vor Beginn einer Wischgeste verlangsamt.";

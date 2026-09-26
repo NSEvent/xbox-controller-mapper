@@ -208,61 +208,13 @@ struct JoystickSettingsView: View {
                     }
                 }
 
-				Picker("Analog Trigger", selection: Binding(
-					get: { settings.analogPrecisionTriggerMode },
-					set: { updateSettings(\.analogPrecisionTriggerMode, $0) }
-				)) {
-					ForEach(AnalogPrecisionTriggerMode.allCases, id: \.self) { mode in
-						Text(LocalizedStringKey(mode.displayName)).tag(mode)
-					}
-				}
-				.pickerStyle(.segmented)
-				.help("R2 / RT avoids the left-trigger swipe-typing overlap.")
-
-				if let analogPrecisionWarning {
-					Label(analogPrecisionWarning, systemImage: "exclamationmark.triangle")
-						.font(.caption)
-						.foregroundStyle(.secondary)
-						.help(analogPrecisionWarning)
-				}
-
-				if settings.analogPrecisionTriggerMode != .off {
-					SliderRow(
-						label: "Minimum Speed",
-						value: Binding(
-							get: { settings.analogPrecisionMinimumSpeed },
-							set: { updateSettings(\.analogPrecisionMinimumSpeed, $0) }
-						),
-						range: 0.05...1.0,
-						description: "Cursor speed at full trigger pull"
-					)
-
-					SliderRow(
-						label: "Trigger Deadzone",
-						value: Binding(
-							get: { settings.analogPrecisionDeadzone },
-							set: { updateSettings(\.analogPrecisionDeadzone, $0) }
-						),
-						range: 0...0.5,
-						description: "How far the trigger moves before slowing starts"
-					)
-
-					SliderRow(
-						label: "Trigger Curve",
-						value: Binding(
-							get: { settings.analogPrecisionCurve },
-							set: { updateSettings(\.analogPrecisionCurve, $0) }
-						),
-						range: 0...1,
-						description: "0 = linear, 1 = more slowdown near full pull"
-					)
-				}
-
                 Toggle("Highlight Focused Cursor", isOn: $focusCursorHighlightEnabled)
                     .onChange(of: focusCursorHighlightEnabled) { _, newValue in
                         FocusModeIndicator.isEnabled = newValue
                     }
             }
+			AnalogTriggerPrecisionSettingsView()
+
 			Section("FPS / Pointer-Lock Games") {
                 Picker("Relative Mouse Aiming", selection: Binding(
                     get: { settings.pointerLockMouseMode },
@@ -457,40 +409,6 @@ struct JoystickSettingsView: View {
         newSettings[keyPath: keyPath] = value
         profileManager.updateJoystickSettings(newSettings)
     }
-
-	private var analogPrecisionTriggerButtons: [ControllerButton] {
-		switch settings.analogPrecisionTriggerMode {
-		case .off:
-			return []
-		case .left:
-			return [.leftTrigger]
-		case .right:
-			return [.rightTrigger]
-		case .either:
-			return [.rightTrigger, .leftTrigger]
-		}
-	}
-
-	private var analogPrecisionWarning: String? {
-		guard !analogPrecisionTriggerButtons.isEmpty else { return nil }
-		var messages: [String] = []
-
-		if let profile = profileManager.activeProfile {
-			let mappedTriggers = analogPrecisionTriggerButtons.filter { button in
-				(profile.buttonMappings[button]?.isEmpty == false)
-			}
-			if !mappedTriggers.isEmpty {
-				let names = mappedTriggers.map(\.displayName).joined(separator: " / ")
-				messages.append("\(names) also has a button mapping; precision stacks with that action.")
-			}
-		}
-
-		if analogPrecisionTriggerButtons.contains(.leftTrigger) {
-			messages.append("LT also starts swipe typing while the on-screen keyboard is visible.")
-		}
-
-		return messages.isEmpty ? nil : messages.joined(separator: " ")
-	}
 
     /// The layer whose overrides are being edited: the picked one, or the first layer
     /// when nothing valid is selected (so the section always shows a layer).

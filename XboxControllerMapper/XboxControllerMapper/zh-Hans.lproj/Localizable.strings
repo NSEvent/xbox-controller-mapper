@@ -1099,3 +1099,19 @@
 "Turning this off removes all LED settings for this layer." = "关闭后会移除此图层的所有 LED 设置。";
 "DualShock 4 supports light bar color and brightness. Player and mute LEDs are DualSense features." = "DualShock 4 支持灯条颜色和亮度。玩家指示灯和静音指示灯是 DualSense 功能。";
 "Over Bluetooth, player and mute LEDs are unavailable. Light bar color and brightness remain supported." = "通过蓝牙连接时，玩家指示灯和静音指示灯不可用。灯条颜色和亮度仍受支持。";
+
+/* Trigger cursor slowdown guidance */
+"Trigger Cursor Slowdown" = "扳机减慢光标";
+"Hold a trigger for finer mouse control. Squeeze further to move slower; release to return to normal speed." = "按住扳机可更精细地控制鼠标。按得越深，光标越慢；松开后恢复正常速度。";
+"Applies to joystick and controller touchpad mouse movement, even while the on-screen keyboard is open. No modifier key is needed." = "适用于摇杆和控制器触控板的鼠标移动，屏幕键盘打开时也会生效。无需按住修饰键。";
+"Slowdown Trigger" = "减速扳机";
+"Off: trigger pressure does not change cursor speed." = "关闭：扳机按压深度不会改变光标速度。";
+"Speed at Full Pull" = "完全按下时的速度";
+"Percentage of normal cursor speed. For example, 5% is 20 times slower. Releasing the trigger restores normal speed." = "相对于正常光标速度的百分比。例如，5% 表示正常速度的二十分之一。松开扳机即可恢复正常速度。";
+"Trigger Deadzone" = "扳机死区";
+"Ignore light trigger presses before slowing the cursor" = "忽略轻微的扳机按压，超过此范围后才减速";
+"Trigger Curve" = "扳机曲线";
+"Higher values keep more speed until the trigger is nearly fully pressed" = "数值越高，越接近完全按下时才会明显减速";
+"%@ also opens the on-screen keyboard. Pulling it slows the cursor across the desktop, too. Choose Off or another trigger to keep normal speed while using the keyboard." = "%@ 还用于打开屏幕键盘。按下时，整个桌面的光标也会减速。选择关闭或其他扳机，可在使用键盘时保持正常速度。";
+"%@ also has a button action. Pulling it will slow the cursor and run that action." = "%@ 还分配了按钮操作。按下时会减慢光标并执行该操作。";
+"L2 / LT also activates swipe typing. Holding it slows normal cursor movement before you start a swipe." = "L2 / LT 还会启用滑行输入。按住时，开始滑行前的普通光标移动也会减速。";
