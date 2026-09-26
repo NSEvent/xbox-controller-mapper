@@ -50,7 +50,7 @@ enum ControllerTypeState: Equatable, Sendable {
 
 	init?(screenshotVariant: String) {
 		switch screenshotVariant {
-		case "xbox", "8bitdo-zero2", "8bitdo-micro", "8bitdo-lite2", "8bitdo-lite-se":
+		case "xbox", "8bitdo-zero2", "8bitdo-micro", "8bitdo-lite2", "8bitdo-lite-se", "8bitdo-ultimate2":
 			self = .xbox
 		case "xbox-elite":
 			self = .xboxElite
@@ -75,6 +75,8 @@ enum ControllerTypeState: Equatable, Sendable {
 struct ControllerPresentationState: Equatable, Sendable {
 	let controllerType: ControllerTypeState
 	let eightBitDoModel: EightBitDoMinimapModel?
+	/// 8BitDo Ultimate 2 Wireless: an Elite-shaped pad with four back paddles.
+	var isEightBitDoUltimate2: Bool = false
 
 	var isAppleTVRemote: Bool {
 		controllerType == .appleTVRemote
@@ -115,8 +117,10 @@ struct ControllerPresentationState: Equatable, Sendable {
 		return false
 	}
 
+	/// Elite-style layout with four back paddles — the Xbox Elite Series 2
+	/// itself, or the Elite-shaped 8BitDo Ultimate 2.
 	var isXboxElite: Bool {
-		controllerType == .xboxElite
+		controllerType == .xboxElite || isEightBitDoUltimate2
 	}
 
 	var hasMotion: Bool {
@@ -240,7 +244,8 @@ extension ControllerStorage {
 	var controllerPresentationStateLocked: ControllerPresentationState {
 		ControllerPresentationState(
 			controllerType: controllerTypeStateLocked,
-			eightBitDoModel: eightBitDoModel
+			eightBitDoModel: eightBitDoModel,
+			isEightBitDoUltimate2: isEightBitDoUltimate2
 		)
 	}
 }

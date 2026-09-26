@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **8BitDo Ultimate 2 Wireless support**: the Ultimate 2 now connects with a dedicated Elite-style preview showing all four back paddles. Home and the extra back buttons — which macOS's GameController framework drops — are read straight from the controller, so every button is mappable, and the bundled SDL mapping covers the pad when macOS doesn't claim it at all.
+
 ## [2.9.0] - 2026-09-21
 
 ### Added

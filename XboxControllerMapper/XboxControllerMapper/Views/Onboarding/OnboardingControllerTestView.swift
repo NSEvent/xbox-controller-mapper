@@ -111,6 +111,7 @@ struct OnboardingControllerTestView: View {
             case .lite2: return .eightBitDoLite2
             case .liteSE: return .eightBitDoLiteSE
             }
+        case .eightBitDoUltimate2: return .eightBitDoUltimate2
         case .appleTVRemote: return .appleTVRemote
         case .ouraRing: return .ouraRing
         case .beamdeskHands: return .beamdeskHands

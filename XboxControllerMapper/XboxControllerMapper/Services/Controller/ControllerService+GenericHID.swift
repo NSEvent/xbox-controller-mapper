@@ -177,6 +177,13 @@ extension ControllerService {
             storage.eightBitDoModel = model
             storage.lock.unlock()
         }
+        // Ultimate 2 on the SDL path: its row already maps guide + paddle1-4,
+        // so no raw-HID side channel is needed — only the Elite-style preview.
+        if Self.isEightBitDoUltimate2(controllerName: mapping.name) {
+            storage.lock.lock()
+            storage.isEightBitDoUltimate2 = true
+            storage.lock.unlock()
+        }
 		controllerMappingSource = mapping.platform == "Mac OS X" ? nil : "SDL \(mapping.platform) fallback"
         reportControllerConnectionForTelemetry(fallback: .generic)
         startDisplayUpdateTimer()

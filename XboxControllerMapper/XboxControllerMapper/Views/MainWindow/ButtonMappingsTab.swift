@@ -505,7 +505,9 @@ struct ButtonMappingsTab: View {
 			if presentationState.isNintendo {
 				layouts.insert(.nintendo)
 			}
-			if presentationState.isXboxElite {
+			if presentationState.isEightBitDoUltimate2 {
+				layouts.insert(.eightBitDoUltimate2)
+			} else if presentationState.isXboxElite {
 				layouts.insert(.xboxElite)
 			} else if controllerService.connectedController?.extendedGamepad is GCXboxGamepad {
 				layouts.insert(.xbox)
@@ -555,6 +557,12 @@ struct ButtonMappingsTab: View {
 		}
 		if isNintendoMetadata(controller) {
 			return [.nintendo]
+		}
+		if ControllerService.isEightBitDoUltimate2(
+			vendorName: controller.vendorName,
+			productCategory: controller.productCategory
+		) {
+			return [.eightBitDoUltimate2]
 		}
 		if controller.extendedGamepad is GCXboxGamepad {
 			if ControllerService.isEliteControllerMetadata(

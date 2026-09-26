@@ -57,6 +57,9 @@ final class ControllerStorage: @unchecked Sendable {
     /// Non-nil when the connected pad is one of the small 8BitDo models
     /// (drives the dedicated minimap preview).
     var eightBitDoModel: EightBitDoMinimapModel?
+    /// True when the connected pad is an 8BitDo Ultimate 2 Wireless in D-input
+    /// mode (drives the Elite-style preview with four back paddles).
+    var isEightBitDoUltimate2: Bool = false
     /// D-pad buttons we emitted (as real .dpad* presses) before the stickless
     /// clone detector latched. Tracked so a release arriving after the latch
     /// still fires, instead of leaving a button stuck down.
@@ -321,6 +324,11 @@ class ControllerService: ObservableObject {
     /// `nonisolated` + internally locked so HID callbacks and GameController
     /// handlers on different queues can feed it. See [[SticklessDpadCloneDetector]].
     nonisolated let sticklessCloneDetector = SticklessDpadCloneDetector()
+
+    /// 8BitDo Ultimate 2 raw-HID buttons (Home + 4 paddles) currently held, so
+    /// repeated element values stay edge-triggered and a disconnect releases
+    /// exactly what raw HID pressed.
+    nonisolated let eightBitDoUltimate2RawButtons = RawHIDButtonLatch()
 
 	// Apple TV/Siri Remote HID monitoring (buttons + touch surface)
 	var appleTVRemoteHIDManager: IOHIDManager?
@@ -744,6 +752,7 @@ class ControllerService: ObservableObject {
         case "8bitdo-micro": return "8BitDo Micro gamepad"
         case "8bitdo-lite2": return "8BitDo Lite 2"
         case "8bitdo-lite-se": return "8BitDo Lite SE"
+        case "8bitdo-ultimate2": return "8BitDo Ultimate 2 Wireless"
         default: return "Xbox Wireless Controller"
         }
     }
@@ -764,6 +773,27 @@ class ControllerService: ObservableObject {
 		eightBitDoMinimapModel(forControllerName: "\(vendorName ?? "") \(productCategory)")
 	}
 
+	/// Identifies the 8BitDo Ultimate 2 Wireless ("8BitDo Ultimate 2 Wireless")
+	/// from its SDL/HID product name. Matches on "Ultimate 2" alone because
+	/// some hosts report a generic vendor name, but rejects the different
+	/// "Ultimate 2C" pad (which has only two back buttons).
+	nonisolated static func isEightBitDoUltimate2(controllerName name: String) -> Bool {
+		let lowered = name.lowercased()
+		var searchRange = lowered.startIndex..<lowered.endIndex
+		while let match = lowered.range(of: "ultimate 2", range: searchRange) {
+			let next = match.upperBound
+			if next == lowered.endIndex || !(lowered[next].isLetter || lowered[next].isNumber) {
+				return true
+			}
+			searchRange = next..<lowered.endIndex
+		}
+		return false
+	}
+
+	nonisolated static func isEightBitDoUltimate2(vendorName: String?, productCategory: String) -> Bool {
+		isEightBitDoUltimate2(controllerName: "\(vendorName ?? "") \(productCategory)")
+	}
+
 	nonisolated static func isSticklessEightBitDoModel(vendorName: String?, productCategory: String) -> Bool {
 		eightBitDoMinimapModel(vendorName: vendorName, productCategory: productCategory)?.isStickless == true
 	}
@@ -776,10 +806,15 @@ class ControllerService: ObservableObject {
 	}
 
 	private func startEightBitDoHIDMonitoringIfNeeded(for controller: GCController, reason: String) {
-		guard Self.eightBitDoMinimapModel(
+		let isSmallPad = Self.eightBitDoMinimapModel(
 			vendorName: controller.vendorName,
 			productCategory: controller.productCategory
-		) != nil else { return }
+		) != nil
+		let isUltimate2 = Self.isEightBitDoUltimate2(
+			vendorName: controller.vendorName,
+			productCategory: controller.productCategory
+		)
+		guard isSmallPad || isUltimate2 else { return }
 
 		guard SystemPermission.inputMonitoringGranted else {
 			NSLog("[ControllerKeys] 8BitDo HID monitoring deferred (%@); Input Monitoring is not granted", reason)
@@ -860,6 +895,7 @@ class ControllerService: ObservableObject {
                 default: return nil
                 }
             }()
+            storage.isEightBitDoUltimate2 = variant == "8bitdo-ultimate2"
             isConnected = true
             controllerName = Self.screenshotControllerName(for: variant)
             // A believable battery reading instead of the "?" unknown pill
@@ -1107,6 +1143,14 @@ class ControllerService: ObservableObject {
             storage.eightBitDoModel = model
             storage.lock.unlock()
         }
+		if Self.isEightBitDoUltimate2(
+			vendorName: controller.vendorName,
+			productCategory: controller.productCategory
+		) {
+			storage.lock.lock()
+			storage.isEightBitDoUltimate2 = true
+			storage.lock.unlock()
+		}
 
         // Publish connection only after controller-specific handlers have populated
         // storage flags like isDualSense/isXboxElite. MappingEngine reacts to this publisher.
@@ -1769,6 +1813,7 @@ class ControllerService: ObservableObject {
     // bare service tears down HID monitoring that was never set up.
     func resetCloneDetectionStateLocked() {
         storage.eightBitDoModel = nil
+        storage.isEightBitDoUltimate2 = false
         storage.emittedCloneDpadButtons.removeAll()
     }
 
@@ -1903,7 +1948,14 @@ class ControllerService: ObservableObject {
         // Special buttons
 		bindButton(gamepad.buttonMenu, to: .menu, from: controller)
 		bindButton(gamepad.buttonOptions, to: .view, from: controller)
-		if !isXboxElite {
+		// The Ultimate 2's Home is read from raw HID (see
+		// ControllerService+EightBitDoHID) — binding GameController's
+		// unreliable buttonHome too would double-fire it.
+		let homeComesFromRawHID = Self.isEightBitDoUltimate2(
+			vendorName: controller.vendorName,
+			productCategory: controller.productCategory
+		)
+		if !isXboxElite && !homeComesFromRawHID {
 			bindButton(gamepad.buttonHome, to: .xbox, from: controller)
 		}
 

@@ -244,6 +244,19 @@ extension ControllerPreviewLayout {
             return Self.eightBitDoSwitchSelectorGuide(model: "Lite 2", systemImage: systemImage)
         case .eightBitDoLiteSE:
             return Self.eightBitDoSwitchSelectorGuide(model: "Lite SE", systemImage: systemImage)
+        case .eightBitDoUltimate2:
+            return ControllerPairingGuide(
+                title: loc("Pair Your 8BitDo Ultimate 2"),
+                tagline: loc("8BitDo Ultimate 2 Wireless in Bluetooth (D-input) mode"),
+                systemImage: systemImage,
+                bluetoothSteps: [
+                    loc("Put the controller in **Bluetooth pairing mode** (see 8BitDo's manual for your mode switch and pair button) — the LED blinks rapidly."),
+                    loc("On your Mac, open **System Settings → Bluetooth**."),
+                    loc("Connect to **8BitDo Ultimate 2 Wireless** under Nearby Devices.")
+                ],
+                tip: loc("Home and all four back buttons are read directly from the controller, so they map like any other button — even the ones macOS ignores."),
+                guideURL: PairingGuideURL.eightBitDo
+            )
 
         case .appleTVRemote:
             return ControllerPairingGuide(

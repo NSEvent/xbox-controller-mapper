@@ -12,6 +12,10 @@ enum ControllerVisualFamily: Equatable {
 	case nintendo
 	case steam
 	case eightBitDo(EightBitDoMinimapModel)
+	/// Elite-shaped 8BitDo pad (sticks, triggers, four back paddles). Kept
+	/// apart from `.eightBitDo` — that family drives the small-pad minimaps
+	/// and Nintendo-style labels, which don't fit this layout.
+	case eightBitDoUltimate2
 	case appleTVRemote
 	case ouraRing
 	case beamdeskHands
@@ -58,8 +62,14 @@ struct ControllerVisualDescriptor: Equatable {
 		family == .dualShock
 	}
 
+	/// Elite-style layout (four back paddles): the Xbox Elite Series 2, or the
+	/// 8BitDo Ultimate 2, which reuses the Elite preview.
 	var isXboxElite: Bool {
-		family == .xboxElite
+		family == .xboxElite || family == .eightBitDoUltimate2
+	}
+
+	var isEightBitDoUltimate2: Bool {
+		family == .eightBitDoUltimate2
 	}
 
 	var isSteamController: Bool {
@@ -129,6 +139,10 @@ struct ControllerVisualDescriptor: Equatable {
 			buttons.remove(.share)
 			buttons.formUnion(ControllerButton.xboxEliteButtons)
 			buttons.formUnion([.leftPaddle, .rightPaddle, .leftFunction, .rightFunction])
+		case .eightBitDoUltimate2:
+			buttons = Set(ControllerButton.xboxButtons)
+			buttons.remove(.share)
+			buttons.formUnion(ControllerButton.xboxEliteButtons)
 		case .xbox, .nintendo:
 			buttons = Set(family == .nintendo ? ControllerButton.nintendoButtons : ControllerButton.xboxButtons)
 		case let .eightBitDo(model):
@@ -162,6 +176,7 @@ struct ControllerVisualDescriptor: Equatable {
 		case .eightBitDo(.micro): return "8BitDo Micro"
 		case .eightBitDo(.lite2): return "8BitDo Lite 2"
 		case .eightBitDo(.liteSE): return "8BitDo Lite SE"
+		case .eightBitDoUltimate2: return "8BitDo Ultimate 2"
 		case .appleTVRemote: return "Apple TV Remote"
 		case .ouraRing: return "Oura Ring"
 		case .beamdeskHands: return "Beamdesk Hands"
@@ -185,7 +200,8 @@ struct ControllerVisualDescriptor: Equatable {
 	}
 
 	var gripOrPaddleSectionTitle: String {
-		isSteamController ? "STEAM GRIP BUTTONS" : "ELITE PADDLES"
+		if isSteamController { return "STEAM GRIP BUTTONS" }
+		return isEightBitDoUltimate2 ? "BACK PADDLES" : "ELITE PADDLES"
 	}
 
 	var minimapStyle: ControllerMinimapStyle? {
@@ -206,6 +222,8 @@ struct ControllerVisualDescriptor: Equatable {
 			return .steam
 		case let .eightBitDo(model):
 			return model.minimapStyle
+		case .eightBitDoUltimate2:
+			return .xboxElite
 		case .appleTVRemote:
 			return nil
 		case .ouraRing:
@@ -284,6 +302,8 @@ extension ControllerVisualDescriptor {
 			return ControllerVisualDescriptor(family: .eightBitDo(.lite2))
 		case .eightBitDoLiteSE:
 			return ControllerVisualDescriptor(family: .eightBitDo(.liteSE))
+		case .eightBitDoUltimate2:
+			return ControllerVisualDescriptor(family: .eightBitDoUltimate2)
 		case .appleTVRemote:
 			return ControllerVisualDescriptor(family: .appleTVRemote)
 		case .ouraRing:
@@ -296,6 +316,9 @@ extension ControllerVisualDescriptor {
 	static func active(from state: ControllerPresentationState) -> ControllerVisualDescriptor {
 		if state.isAppleTVRemote {
 			return ControllerVisualDescriptor(family: .appleTVRemote)
+		}
+		if state.isEightBitDoUltimate2 {
+			return ControllerVisualDescriptor(family: .eightBitDoUltimate2)
 		}
 		if let model = state.eightBitDoModel {
 			return ControllerVisualDescriptor(family: .eightBitDo(model))

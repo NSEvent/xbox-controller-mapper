@@ -19,9 +19,10 @@ final class HIDControllerDriverDescriptorTests: XCTestCase {
 				.vendorProduct(vendorID: 0x2DC8, productID: 0x9020),
 				.vendorProduct(vendorID: 0x2DC8, productID: 0x3230),
 				.vendorProduct(vendorID: 0x2DC8, productID: 0x5112),
+				.vendorProduct(vendorID: 0x2DC8, productID: 0x6012),
 			])
 		)
-		XCTAssertEqual(CFArrayGetCount(descriptor.matchingCFArray), 3)
+		XCTAssertEqual(CFArrayGetCount(descriptor.matchingCFArray), 4)
 	}
 
 	func testGenericDescriptorKeepsKnownPairsBeforeBroadFallbacks() {

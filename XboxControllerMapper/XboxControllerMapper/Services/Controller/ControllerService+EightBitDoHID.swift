@@ -33,6 +33,11 @@ import IOKit.hid
 ///
 /// The Zero 2 (PID 0x3230) sends a different, longer report and is skipped until
 /// its layout is captured — see the length/PID guard in handleEightBitDoHIDReport.
+///
+/// Ultimate 2 Wireless (PID 0x6012) is read per element rather than per report:
+/// Home and the four extra back/shoulder buttons are plain Button-page (0x09)
+/// usages that GameController drops, so an input-value callback filtered to
+/// that page maps them through `EightBitDoUltimate2HIDButtonTable`.
 
 /// Weak callback context to prevent use-after-free when ControllerService is
 /// deallocated. Carries the device's productID so per-pad quirks can branch.
@@ -52,6 +57,9 @@ struct EightBitDoHIDRegistration {
     let device: IOHIDDevice
     let reportBuffer: UnsafeMutablePointer<UInt8>
     let callbackContext: UnsafeMutableRawPointer
+    /// True when the device was wired with an input-value callback (Ultimate 2)
+    /// instead of the raw report callback, so cleanup unregisters the right one.
+    var usesInputValueCallback: Bool = false
 }
 
 @MainActor
@@ -65,6 +73,7 @@ extension ControllerService {
     nonisolated private static let microProductID = EightBitDoDInputHIDDriverDescriptor.microProductID
     nonisolated private static let zero2ProductID = EightBitDoDInputHIDDriverDescriptor.zero2ProductID
     nonisolated private static let lite2ProductID = EightBitDoDInputHIDDriverDescriptor.lite2ProductID
+    nonisolated private static let ultimate2ProductID = EightBitDoUltimate2HIDButtonTable.productID
     /// Only the standard input reports carry the button bytes.
     nonisolated private static let microInputReportID: UInt32 = 0x03
     nonisolated private static let lite2InputReportID: UInt32 = 0x01
@@ -119,13 +128,36 @@ extension ControllerService {
         let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Self.eightBitDoHIDReportBufferSize)
         let ctx = EightBitDoHIDCallbackContext(service: self, productID: productID)
         let retainedContext = Unmanaged.passRetained(ctx).toOpaque()
+        let usesInputValueCallback = productID == Self.ultimate2ProductID
         eightBitDoHIDRegistrations.append(
             EightBitDoHIDRegistration(
                 device: device,
                 reportBuffer: buffer,
-                callbackContext: retainedContext
+                callbackContext: retainedContext,
+                usesInputValueCallback: usesInputValueCallback
             )
         )
+
+        if usesInputValueCallback {
+            let buttonPageMatch = [
+                kIOHIDElementUsagePageKey as String: EightBitDoUltimate2HIDButtonTable.buttonUsagePage
+            ] as CFDictionary
+            IOHIDDeviceSetInputValueMatching(device, buttonPageMatch)
+            IOHIDDeviceRegisterInputValueCallback(device, { context, _, _, value in
+                guard let context = context else { return }
+                let holder = Unmanaged<EightBitDoHIDCallbackContext>.fromOpaque(context).takeUnretainedValue()
+                guard let service = holder.service else { return }
+                let element = IOHIDValueGetElement(value)
+                service.handleEightBitDoUltimate2ButtonValue(
+                    usagePage: Int(IOHIDElementGetUsagePage(element)),
+                    usage: Int(IOHIDElementGetUsage(element)),
+                    pressed: IOHIDValueGetIntegerValue(value) != 0
+                )
+            }, retainedContext)
+            IOHIDDeviceScheduleWithRunLoop(device, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+            NSLog("[ControllerKeys] 8BitDo HID monitoring started (Ultimate 2 Home/paddles) pid=0x%04X", productID)
+            return
+        }
 
         IOHIDDeviceRegisterInputReportCallback(device, buffer, Self.eightBitDoHIDReportBufferSize, { context, _, _, _, reportID, report, reportLength in
             guard let context = context else { return }
@@ -148,13 +180,17 @@ extension ControllerService {
         // first, then unschedule, close the manager, and only then release
         // contexts and deallocate buffers.
         for registration in eightBitDoHIDRegistrations {
-            IOHIDDeviceRegisterInputReportCallback(
-                registration.device,
-                registration.reportBuffer,
-                Self.eightBitDoHIDReportBufferSize,
-                nil,
-                nil
-            )
+            if registration.usesInputValueCallback {
+                IOHIDDeviceRegisterInputValueCallback(registration.device, nil, nil)
+            } else {
+                IOHIDDeviceRegisterInputReportCallback(
+                    registration.device,
+                    registration.reportBuffer,
+                    Self.eightBitDoHIDReportBufferSize,
+                    nil,
+                    nil
+                )
+            }
         }
 
         for registration in eightBitDoHIDRegistrations {
@@ -184,11 +220,30 @@ extension ControllerService {
         storage.lastEightBitDoHomeState = false
         storage.lastEightBitDoStarState = false
         storage.lock.unlock()
+        let ultimate2HeldButtons = eightBitDoUltimate2RawButtons.releaseAll()
         if homeWasDown {
             controllerQueue.async { [weak self] in self?.handleButton(.xbox, pressed: false) }
         }
         if starWasDown {
             controllerQueue.async { [weak self] in self?.handleButton(.share, pressed: false) }
+        }
+        for button in ultimate2HeldButtons {
+            controllerQueue.async { [weak self] in self?.handleButton(button, pressed: false) }
+        }
+    }
+
+    /// Ultimate 2 raw Button-page element change → Home / paddle press or
+    /// release. Edge-triggered against the last raw state so repeated values
+    /// (IOKit re-delivers on every report) never re-press a held button.
+    nonisolated func handleEightBitDoUltimate2ButtonValue(usagePage: Int, usage: Int, pressed: Bool) {
+        guard let button = EightBitDoUltimate2HIDButtonTable.button(usagePage: usagePage, usage: usage) else {
+            return
+        }
+
+        guard eightBitDoUltimate2RawButtons.update(button, pressed: pressed) else { return }
+
+        controllerQueue.async { [weak self] in
+            self?.handleButton(button, pressed: pressed)
         }
     }
 
