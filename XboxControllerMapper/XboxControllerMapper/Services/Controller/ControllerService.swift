@@ -754,6 +754,7 @@ class ControllerService: ObservableObject {
         case "8bitdo-lite2": return "8BitDo Lite 2"
         case "8bitdo-lite-se": return "8BitDo Lite SE"
         case "8bitdo-ultimate2": return "8BitDo Ultimate 2 Wireless"
+        case "s29-ring": return S29RingIdentity.displayName
         default: return "Xbox Wireless Controller"
         }
     }
@@ -899,6 +900,12 @@ class ControllerService: ObservableObject {
             storage.isEightBitDoUltimate2 = variant == "8bitdo-ultimate2"
             isConnected = true
             controllerName = Self.screenshotControllerName(for: variant)
+            if variant == "s29-ring" {
+                // Present the ring the way a live connection does, so the
+                // Buttons tab resolves its dedicated layout.
+                isS29RingConnected = true
+                controllerMappingSource = S29RingIdentity.displayName
+            }
             // A believable battery reading instead of the "?" unknown pill
             batteryLevel = 0.85
             batteryState = .discharging

@@ -39,9 +39,13 @@ extension ControllerVisualView {
 	}
 }
 
-/// Simple drawn stand-in for the S29 ring (no product artwork exists): the
-/// finger loop peeking above a touch face with the four swipe directions,
-/// plus the Camera and Home buttons below it.
+/// Front-on drawing of the S29 button ring (Novzix "TikTok Scrolling Ring
+/// S29"): a black oval face plate on an open finger band, four curved grey
+/// arrow keys around an engraved center key, and a bottom row of Camera,
+/// Heart and Home keys. Proportions follow the product photos.
+///
+/// The center (play/pause) and Heart keys are drawn for recognizability but
+/// aren't mappable — the ring doesn't report them as distinct controls.
 struct S29RingMinimapView: View {
 	static let previewSize = CGSize(width: 300, height: 300)
 
@@ -52,136 +56,291 @@ struct S29RingMinimapView: View {
 	var onButtonHover: (ControllerButton, Bool) -> Void = { _, _ in }
 	var onSwapRequest: ((ControllerButton, ControllerButton) -> Void)?
 
+	// Geometry (points in the 300×300 preview frame).
+	private static let plateCenter = CGPoint(x: 150, y: 134)
+	private static let plateSize = CGSize(width: 180, height: 236)
+	private static let clusterCenter = CGPoint(x: 150, y: 110)
+	private static let arcInnerRadius: CGFloat = 34
+	private static let arcOuterRadius: CGFloat = 70
+	/// Angular width of each arrow key; the rest is the gap between keys.
+	private static let arcSpan: Double = 68
+	private static let centerKeySize: CGFloat = 52
+	private static let bottomRowY: CGFloat = 210
+	private static let bottomKeySize = CGSize(width: 48, height: 40)
+	private static let bottomKeySpacing: CGFloat = 54
+
+	private static let keyTop = Color(white: 0.86)
+	private static let keyBottom = Color(white: 0.68)
+	private static let glyphColor = Color.white
+
 	var body: some View {
 		ZStack {
-			ringBand
-			touchFace
-			directionTarget(.dpadUp, systemImage: "chevron.up")
-				.offset(y: -54)
-			directionTarget(.dpadDown, systemImage: "chevron.down")
-				.offset(y: 54)
-			directionTarget(.dpadLeft, systemImage: "chevron.left")
-				.offset(x: -64)
-			directionTarget(.dpadRight, systemImage: "chevron.right")
-				.offset(x: 64)
-			actionTarget(.s29Camera, systemImage: "camera.fill", label: "CAM")
-				.offset(x: -40, y: 116)
-			actionTarget(.s29Home, systemImage: "house.fill", label: "HOME")
-				.offset(x: 40, y: 116)
+			fingerBand
+			facePlate
+			statusPinhole
+
+			arrowKey(.dpadUp, angle: -90)
+			arrowKey(.dpadRight, angle: 0)
+			arrowKey(.dpadDown, angle: 90)
+			arrowKey(.dpadLeft, angle: 180)
+			centerKey
+
+			bottomKey(.s29Camera, systemImage: "camera", offset: -1)
+			bottomKeyDecoration(systemImage: "heart", offset: 0)
+			bottomKey(.s29Home, systemImage: "house", offset: 1)
 		}
 		.frame(width: Self.previewSize.width, height: Self.previewSize.height)
 	}
 
-	private var ringBand: some View {
-		ZStack {
-			Circle()
-				.strokeBorder(
-					AngularGradient(
-						colors: [
-							Color(white: 0.34),
-							Color(white: 0.12),
-							Color(white: 0.28),
-							Color(white: 0.08),
-							Color(white: 0.34),
-						],
-						center: .center
-					),
-					lineWidth: 18
-				)
-				.frame(width: 120, height: 120)
-				.shadow(color: .black.opacity(0.36), radius: 12, x: 0, y: 8)
+	// MARK: Body
 
-			Circle()
-				.strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
-				.frame(width: 120, height: 120)
+	/// The open finger band, seen from slightly above: a flattened loop
+	/// hanging below the plate with its adjustable opening at the bottom.
+	/// The loop's top half is hidden behind the plate.
+	private var fingerBand: some View {
+		let style = StrokeStyle(lineWidth: 14, lineCap: .round)
+		let gradient = LinearGradient(
+			colors: [Color(white: 0.24), Color(white: 0.06)],
+			startPoint: .top, endPoint: .bottom
+		)
+
+		// Ellipse trim starts at 3 o'clock and runs clockwise, so 0.25 is
+		// 6 o'clock: draw both sides of the loop, leaving that gap open.
+		return ZStack {
+			Ellipse().trim(from: 0.29, to: 1.0).stroke(gradient, style: style)
+			Ellipse().trim(from: 0.0, to: 0.21).stroke(gradient, style: style)
 		}
-		.offset(y: -88)
+		.frame(width: 150, height: 74)
+		.position(x: Self.plateCenter.x, y: Self.plateCenter.y + Self.plateSize.height / 2 + 4)
+		.shadow(color: .black.opacity(0.35), radius: 5, x: 0, y: 3)
 	}
 
-	private var touchFace: some View {
-		RoundedRectangle(cornerRadius: 34, style: .continuous)
+	private var facePlate: some View {
+		let plate = RoundedRectangle(cornerRadius: Self.plateSize.width * 0.46, style: .continuous)
+
+		return plate
 			.fill(
 				LinearGradient(
-					colors: [
-						Color(red: 0.17, green: 0.21, blue: 0.28),
-						Color(red: 0.07, green: 0.09, blue: 0.13),
-					],
-					startPoint: .top,
-					endPoint: .bottom
+					colors: [Color(white: 0.20), Color(white: 0.09), Color(white: 0.05)],
+					startPoint: .top, endPoint: .bottom
 				)
 			)
 			.overlay(
-				RoundedRectangle(cornerRadius: 34, style: .continuous)
-					.strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
+				// Soft top sheen on the glossy plastic
+				plate
+					.fill(
+						LinearGradient(
+							colors: [Color.white.opacity(0.10), .clear],
+							startPoint: .top, endPoint: .center
+						)
+					)
 			)
-			.frame(width: 200, height: 172)
+			.overlay(plate.strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+			.frame(width: Self.plateSize.width, height: Self.plateSize.height)
+			.position(Self.plateCenter)
+			.shadow(color: .black.opacity(0.4), radius: 12, x: 0, y: 8)
+	}
+
+	private var statusPinhole: some View {
+		Circle()
+			.fill(Color.black)
+			.overlay(Circle().stroke(Color.white.opacity(0.12), lineWidth: 0.6))
+			.frame(width: 5, height: 5)
+			.position(x: Self.plateCenter.x + Self.plateSize.width / 2 - 11, y: 160)
+	}
+
+	// MARK: Keys
+
+	private func keyFill(active: Bool) -> LinearGradient {
+		LinearGradient(
+			colors: active
+				? [Color.accentColor, Color.accentColor.opacity(0.78)]
+				: [Self.keyTop, Self.keyBottom],
+			startPoint: .top, endPoint: .bottom
+		)
+	}
+
+	private func arrowKey(_ button: ControllerButton, angle: Double) -> some View {
+		let pressed = pressedButtons.contains(button)
+		let active = isActive(button)
+		let geometry = S29ArcKeyGeometry(
+			innerRadius: Self.arcInnerRadius,
+			outerRadius: Self.arcOuterRadius,
+			centerAngle: angle,
+			span: Self.arcSpan
+		)
+		let shape = S29ArcKeyShape(geometry: geometry)
+		let glyphPoint = geometry.localPoint(radius: (Self.arcInnerRadius + Self.arcOuterRadius) / 2)
+
+		return ZStack {
+			shape
+				.fill(keyFill(active: active))
+				.overlay(shape.stroke(Color.black.opacity(0.28), lineWidth: 0.8))
+				.shadow(color: .black.opacity(0.45), radius: 2, x: 0, y: 2)
+			Image(systemName: "arrowtriangle.up.fill")
+				.font(.system(size: 11, weight: .bold))
+				.foregroundStyle(active ? Color.white : Self.glyphColor)
+				.shadow(color: .black.opacity(active ? 0 : 0.35), radius: 0.5, x: 0, y: 0.5)
+				.rotationEffect(.degrees(angle + 90))
+				.position(glyphPoint)
+		}
+		.frame(width: geometry.bounds.width, height: geometry.bounds.height)
+		.scaleEffect(pressed ? 0.94 : 1.0)
+		.modifier(S29RingTargetInteraction(
+			button: button,
+			shape: shape,
+			isSwapSource: swapSourceButton == button,
+			onButtonTap: onButtonTap,
+			onButtonHover: onButtonHover,
+			onSwapRequest: onSwapRequest
+		))
+		.position(
+			x: Self.clusterCenter.x + geometry.bounds.midX,
+			y: Self.clusterCenter.y + geometry.bounds.midY
+		)
+		.animation(.spring(response: 0.22, dampingFraction: 0.62), value: pressed)
+	}
+
+	private var centerKey: some View {
+		ZStack {
+			Circle()
+				.fill(keyFill(active: false))
+				.overlay(Circle().stroke(Color.black.opacity(0.28), lineWidth: 0.8))
+				.shadow(color: .black.opacity(0.45), radius: 2, x: 0, y: 2)
+			Circle()
+				.stroke(Color.white.opacity(0.9), lineWidth: 2)
+				.shadow(color: .black.opacity(0.3), radius: 0.5, x: 0, y: 0.5)
+				.frame(width: Self.centerKeySize * 0.48, height: Self.centerKeySize * 0.48)
+		}
+		.frame(width: Self.centerKeySize, height: Self.centerKeySize)
+		.position(Self.clusterCenter)
+		.allowsHitTesting(false)
+	}
+
+	private func bottomKeyShape() -> RoundedRectangle {
+		RoundedRectangle(cornerRadius: 11, style: .continuous)
+	}
+
+	private func bottomKeyFace(systemImage: String, active: Bool) -> some View {
+		let shape = bottomKeyShape()
+
+		return ZStack {
+			shape
+				.fill(keyFill(active: active))
+				.overlay(shape.stroke(Color.black.opacity(0.28), lineWidth: 0.8))
+				.shadow(color: .black.opacity(0.45), radius: 2, x: 0, y: 2)
+			Image(systemName: systemImage)
+				.font(.system(size: 15, weight: .semibold))
+				.foregroundStyle(active ? Color.white : Self.glyphColor)
+				.shadow(color: .black.opacity(active ? 0 : 0.35), radius: 0.5, x: 0, y: 0.5)
+		}
+		.frame(width: Self.bottomKeySize.width, height: Self.bottomKeySize.height)
+	}
+
+	private func bottomKeyPosition(offset: CGFloat) -> CGPoint {
+		CGPoint(x: Self.plateCenter.x + offset * Self.bottomKeySpacing, y: Self.bottomRowY)
+	}
+
+	private func bottomKey(_ button: ControllerButton, systemImage: String, offset: CGFloat) -> some View {
+		let pressed = pressedButtons.contains(button)
+
+		return bottomKeyFace(systemImage: systemImage, active: isActive(button))
+			.scaleEffect(pressed ? 0.94 : 1.0)
+			.modifier(S29RingTargetInteraction(
+				button: button,
+				shape: bottomKeyShape(),
+				isSwapSource: swapSourceButton == button,
+				onButtonTap: onButtonTap,
+				onButtonHover: onButtonHover,
+				onSwapRequest: onSwapRequest
+			))
+			.position(bottomKeyPosition(offset: offset))
+			.animation(.spring(response: 0.22, dampingFraction: 0.62), value: pressed)
+	}
+
+	private func bottomKeyDecoration(systemImage: String, offset: CGFloat) -> some View {
+		bottomKeyFace(systemImage: systemImage, active: false)
+			.position(bottomKeyPosition(offset: offset))
+			.allowsHitTesting(false)
 	}
 
 	private func isActive(_ button: ControllerButton) -> Bool {
 		pressedButtons.contains(button) || selectedButton == button
 	}
+}
 
-	private func directionTarget(_ button: ControllerButton, systemImage: String) -> some View {
-		let pressed = pressedButtons.contains(button)
-		let active = isActive(button)
+/// An annular-sector arrow key, described relative to the key cluster's
+/// center, with `bounds` (also cluster-relative) so each key can get its own
+/// tight frame — connector anchors attach to the key, not the whole cluster.
+struct S29ArcKeyGeometry {
+	let innerRadius: CGFloat
+	let outerRadius: CGFloat
+	/// Degrees, 0 = right, 90 = down (screen coordinates).
+	let centerAngle: Double
+	let span: Double
 
-		return ZStack {
-			Circle()
-				.fill(active ? Color.accentColor : Color.white.opacity(0.06))
-			Image(systemName: systemImage)
-				.font(.system(size: 17, weight: .bold))
-				.foregroundStyle(active ? Color.white : Color.white.opacity(0.72))
+	var startAngle: Double { centerAngle - span / 2 }
+	var endAngle: Double { centerAngle + span / 2 }
+
+	var bounds: CGRect {
+		var points: [CGPoint] = []
+		for step in 0...24 {
+			let angle = startAngle + span * Double(step) / 24
+			points.append(Self.point(radius: innerRadius, degrees: angle))
+			points.append(Self.point(radius: outerRadius, degrees: angle))
 		}
-		.frame(width: 42, height: 42)
-		.scaleEffect(pressed ? 0.9 : 1.0)
-		.modifier(S29RingTargetInteraction(
-			button: button,
-			isSwapSource: swapSourceButton == button,
-			onButtonTap: onButtonTap,
-			onButtonHover: onButtonHover,
-			onSwapRequest: onSwapRequest
-		))
-		.animation(.spring(response: 0.22, dampingFraction: 0.62), value: pressed)
+		let xs = points.map(\.x)
+		let ys = points.map(\.y)
+		return CGRect(
+			x: xs.min()!, y: ys.min()!,
+			width: xs.max()! - xs.min()!, height: ys.max()! - ys.min()!
+		)
 	}
 
-	private func actionTarget(_ button: ControllerButton, systemImage: String, label: String) -> some View {
-		let pressed = pressedButtons.contains(button)
-		let active = isActive(button)
+	/// A point on the key's center line, in the key's local frame.
+	func localPoint(radius: CGFloat) -> CGPoint {
+		let point = Self.point(radius: radius, degrees: centerAngle)
+		return CGPoint(x: point.x - bounds.minX, y: point.y - bounds.minY)
+	}
 
-		return ZStack {
-			Circle()
-				.fill(active ? Color.accentColor : Color(white: 0.16))
-				.shadow(
-					color: active ? Color.accentColor.opacity(0.44) : .black.opacity(0.35),
-					radius: active ? 10 : 5,
-					x: 0,
-					y: 3
-				)
-			Circle()
-				.strokeBorder(Color.white.opacity(active ? 0.72 : 0.22), lineWidth: 1.2)
-			VStack(spacing: 1) {
-				Image(systemName: systemImage)
-					.font(.system(size: 14, weight: .bold))
-				Text(label)
-					.font(.system(size: 7, weight: .black, design: .rounded))
-			}
-			.foregroundStyle(active ? Color.white : Color.white.opacity(0.78))
-		}
-		.frame(width: 54, height: 54)
-		.scaleEffect(pressed ? 0.92 : 1.0)
-		.modifier(S29RingTargetInteraction(
-			button: button,
-			isSwapSource: swapSourceButton == button,
-			onButtonTap: onButtonTap,
-			onButtonHover: onButtonHover,
-			onSwapRequest: onSwapRequest
-		))
-		.animation(.spring(response: 0.22, dampingFraction: 0.62), value: pressed)
+	static func point(radius: CGFloat, degrees: Double) -> CGPoint {
+		let radians = degrees * .pi / 180
+		return CGPoint(x: radius * CGFloat(cos(radians)), y: radius * CGFloat(sin(radians)))
 	}
 }
 
-private struct S29RingTargetInteraction: ViewModifier {
+/// Rounded annular sector drawn in the key's local frame.
+struct S29ArcKeyShape: Shape {
+	let geometry: S29ArcKeyGeometry
+	var cornerInset: CGFloat = 5
+
+	func path(in rect: CGRect) -> Path {
+		let origin = CGPoint(x: -geometry.bounds.minX, y: -geometry.bounds.minY)
+		// Shrink the sector by the corner radius, then round it back out with a
+		// round-joined stroke so every corner is softened evenly.
+		let inset = cornerInset
+		let inner = geometry.innerRadius + inset
+		let outer = geometry.outerRadius - inset
+		let midRadius = (geometry.innerRadius + geometry.outerRadius) / 2
+		let angularInset = Double(inset / midRadius) * 180 / .pi
+		let start = Angle(degrees: geometry.startAngle + angularInset)
+		let end = Angle(degrees: geometry.endAngle - angularInset)
+
+		var core = Path()
+		core.addArc(center: origin, radius: outer, startAngle: start, endAngle: end, clockwise: false)
+		core.addArc(center: origin, radius: inner, startAngle: end, endAngle: start, clockwise: true)
+		core.closeSubpath()
+
+		let rounded = core.strokedPath(StrokeStyle(lineWidth: inset * 2, lineCap: .round, lineJoin: .round))
+		// A true union: simply appending the stroke outline would leave a
+		// winding-rule hole along the seam.
+		return core.union(rounded)
+	}
+}
+
+private struct S29RingTargetInteraction<KeyShape: Shape>: ViewModifier {
 	let button: ControllerButton
+	let shape: KeyShape
 	let isSwapSource: Bool
 	let onButtonTap: (ControllerButton) -> Void
 	let onButtonHover: (ControllerButton, Bool) -> Void
@@ -190,11 +349,11 @@ private struct S29RingTargetInteraction: ViewModifier {
 	func body(content: Content) -> some View {
 		content
 			.overlay(
-				Circle()
+				shape
 					.stroke(Color.orange, lineWidth: 3)
 					.opacity(isSwapSource ? 1 : 0)
 			)
-			.contentShape(Circle())
+			.contentShape(shape)
 			.controllerAnchor(button, role: .controller)
 			.onTapGesture { onButtonTap(button) }
 			.onHover { hovering in onButtonHover(button, hovering) }

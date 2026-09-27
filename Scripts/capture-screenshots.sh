@@ -51,8 +51,9 @@ tabs_for() {
     case "$1" in
         dualsense|dualsense-edge|dualshock)
                    echo "buttons chords sequences gestures macros scripts wheel input joysticks touchpad leds microphone keyboard stats history" ;;
-        xbox|xbox-elite|nintendo)
+        xbox|xbox-elite|nintendo|8bitdo-ultimate2)
                    echo "buttons chords sequences macros scripts wheel input joysticks keyboard stats history" ;;
+        s29-ring)  echo "buttons" ;;
         steam)     echo "buttons chords sequences gestures macros scripts wheel input joysticks touchpad keyboard stats history" ;;
         appletv)   echo "buttons chords sequences macros scripts wheel input joysticks touchpad keyboard stats history" ;;
         8bitdo-zero2|8bitdo-micro|8bitdo-lite2|8bitdo-lite-se)
@@ -101,6 +102,8 @@ dir_for() {
         8bitdo-micro)   echo "8bitdo-micro" ;;
         8bitdo-lite2)   echo "8bitdo-lite2" ;;
         8bitdo-lite-se) echo "8bitdo-lite-se" ;;
+        8bitdo-ultimate2) echo "8bitdo-ultimate2" ;;
+        s29-ring)       echo "s29-ring" ;;
         appletv)        echo "apple-tv-remote" ;;
     esac
 }
