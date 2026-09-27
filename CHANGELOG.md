@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **S29 Bluetooth button ring support**: the inexpensive S29 "scroller" ring now works as a mappable controller. Swipes and holds land on Up/Down/Left/Right (the d-pad buttons, so existing d-pad mappings just work), plus dedicated **Camera** and **Home** buttons — including Camera double-tap and Down hold, which the ring's firmware sends as the same volume-down code. ControllerKeys takes exclusive control of the ring while mapping is on so its built-in swipe and volume actions stop, and hands it back to macOS when mapping is turned off.
-- **8BitDo Ultimate 2 Wireless support**: the Ultimate 2 now connects with a dedicated Elite-style preview showing all four back paddles. Home and the extra back buttons — which macOS's GameController framework drops — are read straight from the controller, so every button is mappable, and the bundled SDL mapping covers the pad when macOS doesn't claim it at all.
+- **S29 Bluetooth button ring support (experimental)**: the inexpensive S29 "scroller" ring now works as a mappable controller. Swipes and holds land on Up/Down/Left/Right (the d-pad buttons, so existing d-pad mappings just work), plus dedicated **Camera** and **Home** buttons — including Camera double-tap and Down hold, which the ring's firmware sends as the same volume-down code. ControllerKeys takes exclusive control of the ring while mapping is on so its built-in swipe and volume actions stop, and hands it back to macOS when mapping is turned off. Built from hardware captures and not yet verified on a physical ring — reports welcome.
+- **8BitDo Ultimate 2 Wireless support (experimental)**: the Ultimate 2 now connects with a dedicated Elite-style preview showing all four back paddles. Home and the extra back buttons — which macOS's GameController framework drops — are read straight from the controller, so every button is mappable, and the bundled SDL mapping covers the pad when macOS doesn't claim it at all. Not yet verified on physical hardware — reports welcome.
 
 ## [2.9.0] - 2026-09-21
 

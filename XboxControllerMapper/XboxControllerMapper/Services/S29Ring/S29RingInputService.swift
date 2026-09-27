@@ -87,6 +87,12 @@ final class S29RingInputService {
 /// All IOKit work for the ring — matching, the exclusive open, report
 /// callbacks, and the decoder's deadline timer — runs on one dedicated
 /// run-loop thread, so the decoder is only ever touched from that thread.
+///
+/// A Bluetooth LE HID peripheral can surface as more than one IOHIDDevice
+/// (one per HID service) sharing the same identity, so every matching
+/// interface is seized and fed into the single decoder — reports carry their
+/// own report IDs. Leaving an interface unseized would let macOS keep acting
+/// on its events.
 nonisolated final class S29RingHIDSession: @unchecked Sendable {
 	typealias EventHandler = @Sendable (S29RingEvent) -> Void
 	typealias ConnectionHandler = @Sendable (Bool) -> Void
@@ -99,13 +105,17 @@ nonisolated final class S29RingHIDSession: @unchecked Sendable {
 	private let onConnectionChanged: ConnectionHandler
 	private let clock: @Sendable () -> TimeInterval
 
+	private struct OpenInterface {
+		let device: IOHIDDevice
+		let openOptions: IOOptionBits
+		let reportBuffer: UnsafeMutablePointer<UInt8>
+		let reportBufferSize: Int
+	}
+
 	// Run-loop-thread state.
 	private var manager: IOHIDManager?
 	private var callbackContext: UnsafeMutableRawPointer?
-	private var device: IOHIDDevice?
-	private var deviceOpenOptions = IOOptionBits(kIOHIDOptionsTypeNone)
-	private var reportBuffer: UnsafeMutablePointer<UInt8>?
-	private var reportBufferSize = 0
+	private var interfaces: [OpenInterface] = []
 	private var deadlineTimer: CFRunLoopTimer?
 	private var decoder = S29RingReportDecoder()
 
@@ -177,9 +187,13 @@ nonisolated final class S29RingHIDSession: @unchecked Sendable {
 	}
 
 	private func stopOnRunLoop() {
-		let wasConnected = device != nil
-		teardownDevice(close: true)
+		let wasConnected = !interfaces.isEmpty
+		for interface in interfaces {
+			teardown(interface, close: true)
+		}
+		interfaces.removeAll()
 		deliver(decoder.reset())
+		rescheduleDeadlineTimer()
 
 		if let manager {
 			IOHIDManagerRegisterDeviceMatchingCallback(manager, nil, nil)
@@ -208,7 +222,8 @@ nonisolated final class S29RingHIDSession: @unchecked Sendable {
 	// MARK: Device matching (HID thread)
 
 	fileprivate func deviceMatched(_ device: IOHIDDevice) {
-		guard self.device == nil, let callbackContext else { return }
+		guard let callbackContext,
+			  !interfaces.contains(where: { $0.device == device }) else { return }
 
 		guard S29RingIdentity.matches(device: device) else {
 			// Same spoofed VID/PID as a real Apple keyboard — never touch it.
@@ -249,45 +264,54 @@ nonisolated final class S29RingHIDSession: @unchecked Sendable {
 			return
 		}
 
-		self.device = device
-		deviceOpenOptions = openOptions
-		reportBuffer = buffer
-		reportBufferSize = bufferSize
-		decoder = S29RingReportDecoder()
-		NSLog("[ControllerKeys] S29 ring connected (%@)", openOptions == seizeOptions ? "seized" : "shared")
-		onConnectionChanged(true)
+		let isFirstInterface = interfaces.isEmpty
+		interfaces.append(OpenInterface(
+			device: device,
+			openOptions: openOptions,
+			reportBuffer: buffer,
+			reportBufferSize: bufferSize
+		))
+		NSLog(
+			"[ControllerKeys] S29 ring interface opened (%@, %d open)",
+			openOptions == seizeOptions ? "seized" : "shared",
+			interfaces.count
+		)
+		if isFirstInterface {
+			decoder = S29RingReportDecoder()
+			onConnectionChanged(true)
+		}
 	}
 
 	fileprivate func deviceRemoved(_ device: IOHIDDevice) {
-		guard self.device == device else { return }
+		guard let index = interfaces.firstIndex(where: { $0.device == device }) else { return }
 		// The device is already gone; closing would just fail.
-		teardownDevice(close: false)
+		teardown(interfaces.remove(at: index), close: false)
+		guard interfaces.isEmpty else { return }
 		deliver(decoder.reset())
+		rescheduleDeadlineTimer()
 		NSLog("[ControllerKeys] S29 ring disconnected")
 		onConnectionChanged(false)
 	}
 
-	private func teardownDevice(close: Bool) {
-		guard let device else { return }
-		if let reportBuffer {
-			IOHIDDeviceRegisterInputReportCallback(device, reportBuffer, reportBufferSize, nil, nil)
-		}
+	private func teardown(_ interface: OpenInterface, close: Bool) {
+		IOHIDDeviceRegisterInputReportCallback(
+			interface.device,
+			interface.reportBuffer,
+			interface.reportBufferSize,
+			nil,
+			nil
+		)
 		if close {
-			IOHIDDeviceClose(device, deviceOpenOptions)
+			IOHIDDeviceClose(interface.device, interface.openOptions)
 		}
-		IOHIDDeviceUnscheduleFromRunLoop(device, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
-		reportBuffer?.deallocate()
-		reportBuffer = nil
-		reportBufferSize = 0
-		deviceOpenOptions = IOOptionBits(kIOHIDOptionsTypeNone)
-		self.device = nil
-		rescheduleDeadlineTimer()
+		IOHIDDeviceUnscheduleFromRunLoop(interface.device, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+		interface.reportBuffer.deallocate()
 	}
 
 	// MARK: Input (HID thread)
 
 	fileprivate func handleInputReport(_ report: UnsafeMutablePointer<UInt8>, length: Int) {
-		guard device != nil, length > 0 else { return }
+		guard !interfaces.isEmpty, length > 0 else { return }
 		let bytes = Array(UnsafeBufferPointer(start: report, count: length))
 		deliver(decoder.process(report: bytes, at: clock()))
 		rescheduleDeadlineTimer()
