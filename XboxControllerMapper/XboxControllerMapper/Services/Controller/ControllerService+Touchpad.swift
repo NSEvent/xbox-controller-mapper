@@ -60,10 +60,6 @@ extension ControllerService {
         secondary: GCControllerDirectionPad,
         button: GCControllerButtonInput
     ) {
-		// GameController defaults to the main queue. Keyboard layout/hover work
-		// can otherwise delay every touchpad sample, even outside the panel.
-		controller.handlerQueue = controllerQueue
-
         // Avoid system gesture delays on touchpad input
         primary.preferredSystemGestureState = .alwaysReceive
         secondary.preferredSystemGestureState = .alwaysReceive

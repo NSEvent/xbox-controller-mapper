@@ -29,15 +29,16 @@ final class PlayStationTouchpadRecoveryTests: MappingEngineTestCase {
 			for: controller, primary: pad.leftThumbstick,
 			secondary: pad.rightThumbstick, button: pad.buttonA
 		)
-		controllerService.activeTouchpadRouting.activate(ObjectIdentifier(controller))
 		return controller
 	}
 
 	@MainActor
-	private func leaveStaleSecondaryContact(on controller: GCController) {
+	private func leaveStaleSecondaryContact(on controller: GCController) async {
 		let secondary = controller.extendedGamepad!.rightThumbstick
 		secondary.valueChangedHandler!(secondary, -0.8, 0.8)
 		secondary.valueChangedHandler!(secondary, -1, 1)
+		// GameController touchpad callbacks reach storage through the main actor.
+		await waitForTasks(0.1)
 		controllerService.storage.lock.withLock {
 			XCTAssertTrue(controllerService.storage.isTouchpadSecondaryTouching)
 			controllerService.storage.touchpadSecondaryLastTouchTime = CFAbsoluteTimeGetCurrent() - 1
@@ -76,7 +77,7 @@ final class PlayStationTouchpadRecoveryTests: MappingEngineTestCase {
 	@MainActor
 	func testHotPlugStaleSecondaryContactRecoversMovementAndClick() async {
 		let controller = installTouchpad()
-		leaveStaleSecondaryContact(on: controller)
+		await leaveStaleSecondaryContact(on: controller)
 		swipe(on: controller)
 		let moved = await waitForCondition { self.hasMouseMovement }
 		XCTAssertTrue(moved, "An old nonzero secondary position must not suppress every later swipe")
@@ -156,6 +157,7 @@ final class PlayStationTouchpadRecoveryTests: MappingEngineTestCase {
 		let secondary = controller.extendedGamepad!.rightThumbstick
 		secondary.valueChangedHandler!(secondary, -0.8, 0.8)
 		secondary.valueChangedHandler!(secondary, -0.7, 0.7)
+		await waitForTasks(0.1)
 		controllerService.storage.lock.withLock {
 			controllerService.storage.touchpadSecondaryLastTouchTime = CFAbsoluteTimeGetCurrent() - 1
 		}
@@ -175,6 +177,7 @@ final class PlayStationTouchpadRecoveryTests: MappingEngineTestCase {
 		secondary.valueChangedHandler!(secondary, -1, 1)
 		// GC can deliver a new finger before the raw HID queue catches up.
 		swipe(on: controller)
+		await waitForTasks(0.1)
 		XCTAssertTrue(controllerService.storage.lock.withLock { controllerService.storage.isTouchpadSecondaryTouching })
 		reportContacts(2)
 		await waitForTasks(0.1)
@@ -183,13 +186,14 @@ final class PlayStationTouchpadRecoveryTests: MappingEngineTestCase {
 	}
 
 	@MainActor
-	func testOldHIDReportCannotReleaseAStationarySecondFinger() {
+	func testOldHIDReportCannotReleaseAStationarySecondFinger() async {
 		let controller = installTouchpad()
-		leaveStaleSecondaryContact(on: controller)
+		await leaveStaleSecondaryContact(on: controller)
 		controllerService.storage.lock.withLock {
 			controllerService.storage.dualSenseTouchpadContactTime = CFAbsoluteTimeGetCurrent() - 2
 		}
 		swipe(on: controller)
+		await waitForTasks(0.1)
 		XCTAssertTrue(controllerService.storage.lock.withLock { controllerService.storage.isTouchpadSecondaryTouching })
 		controllerService.clearGameControllerHandlers(for: controller)
 	}
