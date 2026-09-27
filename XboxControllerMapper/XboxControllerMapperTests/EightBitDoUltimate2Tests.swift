@@ -160,7 +160,7 @@ final class EightBitDoUltimate2RawHIDInputTests: XCTestCase {
 
 @MainActor
 final class EightBitDoUltimate2PresentationTests: XCTestCase {
-	func testActivePresentationResolvesEliteStyleUltimate2Preview() {
+	func testActivePresentationResolvesUltimate2PreviewWithElitePaddles() {
 		let storage = ControllerStorage()
 		let state = storage.lock.withLock {
 			storage.isEightBitDoUltimate2 = true
@@ -173,7 +173,7 @@ final class EightBitDoUltimate2PresentationTests: XCTestCase {
 
 		let descriptor = ControllerVisualDescriptor.active(from: state)
 		XCTAssertEqual(descriptor.family, .eightBitDoUltimate2)
-		XCTAssertEqual(descriptor.minimapStyle, .xboxElite)
+		XCTAssertEqual(descriptor.minimapStyle, .eightBitDoUltimate2, "Ultimate 2 has its own traced minimap")
 	}
 
 	func testUltimate2DescriptorShowsPaddlesAndStandardControls() {

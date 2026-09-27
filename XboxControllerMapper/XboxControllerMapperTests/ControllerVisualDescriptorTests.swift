@@ -65,7 +65,7 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 			.eightBitDoMicro: .eightBitDoMicro,
 			.eightBitDoLite2: .eightBitDoLite2,
 			.eightBitDoLiteSE: .eightBitDoLiteSE,
-			.eightBitDoUltimate2: .xboxElite,
+			.eightBitDoUltimate2: .eightBitDoUltimate2,
 			.appleTVRemote: nil,
 			.ouraRing: nil,
 			.s29Ring: nil,
