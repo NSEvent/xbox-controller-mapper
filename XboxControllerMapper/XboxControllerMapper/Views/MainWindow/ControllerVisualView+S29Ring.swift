@@ -65,9 +65,9 @@ struct S29RingMinimapView: View {
 	/// Angular width of each arrow key; the rest is the gap between keys.
 	private static let arcSpan: Double = 68
 	private static let centerKeySize: CGFloat = 52
-	private static let bottomRowY: CGFloat = 210
-	private static let bottomKeySize = CGSize(width: 48, height: 40)
-	private static let bottomKeySpacing: CGFloat = 54
+	private static let bottomRowY: CGFloat = 206
+	private static let bottomKeySize = CGSize(width: 46, height: 40)
+	private static let bottomKeySpacing: CGFloat = 52
 
 	private static let keyTop = Color(white: 0.86)
 	private static let keyBottom = Color(white: 0.68)
@@ -116,7 +116,15 @@ struct S29RingMinimapView: View {
 	}
 
 	private var facePlate: some View {
-		let plate = RoundedRectangle(cornerRadius: Self.plateSize.width * 0.46, style: .continuous)
+		// Rounder at the top around the arrow cluster; tighter bottom corners
+		// so the full-width Camera / Heart / Home row sits inside the plate.
+		let plate = UnevenRoundedRectangle(
+			topLeadingRadius: Self.plateSize.width * 0.46,
+			bottomLeadingRadius: 40,
+			bottomTrailingRadius: 40,
+			topTrailingRadius: Self.plateSize.width * 0.46,
+			style: .continuous
+		)
 
 		return plate
 			.fill(

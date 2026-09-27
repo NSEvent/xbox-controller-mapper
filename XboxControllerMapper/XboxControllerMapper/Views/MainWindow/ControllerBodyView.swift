@@ -187,8 +187,8 @@ struct ControllerBodyView: View {
             .position(x: size.width * 0.5, y: size.height * 0.14)
     }
 
-    /// Ultimate 2: glossy top sheen, shaded grips, raised bezels around both
-    /// sticks, the shallow d-pad recess, and the center status pinhole plus
+    /// Ultimate 2: glossy top sheen, faint grip shading, the shallow d-pad
+    /// recess, and the center status pinhole plus
     /// three player LEDs. Controls themselves come from the overlay.
     private func ultimate2Decor(in size: CGSize) -> some View {
         let layout = EightBitDoUltimate2MinimapLayout.self
@@ -208,27 +208,11 @@ struct ControllerBodyView: View {
 
             ForEach([0.14, 0.86], id: \.self) { x in
                 Ellipse()
-                    .fill(deepGreen.opacity(0.22))
-                    .frame(width: w * 0.24, height: size.height * 0.56)
+                    .fill(deepGreen.opacity(0.10))
+                    .frame(width: w * 0.22, height: size.height * 0.50)
                     .rotationEffect(.degrees(x < 0.5 ? 22 : -22))
-                    .position(x: w * x, y: size.height * 0.80)
-                    .blur(radius: 9)
-            }
-
-            // Raised bezel collars around the stick wells
-            ForEach([layout.leftStick, layout.rightStick], id: \.x) { point in
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color.white.opacity(0.22), deepGreen.opacity(0.22)],
-                            center: UnitPoint(x: 0.4, y: 0.3),
-                            startRadius: 0,
-                            endRadius: w * layout.stickWellSize * 0.75
-                        )
-                    )
-                    .frame(width: w * layout.stickWellSize * 1.34, height: w * layout.stickWellSize * 1.34)
-                    .position(x: w * point.x, y: size.height * point.y)
-                    .blur(radius: 1.5)
+                    .position(x: w * x, y: size.height * 0.82)
+                    .blur(radius: 14)
             }
 
             // Shallow round recess the d-pad sits in
