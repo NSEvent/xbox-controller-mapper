@@ -46,6 +46,7 @@ enum ControllerMinimapStyle: CaseIterable, Hashable, Sendable {
     case eightBitDoMicro
     case eightBitDoLite2
     case eightBitDoLiteSE
+    case eightBitDoUltimate2
 
     var bodyAspectRatio: CGFloat {
         switch self {
@@ -59,6 +60,7 @@ enum ControllerMinimapStyle: CaseIterable, Hashable, Sendable {
         case .eightBitDoMicro: return EightBitDoMicroBodyShape.aspectRatio
         case .eightBitDoLite2: return EightBitDoLite2BodyShape.aspectRatio
         case .eightBitDoLiteSE: return EightBitDoLiteSEBodyShape.aspectRatio
+        case .eightBitDoUltimate2: return EightBitDoUltimate2BodyShape.aspectRatio
         }
     }
 
@@ -391,6 +393,62 @@ enum EightBitDoLite2MinimapLayout {
     static let rightTrigger = CGPoint(x: 0.84, y: 0.0)
 
     static let battery = CGPoint(x: 0.50, y: 0.90)
+}
+
+// MARK: - 8BitDo Ultimate 2 Wireless
+
+/// Measured from 8BitDo's front-on green render on a 10% grid (same image
+/// the silhouette was traced from). Xbox-style offset sticks; face buttons in
+/// the Xbox diamond (Y north, A south, X west, B east) as printed.
+enum EightBitDoUltimate2MinimapLayout {
+    static let leftStick = CGPoint(x: 0.214, y: 0.267)
+    static let rightStick = CGPoint(x: 0.636, y: 0.509)
+    static let stickWellSize: CGFloat = 0.143
+
+    static let dpad = CGPoint(x: 0.366, y: 0.499)
+    static let dpadSize: CGFloat = 0.165
+    /// Shallow round recess the d-pad sits in.
+    static let dpadRecessSize: CGFloat = 0.20
+
+    static let faceCluster = CGPoint(x: 0.783, y: 0.277)
+    static let faceButtonOffset: CGFloat = 0.071
+    static let faceButtonSize: CGFloat = 0.066
+
+    /// Top-center row: minus (view), 8BitDo home with LED ring, plus (menu).
+    static let view = CGPoint(x: 0.369, y: 0.154)
+    static let home = CGPoint(x: 0.50, y: 0.154)
+    static let menu = CGPoint(x: 0.631, y: 0.154)
+    static let viewMenuSize: CGFloat = 0.046
+    static let homeSize: CGFloat = 0.060
+
+    /// Second row: two firmware function buttons (decorative) and the
+    /// status pinhole between them.
+    static let functionLeft = CGPoint(x: 0.429, y: 0.263)
+    static let functionRight = CGPoint(x: 0.571, y: 0.263)
+    static let functionSize: CGFloat = 0.046
+    static let statusDot = CGPoint(x: 0.50, y: 0.263)
+
+    /// Pairing pill and the three player LEDs below it.
+    static let pairPill = CGPoint(x: 0.50, y: 0.386)
+    static let playerLEDs: [CGPoint] = [
+        CGPoint(x: 0.50, y: 0.472),
+        CGPoint(x: 0.50, y: 0.503),
+        CGPoint(x: 0.50, y: 0.534),
+    ]
+
+    static let leftBumper = CGPoint(x: 0.215, y: 0.035)
+    static let rightBumper = CGPoint(x: 0.785, y: 0.035)
+    static let leftTrigger = CGPoint(x: 0.17, y: 0.0)
+    static let rightTrigger = CGPoint(x: 0.83, y: 0.0)
+
+    // Back buttons peeking into the valley between the grips (the body's
+    // bottom arch sits at y ≈ 0.69).
+    static let paddleUpperLeft = CGPoint(x: 0.435, y: 0.745)
+    static let paddleUpperRight = CGPoint(x: 0.565, y: 0.745)
+    static let paddleLowerLeft = CGPoint(x: 0.47, y: 0.845)
+    static let paddleLowerRight = CGPoint(x: 0.53, y: 0.845)
+
+    static let battery = CGPoint(x: 0.50, y: 0.95)
 }
 
 // MARK: - 8BitDo Lite SE

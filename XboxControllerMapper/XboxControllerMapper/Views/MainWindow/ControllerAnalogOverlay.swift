@@ -281,6 +281,7 @@ struct ControllerAnalogOverlay: View {
     /// 15Hz analog state updates re-evaluate the same branch.
     private var overlayContent: AnyView {
         if let model = eightBitDoModel { return AnyView(eightBitDoOverlay(model)) }
+        if descriptor.isEightBitDoUltimate2 { return AnyView(ultimate2Overlay) }
         if isSteamController { return AnyView(steamOverlay) }
         if isDualShock { return AnyView(dualShockOverlay) }
         if isPlayStation { return AnyView(dualSenseOverlay) }
@@ -405,6 +406,145 @@ struct ControllerAnalogOverlay: View {
             BatteryView(level: batteryLevel, state: batteryState)
                 .minimapPosition(layout.battery, in: size)
         }
+    }
+
+    // MARK: - 8BitDo Ultimate 2 Overlay
+
+    /// Colored-body cap shared by the Ultimate 2's small system buttons.
+    private static let ultimate2CapColor = Color(red: 0.66, green: 0.90, blue: 0.27)
+    private static let ultimate2GlyphColor = Color(red: 0.22, green: 0.36, blue: 0.05)
+    /// The "fire ring" RGB glow around each stick (factory amber).
+    private static let ultimate2FireRing = Color(red: 1.0, green: 0.62, blue: 0.10)
+
+    private var ultimate2Overlay: some View {
+        let size = frameSize
+        let w = size.width
+        let layout = EightBitDoUltimate2MinimapLayout.self
+
+        return ZStack {
+            miniTrigger(.leftTrigger, label: "LT", value: leftTrigger, width: w * 0.09)
+                .minimapPosition(layout.leftTrigger, in: size)
+            miniTrigger(.rightTrigger, label: "RT", value: rightTrigger, width: w * 0.09)
+                .minimapPosition(layout.rightTrigger, in: size)
+            miniBumper(.leftBumper, label: "LB", width: w * 0.16, tilt: -5)
+                .minimapPosition(layout.leftBumper, in: size)
+            miniBumper(.rightBumper, label: "RB", width: w * 0.16, tilt: 5)
+                .minimapPosition(layout.rightBumper, in: size)
+
+            miniUltimate2Home(size: w * layout.homeSize)
+                .minimapPosition(layout.home, in: size)
+            miniBodyCapButton(.view, systemImage: "minus", size: w * layout.viewMenuSize)
+                .minimapPosition(layout.view, in: size)
+            miniBodyCapButton(.menu, systemImage: "plus", size: w * layout.viewMenuSize)
+                .minimapPosition(layout.menu, in: size)
+
+            // Firmware function buttons + pairing pill: real, but consumed by
+            // the controller, so they're drawn as decoration only.
+            miniBodyCapDecoration(systemImage: "square", size: w * layout.functionSize)
+                .minimapPosition(layout.functionLeft, in: size)
+            miniBodyCapDecoration(systemImage: "star", size: w * layout.functionSize)
+                .minimapPosition(layout.functionRight, in: size)
+            Capsule()
+                .fill(jewelGradient(Self.ultimate2CapColor, pressed: false))
+                .overlay(Capsule().strokeBorder(Self.ultimate2GlyphColor.opacity(0.55), lineWidth: 0.8))
+                .frame(width: w * 0.046, height: w * 0.024)
+                .shadow(color: .black.opacity(0.2), radius: 1)
+                .minimapPosition(layout.pairPill, in: size)
+                .allowsHitTesting(false)
+
+            miniStick(.leftThumbstick, pos: leftStick, wellSize: w * layout.stickWellSize, glowRing: Self.ultimate2FireRing)
+                .minimapPosition(layout.leftStick, in: size)
+            miniStick(.rightThumbstick, pos: rightStick, wellSize: w * layout.stickWellSize, glowRing: Self.ultimate2FireRing)
+                .minimapPosition(layout.rightStick, in: size)
+
+            miniFaceButtons(
+                buttonSize: w * layout.faceButtonSize,
+                offset: w * layout.faceButtonOffset
+            )
+            .minimapPosition(layout.faceCluster, in: size)
+
+            miniDPad(span: w * layout.dpadSize, style: .cross)
+                .minimapPosition(layout.dpad, in: size)
+
+            // Back buttons (L4/R4 + PL/PR) peeking into the grip valley
+            if elitePaddleButtons.count == 4 {
+                miniPaddle(elitePaddleButtons[0], width: w * 0.024, height: w * 0.056, tilt: -10)
+                    .minimapPosition(layout.paddleUpperLeft, in: size)
+                miniPaddle(elitePaddleButtons[1], width: w * 0.024, height: w * 0.056, tilt: 10)
+                    .minimapPosition(layout.paddleUpperRight, in: size)
+                miniPaddle(elitePaddleButtons[2], width: w * 0.020, height: w * 0.044, tilt: -6)
+                    .minimapPosition(layout.paddleLowerLeft, in: size)
+                miniPaddle(elitePaddleButtons[3], width: w * 0.020, height: w * 0.044, tilt: 6)
+                    .minimapPosition(layout.paddleLowerRight, in: size)
+            }
+
+            if isConnected {
+                BatteryView(level: batteryLevel, state: batteryState)
+                    .minimapPosition(layout.battery, in: size)
+            }
+        }
+        .frame(width: size.width, height: size.height)
+    }
+
+    /// Ultimate 2 home: 8BitDo pixel-heart logo on a body-colored cap inside
+    /// a white LED ring.
+    private func miniUltimate2Home(size: CGFloat) -> some View {
+        let pressed = isPressed(.xbox)
+
+        return ZStack {
+            Circle()
+                .strokeBorder(Color.white.opacity(0.95), lineWidth: size * 0.09)
+                .shadow(color: .white.opacity(0.8), radius: size * 0.12)
+            Circle()
+                .fill(jewelGradient(pressed ? Color.accentColor : Self.ultimate2CapColor, pressed: pressed))
+                .overlay(glassOverlay.clipShape(Circle()))
+                .padding(size * 0.12)
+            Image("EightBitDoLogo")
+                .renderingMode(.template)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: size * 0.46, height: size * 0.36)
+                .foregroundColor(pressed ? .white : Self.ultimate2GlyphColor)
+        }
+        .frame(width: size, height: size)
+        .overlay(miniOverrideOutline(for: .xbox, shape: Circle(), lineWidth: 1.5))
+        .shadow(color: pressed ? Color.accentColor.opacity(0.5) : .black.opacity(0.22), radius: 1.5)
+        .onTapGesture { onButtonTap(.xbox) }
+        .controllerAnchor(.xbox, role: .controller)
+        .onHover { hovering in onButtonHover?(.xbox, hovering) }
+        .swappable(.xbox, onSwap: onSwapRequest)
+    }
+
+    /// Small system button capped in the body color with an engraved glyph
+    /// (Ultimate 2 minus/plus).
+    private func miniBodyCapButton(_ button: ControllerButton, systemImage: String, size: CGFloat) -> some View {
+        let pressed = isPressed(button)
+
+        return miniBodyCap(systemImage: systemImage, size: size, pressed: pressed)
+            .overlay(miniOverrideOutline(for: button, shape: Circle(), lineWidth: 1.5))
+            .onTapGesture { onButtonTap(button) }
+            .controllerAnchor(button, role: .controller)
+            .onHover { hovering in onButtonHover?(button, hovering) }
+            .swappable(button, onSwap: onSwapRequest)
+    }
+
+    private func miniBodyCapDecoration(systemImage: String, size: CGFloat) -> some View {
+        miniBodyCap(systemImage: systemImage, size: size, pressed: false)
+            .allowsHitTesting(false)
+    }
+
+    private func miniBodyCap(systemImage: String, size: CGFloat, pressed: Bool) -> some View {
+        ZStack {
+            Circle()
+                .fill(jewelGradient(pressed ? Color.accentColor : Self.ultimate2CapColor, pressed: pressed))
+                .overlay(glassOverlay.clipShape(Circle()))
+                .overlay(Circle().strokeBorder(Self.ultimate2GlyphColor.opacity(0.55), lineWidth: 0.8))
+            Image(systemName: systemImage)
+                .font(.system(size: size * 0.40, weight: .bold))
+                .foregroundColor(pressed ? .white : Self.ultimate2GlyphColor.opacity(0.85))
+        }
+        .frame(width: size, height: size)
+        .shadow(color: pressed ? Color.accentColor.opacity(0.5) : .black.opacity(0.22), radius: 1.2)
     }
 
     // MARK: - Steam Controller Overlay
@@ -1370,7 +1510,14 @@ struct ControllerAnalogOverlay: View {
 
     /// Thumbstick: recessed well + domed cap with a concave dish, following
     /// the live analog position.
-    private func miniStick(_ button: ControllerButton, pos: CGPoint, wellSize: CGFloat = 30, eliteRing: Bool = false, lightCap: Bool = false) -> some View {
+    private func miniStick(
+        _ button: ControllerButton,
+        pos: CGPoint,
+        wellSize: CGFloat = 30,
+        eliteRing: Bool = false,
+        lightCap: Bool = false,
+        glowRing: Color? = nil
+    ) -> some View {
         let directionButtons = button == .leftThumbstick
 			? ControllerButton.joystickDirectionButtons(side: .left, layout: .eightWay)
 			: ControllerButton.joystickDirectionButtons(side: .right, layout: .eightWay)
@@ -1402,6 +1549,15 @@ struct ControllerAnalogOverlay: View {
                         lineWidth: wellSize * 0.05
                     )
                     .frame(width: wellSize, height: wellSize)
+            }
+
+            // Lit RGB ring around the well (8BitDo Ultimate 2 "fire ring")
+            if let glowRing {
+                Circle()
+                    .strokeBorder(glowRing, lineWidth: wellSize * 0.07)
+                    .frame(width: wellSize * 1.02, height: wellSize * 1.02)
+                    .shadow(color: glowRing.opacity(0.9), radius: wellSize * 0.10)
+                    .shadow(color: glowRing.opacity(0.5), radius: wellSize * 0.22)
             }
 
             // Cap: domed black rubber with a concave dish on top
@@ -1658,7 +1814,7 @@ struct ControllerAnalogOverlay: View {
                 miniPSFaceButton(.a, symbolColor: ButtonColors.psCross, size: buttonSize, lightStyle: false).offset(y: offset)
                 miniPSFaceButton(.x, symbolColor: ButtonColors.psSquare, size: buttonSize, lightStyle: false).offset(x: -offset)
                 miniPSFaceButton(.b, symbolColor: ButtonColors.psCircle, size: buttonSize, lightStyle: false).offset(x: offset)
-            case .xbox:
+            case .xbox, .eightBitDoUltimate2:
                 miniFaceButton(.y, letter: "Y", letterColor: ButtonColors.xboxY, size: buttonSize).offset(y: -offset)
                 miniFaceButton(.a, letter: "A", letterColor: ButtonColors.xboxA, size: buttonSize).offset(y: offset)
                 miniFaceButton(.x, letter: "X", letterColor: ButtonColors.xboxX, size: buttonSize).offset(x: -offset)

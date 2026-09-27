@@ -236,7 +236,7 @@ struct ControllerVisualDescriptor: Equatable {
 		case let .eightBitDo(model):
 			return model.minimapStyle
 		case .eightBitDoUltimate2:
-			return .xboxElite
+			return .eightBitDoUltimate2
 		case .appleTVRemote:
 			return nil
 		case .ouraRing, .s29Ring:

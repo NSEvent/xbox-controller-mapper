@@ -92,6 +92,16 @@ struct ControllerBodyView: View {
                 colors: [Color(red: 0.42, green: 0.41, blue: 0.71), Color(red: 0.29, green: 0.28, blue: 0.55)],
                 startPoint: .top, endPoint: .bottom
             )
+        case .eightBitDoUltimate2:
+            // Ultimate 2 green colorway, sampled from 8BitDo's render
+            LinearGradient(
+                colors: [
+                    Color(red: 0.72, green: 0.97, blue: 0.24),
+                    Color(red: 0.62, green: 0.89, blue: 0.16),
+                    Color(red: 0.52, green: 0.79, blue: 0.10)
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
         }
     }
 
@@ -101,6 +111,8 @@ struct ControllerBodyView: View {
             return Color.white.opacity(0.65)
 		case .eightBitDoZero2:
 			return Color.black.opacity(0.18)
+        case .eightBitDoUltimate2:
+            return Color(red: 0.30, green: 0.48, blue: 0.06).opacity(0.55)
         default:
             return Color.white.opacity(0.16)
         }
@@ -127,6 +139,8 @@ struct ControllerBodyView: View {
 			zero2Decor(in: size)
 		case .eightBitDoMicro, .eightBitDoLite2, .eightBitDoLiteSE:
             eightBitDoDecor(in: size)
+        case .eightBitDoUltimate2:
+            ultimate2Decor(in: size)
         }
     }
 
@@ -171,6 +185,78 @@ struct ControllerBodyView: View {
             )
             .frame(width: size.width * 0.94, height: size.height * 0.55)
             .position(x: size.width * 0.5, y: size.height * 0.14)
+    }
+
+    /// Ultimate 2: glossy top sheen, shaded grips, raised bezels around both
+    /// sticks, the shallow d-pad recess, and the center status pinhole plus
+    /// three player LEDs. Controls themselves come from the overlay.
+    private func ultimate2Decor(in size: CGSize) -> some View {
+        let layout = EightBitDoUltimate2MinimapLayout.self
+        let w = size.width
+        let deepGreen = Color(red: 0.24, green: 0.40, blue: 0.04)
+
+        return ZStack {
+            Ellipse()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.16), .clear],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+                .frame(width: w * 0.86, height: size.height * 0.44)
+                .position(x: w * 0.5, y: size.height * 0.14)
+
+            ForEach([0.14, 0.86], id: \.self) { x in
+                Ellipse()
+                    .fill(deepGreen.opacity(0.22))
+                    .frame(width: w * 0.24, height: size.height * 0.56)
+                    .rotationEffect(.degrees(x < 0.5 ? 22 : -22))
+                    .position(x: w * x, y: size.height * 0.80)
+                    .blur(radius: 9)
+            }
+
+            // Raised bezel collars around the stick wells
+            ForEach([layout.leftStick, layout.rightStick], id: \.x) { point in
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.white.opacity(0.22), deepGreen.opacity(0.22)],
+                            center: UnitPoint(x: 0.4, y: 0.3),
+                            startRadius: 0,
+                            endRadius: w * layout.stickWellSize * 0.75
+                        )
+                    )
+                    .frame(width: w * layout.stickWellSize * 1.34, height: w * layout.stickWellSize * 1.34)
+                    .position(x: w * point.x, y: size.height * point.y)
+                    .blur(radius: 1.5)
+            }
+
+            // Shallow round recess the d-pad sits in
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [deepGreen.opacity(0.26), Color.white.opacity(0.10)],
+                        center: UnitPoint(x: 0.5, y: 0.42),
+                        startRadius: w * layout.dpadRecessSize * 0.2,
+                        endRadius: w * layout.dpadRecessSize * 0.5
+                    )
+                )
+                .frame(width: w * layout.dpadRecessSize, height: w * layout.dpadRecessSize)
+                .position(x: w * layout.dpad.x, y: size.height * layout.dpad.y)
+
+            Circle()
+                .fill(deepGreen.opacity(0.85))
+                .frame(width: w * 0.009, height: w * 0.009)
+                .position(x: w * layout.statusDot.x, y: size.height * layout.statusDot.y)
+
+            ForEach(Array(layout.playerLEDs.enumerated()), id: \.offset) { _, point in
+                Circle()
+                    .fill(Color(red: 0.26, green: 0.30, blue: 0.36))
+                    .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 0.5))
+                    .frame(width: w * 0.011, height: w * 0.011)
+                    .position(x: w * point.x, y: size.height * point.y)
+            }
+        }
     }
 
     private func zero2Decor(in size: CGSize) -> some View {
@@ -306,6 +392,7 @@ struct AnyControllerBodyShape: Shape {
         case .eightBitDoMicro: return EightBitDoMicroBodyShape().path(in: rect)
         case .eightBitDoLite2: return EightBitDoLite2BodyShape().path(in: rect)
         case .eightBitDoLiteSE: return EightBitDoLiteSEBodyShape().path(in: rect)
+        case .eightBitDoUltimate2: return EightBitDoUltimate2BodyShape().path(in: rect)
         }
     }
 }
