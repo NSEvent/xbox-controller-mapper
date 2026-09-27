@@ -16,6 +16,9 @@ struct HIDReportParseResult: Equatable {
     var nintendoHome: Bool? = nil
     /// True = charging, false = not. Nil when the report type doesn't expose it.
     var batteryCharging: Bool? = nil
+	/// Hardware finger count; unlike GameController axes, idle coordinates
+	/// cannot masquerade as a contact. Nil for reports without touch data.
+	var touchpadContactCount: Int? = nil
     /// Left-stick axes from the Nintendo simple (0x3F) report, normalized to
     /// -1...1 with +x = right and +y = up (GameController convention). On
     /// stickless 8BitDo clones these carry the d-pad; nil when unavailable.

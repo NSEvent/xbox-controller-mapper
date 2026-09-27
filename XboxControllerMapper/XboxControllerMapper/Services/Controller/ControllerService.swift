@@ -82,6 +82,8 @@ final class ControllerStorage: @unchecked Sendable {
     var touchpadMaxDistanceFromStart: Double = 0  // Max distance traveled during touch (for tap detection)
     var touchpadLastTapTime: TimeInterval = 0  // Time of last detected tap (for double-tap cooldown)
     var touchpadDebugLastLogTime: TimeInterval = 0
+    var dualSenseTouchpadContactCount: Int?
+	var dualSenseTouchpadContactTime: TimeInterval = 0
     var touchpadIdleSentinel: CGPoint? = nil
     var touchpadSecondaryIdleSentinel: CGPoint? = nil
     var touchpadHasSeenTouch: Bool = false
@@ -1475,6 +1477,8 @@ class ControllerService: ObservableObject {
 	}
 
     nonisolated func resetTouchpadStateLocked() {
+		storage.dualSenseTouchpadContactCount = nil
+		storage.dualSenseTouchpadContactTime = 0
         storage.isTouchpadTouching = false
         storage.isTouchpadSecondaryTouching = false
         storage.touchpadPosition = .zero

@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **DualSense touchpad recovery after connecting**: an unused second-finger position could remain stuck after connection and suppress mouse movement until restart. ControllerKeys now uses fresh USB/Bluetooth contact reports to clear that phantom touch and end its gesture state, while preserving real stationary fingers and held-click releases.
 - **Touchpad input delivery during UI work**: DualSense and DualShock touchpad callbacks now run independently of main-thread keyboard rendering. Trigger precision settings still intentionally reduce cursor speed while the selected trigger is held.
 
 ## [2.9.0] - 2026-09-21

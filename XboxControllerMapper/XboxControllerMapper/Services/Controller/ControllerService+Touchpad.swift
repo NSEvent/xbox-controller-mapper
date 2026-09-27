@@ -110,6 +110,7 @@ extension ControllerService {
     }
 
     nonisolated func updateTouchpadClick(pressed: Bool) {
+		reconcileDualSenseSecondaryTouch()
         let isTwoFingerClick = armTouchpadClick(pressed: pressed)
 
         if pressed {
@@ -355,6 +356,7 @@ extension ControllerService {
 
     private nonisolated func updateTouchpad(x: Float, y: Float, isTouchingOverride: Bool?) {
         defer { logTouchpadDebugIfNeeded(source: "primary") }
+		reconcileDualSenseSecondaryTouch()
         storage.lock.lock()
 
         // MARK: Initial Setup

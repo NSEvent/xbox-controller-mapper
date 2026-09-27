@@ -295,6 +295,10 @@ extension ControllerService {
     nonisolated private func applyParsedHIDReport(_ parsed: HIDReportParseResult) {
         storage.lock.lock()
         let isEdge = storage.isDualSenseEdge
+		if storage.isDualSense, let count = parsed.touchpadContactCount {
+			storage.dualSenseTouchpadContactCount = count
+			storage.dualSenseTouchpadContactTime = CFAbsoluteTimeGetCurrent()
+		}
 
         let psChanged = parsed.ps.map { $0 != storage.lastPSButtonState } ?? false
         let micChanged = parsed.mic.map { $0 != storage.lastMicButtonState } ?? false

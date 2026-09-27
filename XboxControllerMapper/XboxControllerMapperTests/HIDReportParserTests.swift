@@ -27,6 +27,26 @@ final class HIDReportParserTests: XCTestCase {
 
     // MARK: - DualSense
 
+	func testDualSenseTouchContactCount_USBAndBluetooth() {
+		for (reportID, length, firstContact) in [(UInt32(0x01), 64, 33), (UInt32(0x31), 78, 34)] {
+			for (first, second, expected) in [(false, false, 0), (true, false, 1), (false, true, 1), (true, true, 2)] {
+				var bytes = [UInt8](repeating: 0x80, count: length)
+				bytes[firstContact] = first ? 0x27 : 0xA7
+				bytes[firstContact + 4] = second ? 0x36 : 0xB6
+				let result = parse(DualSenseHIDParser(), reportID: reportID, bytes: bytes)
+				XCTAssertEqual(result?.touchpadContactCount, expected)
+			}
+		}
+	}
+
+	func testDualSenseShortReportsDoNotInventTouchContacts() {
+		for (reportID, length) in [(UInt32(0x01), 11), (UInt32(0x01), 63), (UInt32(0x31), 12), (UInt32(0x31), 77)] {
+			let result = parse(DualSenseHIDParser(), reportID: reportID, bytes: [UInt8](repeating: 0, count: length))
+			XCTAssertNotNil(result)
+			XCTAssertNil(result?.touchpadContactCount, "Only full reports carry authoritative contact state")
+		}
+	}
+
     func testDualSense_USBReport_extractsAllButtonsFromButtons3() {
         let bytes = makeReport(length: 60) { p in
             // buttons3 at offset 10, all bits set

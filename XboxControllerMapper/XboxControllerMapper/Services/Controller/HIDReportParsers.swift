@@ -45,6 +45,17 @@ struct DualSenseHIDParser: HIDReportParser {
             result.batteryCharging = (powerState == 0x01)
         }
 
+		// Full DualSense reports only: the common payload starts at USB byte
+		// 1 / BT byte 2, with four-byte contacts at payload offsets 32 and 36.
+		// Contact bit 7 means inactive (Linux hid-playstation report layout).
+		// Do not interpret short Bluetooth 0x01/basic reports as touch data.
+		if (reportID == 0x01 && length >= 64) || (reportID == 0x31 && length >= 78) {
+			let firstContact = reportID == 0x31 ? 34 : 33
+			result.touchpadContactCount = [firstContact, firstContact + 4].reduce(0) {
+				$0 + ((report[$1] & 0x80) == 0 ? 1 : 0)
+			}
+		}
+
         return result
     }
 }
