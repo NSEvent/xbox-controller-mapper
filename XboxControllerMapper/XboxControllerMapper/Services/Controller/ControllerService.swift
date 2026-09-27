@@ -230,6 +230,7 @@ class ControllerService: ObservableObject {
 	@Published var controllerMappingSource: String?
     @Published private(set) var isOuraRingConnected = false
     @Published private(set) var isBeamdeskHandsConnected = false
+    @Published private(set) var isBeamdeskGamepadConnected = false
     @Published private(set) var isS29RingConnected = false
 
     /// Currently pressed buttons (UI use only, updated asynchronously)
@@ -1329,10 +1330,12 @@ class ControllerService: ObservableObject {
     }
 
 	/// When no physical controller is active, show the highest-precedence
-	/// connected virtual/auxiliary input: Oura Ring, then S29 Ring, then
-	/// Beamdesk hands.
+	/// connected virtual/auxiliary input: Beamdesk gamepad, Oura Ring,
+	/// S29 Ring, then Beamdesk hands.
 	private func publishVirtualInputSourceIfNeeded() {
-		if isOuraRingConnected {
+		if isBeamdeskGamepadConnected {
+			publishBeamdeskGamepadConnection()
+		} else if isOuraRingConnected {
 			publishOuraRingConnection()
 		} else if isS29RingConnected {
 			publishS29RingConnection()
@@ -1375,7 +1378,7 @@ class ControllerService: ObservableObject {
 			publishBeamdeskHandsConnection()
 		} else {
 			releaseBeamdeskHandsButtons()
-			if !hasActiveHardwareInputSource && !isOuraRingConnected && !isS29RingConnected {
+			if !hasActiveHardwareInputSource && !isOuraRingConnected && !isS29RingConnected && !isBeamdeskGamepadConnected {
 				isConnected = false
 				currentControllerIdentity = nil
 				controllerName = ""
@@ -1428,6 +1431,35 @@ class ControllerService: ObservableObject {
 		controllerMappingSource == S29RingIdentity.displayName
 	}
 
+	func setBeamdeskGamepadConnected(_ connected: Bool) {
+		guard isBeamdeskGamepadConnected != connected else { return }
+		isBeamdeskGamepadConnected = connected
+		if connected { publishBeamdeskGamepadConnection() }
+		else if !hasActiveHardwareInputSource {
+			isConnected = false
+			controllerName = ""
+			controllerMappingSource = nil
+			stopDisplayUpdateTimer()
+			publishVirtualInputSourceIfNeeded()
+		}
+	}
+
+	private func publishBeamdeskGamepadConnection() {
+		guard !hasActiveHardwareInputSource else { return }
+		controllerName = "Beamdesk Gamepad"
+		controllerMappingSource = "Beamdesk Gamepad"
+		currentControllerIdentity = nil
+		isConnected = true
+		if !AppRuntime.isRunningTests { startDisplayUpdateTimer() }
+	}
+
+	nonisolated func updateBeamdeskTriggerValues(left: Float, right: Float) {
+		storage.lock.lock()
+		storage.leftTrigger = left
+		storage.rightTrigger = right
+		storage.lock.unlock()
+	}
+
 	var isBeamdeskHandsActiveInputSource: Bool {
 		isBeamdeskHandsConnected &&
 		controllerName == "Beamdesk Hands" &&
@@ -1435,7 +1467,7 @@ class ControllerService: ObservableObject {
 	}
 
     private func publishOuraRingConnection() {
-		guard !hasActiveHardwareInputSource else { return }
+		guard !hasActiveHardwareInputSource, !isBeamdeskGamepadConnected else { return }
 		isConnected = true
 		currentControllerIdentity = nil
 		controllerName = "Oura Ring"
@@ -1447,7 +1479,7 @@ class ControllerService: ObservableObject {
     }
 
 	private func publishS29RingConnection() {
-		guard !hasActiveHardwareInputSource, !isOuraRingConnected else { return }
+		guard !hasActiveHardwareInputSource, !isOuraRingConnected, !isBeamdeskGamepadConnected else { return }
 		isConnected = true
 		currentControllerIdentity = nil
 		controllerName = S29RingIdentity.displayName
@@ -1459,7 +1491,7 @@ class ControllerService: ObservableObject {
 	}
 
 	private func publishBeamdeskHandsConnection() {
-		guard !hasActiveHardwareInputSource, !isOuraRingConnected, !isS29RingConnected else { return }
+		guard !hasActiveHardwareInputSource, !isOuraRingConnected, !isS29RingConnected, !isBeamdeskGamepadConnected else { return }
 		isConnected = true
 		currentControllerIdentity = nil
 		controllerName = "Beamdesk Hands"

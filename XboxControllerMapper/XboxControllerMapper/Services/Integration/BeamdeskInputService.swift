@@ -168,6 +168,7 @@ final class BeamdeskInputService: NSObject, @unchecked Sendable {
 	)
 
 	private let controllerService: ControllerService
+	private let gamepad: BeamdeskGamepadInput
 	private let notificationCenter: DistributedNotificationCenter
 	private let releaseQueue = DispatchQueue(label: "xyz.kevintang.controllerkeys.beamdesk-release")
 	private let lock = NSLock()
@@ -177,17 +178,19 @@ final class BeamdeskInputService: NSObject, @unchecked Sendable {
 	private var linkExpiryWorkItem: DispatchWorkItem?
 	private var observing = false
 
-	init(
+	@MainActor init(
 		controllerService: ControllerService,
 		notificationCenter: DistributedNotificationCenter = .default()
 	) {
 		self.controllerService = controllerService
+		self.gamepad = BeamdeskGamepadInput(controller: controllerService)
 		self.notificationCenter = notificationCenter
 		super.init()
 		start()
 	}
 
 	func stop() {
+		DispatchQueue.main.async { [gamepad] in gamepad.stop() }
 		lock.lock()
 		let wasObserving = observing
 		observing = false
@@ -214,6 +217,10 @@ final class BeamdeskInputService: NSObject, @unchecked Sendable {
 	@objc private func receive(_ notification: Notification) {
 		guard let notificationID = notification.object as? String else { return }
 		let argument = notification.userInfo?["argument"] as? String
+		if notificationID == BeamdeskGamepadSnapshot.notificationID {
+			DispatchQueue.main.async { [gamepad] in gamepad.receive(argument) }
+			return
+		}
 		if let announcement = BeamdeskLinkAnnouncement(
 			notificationID: notificationID, argument: argument
 		) {
