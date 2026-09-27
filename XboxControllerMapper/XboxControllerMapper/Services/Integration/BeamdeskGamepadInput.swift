@@ -45,6 +45,11 @@ struct BeamdeskGamepadLease {
 
 	mutating func accept(_ value: BeamdeskGamepadSnapshot, now: TimeInterval) -> Bool {
 		guard !retired.contains(value.session) else { return false }
+		// Validate a replacement before retiring the current lease. Rejected input must
+		// leave its release deadline intact, including when the current controller is held.
+		if value.active && (value.session != session || needsNeutral) {
+			guard value.buttons.isEmpty, value.axes.allSatisfy({ abs($0) < 0.15 }) else { return false }
+		}
 		if value.session != session {
 			retire()
 			session = value.session
@@ -52,10 +57,7 @@ struct BeamdeskGamepadLease {
 			needsNeutral = true
 		}
 		guard value.sequence > sequence else { return false }
-		if value.active && needsNeutral {
-			guard value.buttons.isEmpty, value.axes.allSatisfy({ abs($0) < 0.15 }) else { return false }
-			needsNeutral = false
-		}
+		if value.active { needsNeutral = false }
 		sequence = value.sequence
 		lastSignal = now
 		active = value.active

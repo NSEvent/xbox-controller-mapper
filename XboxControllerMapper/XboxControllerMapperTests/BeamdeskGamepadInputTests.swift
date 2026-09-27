@@ -44,6 +44,17 @@ final class BeamdeskGamepadInputTests: XCTestCase {
 		XCTAssertFalse(lease.accept(BeamdeskGamepadSnapshot.parse(gamepadPacket(2, session: id, buttons: ["a"]))!, now: 2))
 		XCTAssertTrue(lease.accept(BeamdeskGamepadSnapshot.parse(gamepadPacket(3, session: id))!, now: 2.1))
 	}
+	func testRejectedNewSessionPreservesExistingReleaseDeadline() {
+		var lease = BeamdeskGamepadLease()
+		let original = UUID(), replacement = UUID()
+		XCTAssertTrue(lease.accept(BeamdeskGamepadSnapshot.parse(gamepadPacket(1, session: original))!, now: 0))
+		XCTAssertTrue(lease.accept(BeamdeskGamepadSnapshot.parse(gamepadPacket(2, session: original, buttons: ["leftBumper"]))!, now: 0.1))
+		XCTAssertFalse(lease.accept(BeamdeskGamepadSnapshot.parse(gamepadPacket(1, session: replacement, buttons: ["a"]))!, now: 1))
+		XCTAssertEqual(lease.session, original, "Rejected input cannot steal the current lease")
+		XCTAssertTrue(lease.active)
+		XCTAssertTrue(lease.expire(now: 1.6), "The original hold must still expire on schedule")
+		XCTAssertTrue(lease.accept(BeamdeskGamepadSnapshot.parse(gamepadPacket(2, session: replacement))!, now: 2))
+	}
 	@MainActor func testAnalogValuesConnectionAndStopUseNormalControllerState() {
 		let controller = ControllerService(enableHardwareMonitoring: false)
 		let input = BeamdeskGamepadInput(controller: controller)
