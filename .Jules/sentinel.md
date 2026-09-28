@@ -33,3 +33,7 @@
 **Prevention:** When injecting untrusted input into AppleScript string literals, ensure all control characters that can break the string context, including newlines (`\n`) and carriage returns (`\r`), are explicitly escaped or neutralized.
 ## 2026-09-26 - [Maintainer] Already fixed — do not refile
 **Rule:** The Safari AppleScript URL escaping (backslash, quote, `\n`, `\r`), the `tailscale status` stderr pipe (now `/dev/null`), and swallowed `process.run()` errors in CommandWheelManager are fixed. Short-output helpers in tests (`which`, `nc -z`) cannot fill a 64KB pipe and are not deadlock risks. Do not refile these, and keep severity labels proportional to real exploitability (config the user writes themselves is not an attacker-controlled input).
+## 2026-10-27 - [AppleScript Command Injection via Unescaped Newlines in Terminal]
+**Vulnerability:** The application executed AppleScript to run commands in Terminal using `NSAppleScript`. It escaped double quotes (`"`) and backslashes (`\`), but failed to escape newlines (`\n`) and carriage returns (`\r`).
+**Learning:** Similar to the previous Safari AppleScript issue, newlines act as statement terminators in AppleScript. An unescaped newline within a string literal can terminate the string definition and execute subsequent lines as arbitrary AppleScript commands.
+**Prevention:** Ensure all control characters that can break the string context, including newlines (`\n`) and carriage returns (`\r`), are explicitly escaped when injecting untrusted input into AppleScript string literals.
