@@ -139,9 +139,25 @@ endif
 
 # Keep the app's TCC identity stable across local rebuilds.
 sign:
+	@# Xcode may leave Sparkle signed by its vendor on a fresh checkout.
+	@# Sign its nested code first so hardened runtime can load the framework.
+	@set -e; sparkle_fw="$(APP_PATH)/Contents/Frameworks/Sparkle.framework"; \
+	if [ -d "$$sparkle_fw" ]; then \
+		for component in \
+			"$$sparkle_fw/Versions/Current/XPCServices/Downloader.xpc" \
+			"$$sparkle_fw/Versions/Current/XPCServices/Installer.xpc" \
+			"$$sparkle_fw/Versions/Current/Autoupdate" \
+			"$$sparkle_fw/Versions/Current/Updater.app"; do \
+			[ -e "$$component" ] || continue; \
+			codesign --force --options runtime --timestamp=none \
+				--preserve-metadata=entitlements --sign "$(SIGN_IDENTITY)" "$$component"; \
+		done; \
+		codesign --force --options runtime --timestamp=none \
+			--sign "$(SIGN_IDENTITY)" "$$sparkle_fw"; \
+	fi
 	codesign --force --options runtime --timestamp=none \
 		--sign "$(SIGN_IDENTITY)" --preserve-metadata=entitlements "$(APP_PATH)"
-	codesign --verify --strict "$(APP_PATH)"
+	codesign --verify --deep --strict "$(APP_PATH)"
 
 install: build elite-helper
 	-pkill -x "$(PROCESS_NAME)" || true
