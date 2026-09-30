@@ -149,11 +149,11 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var peerSupportsKP2 = false
     private var authenticator: UniversalControlRelayAuthenticator?
     private var pendingRelayPings: [String: (Bool, String) -> Void] = [:]
-    private var pendingOutgoingCodePairing: OutgoingCodePairing?
+	private var outgoingCodePairingCandidates = UniversalControlRelayPairingCandidates<ObjectIdentifier, OutgoingCodePairing>()
+	private var outgoingCodePairingConnections: [ObjectIdentifier: NWConnection] = [:]
     private var pendingOutgoingPairingFinalizers: [ObjectIdentifier: NWConnection] = [:]
     private var pendingIncomingCodePairings: [ObjectIdentifier: IncomingCodePairing] = [:]
     private var activeIncomingPairingPrompt: IncomingPairingPrompt?
-    private var activeCodePairingSearchID: String?
     private var remoteCursorStatus: RemoteCursorStatus?
 	private var remoteSessionReceivedCursorStatus = false
     private var activeHandoffZone: HandoffZone?
@@ -582,43 +582,65 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     func startRelayCodePairing(completion: @escaping (Bool, String) -> Void) {
+		let searchID = UUID().uuidString
+		lock.lock()
+		let previousConnections = Array(outgoingCodePairingConnections.values)
+		outgoingCodePairingConnections.removeAll()
+		outgoingCodePairingCandidates.start(searchID: searchID)
+		lock.unlock()
+		previousConnections.forEach { $0.cancel() }
         discoverRelayPingTargets { [weak self] targets in
             guard let self else { return }
+			self.lock.lock()
+			let isActive = self.outgoingCodePairingCandidates.isActive(searchID: searchID)
+			self.lock.unlock()
+			guard isActive else { return }
             guard !targets.isEmpty else {
+				self.cancelCodePairingSearch(searchID: searchID)
                 DispatchQueue.main.async {
                     completion(false, "No ControllerKeys peer found on the local network or tailnet.")
                 }
                 return
             }
 
-            let searchID = UUID().uuidString
-            self.lock.lock()
-            self.pendingOutgoingCodePairing = nil
-            self.activeCodePairingSearchID = searchID
-            self.lock.unlock()
-
             let session = UniversalControlRelayPairingSession(localPeerID: self.localRelayPeerID())
             for target in targets {
-                self.sendPairingHello(to: target, session: session, completion: completion)
+				self.sendPairingHello(to: target, session: session, searchID: searchID, completion: completion)
             }
 
             let targetList = targets.map(\.label).joined(separator: ", ")
             self.queue.asyncAfter(deadline: .now() + 6.0) { [weak self] in
                 guard let self else { return }
                 self.lock.lock()
-                let shouldFail = self.activeCodePairingSearchID == searchID
-                if shouldFail {
-                    self.activeCodePairingSearchID = nil
-                }
+				let shouldFail = self.outgoingCodePairingCandidates.isActive(searchID: searchID)
+					&& !self.outgoingCodePairingCandidates.hasCandidates
                 self.lock.unlock()
                 if shouldFail {
+					self.cancelCodePairingSearch(searchID: searchID)
                     DispatchQueue.main.async {
                         completion(false, "No ControllerKeys peer started pairing. Tried: \(targetList).")
                     }
                 }
             }
+			self.queue.asyncAfter(deadline: .now() + 60.0) { [weak self] in
+				self?.cancelCodePairingSearch(searchID: searchID)
+			}
         }
     }
+
+	private func cancelCodePairingSearch(searchID: String) {
+		lock.lock()
+		// An expired search still owns its connections, but must not cancel a newer search.
+		guard outgoingCodePairingCandidates.ownsSearch(searchID: searchID) else {
+			lock.unlock()
+			return
+		}
+		let connections = Array(outgoingCodePairingConnections.values)
+		outgoingCodePairingConnections.removeAll()
+		outgoingCodePairingCandidates.reset()
+		lock.unlock()
+		connections.forEach { $0.cancel() }
+	}
 
     func completeRelayCodePairing(code: String, completion: @escaping (Bool, String) -> Void) {
         let normalized = code.filter(\.isNumber)
@@ -628,19 +650,29 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         }
 
         lock.lock()
-        guard let pending = pendingOutgoingCodePairing else {
+		let pending: OutgoingCodePairing
+		switch outgoingCodePairingCandidates.select(code: normalized) {
+		case .notWaiting:
             lock.unlock()
             completion(false, "No pairing request is waiting. Start pairing again.")
             return
-        }
-        guard pending.code == normalized else {
+		case .wrongCode:
             lock.unlock()
             completion(false, "Code did not match. Check the code on the other Mac and try again.")
             return
+		case .ambiguous:
+			lock.unlock()
+			completion(false, "More than one Mac showed this code. Start pairing again.")
+			return
+		case .matched(let selected):
+			pending = selected
         }
-        pendingOutgoingCodePairing = nil
+		let otherConnections = outgoingCodePairingConnections.values.filter { $0 !== pending.connection }
+		outgoingCodePairingConnections.removeAll()
+		outgoingCodePairingCandidates.reset()
 		pendingOutgoingPairingFinalizers[ObjectIdentifier(pending.connection)] = pending.connection
         lock.unlock()
+		otherConnections.forEach { $0.cancel() }
 
 		let buffer = RelayPairingCheckBuffer()
 		receivePairingFinalizeResponse(
@@ -684,10 +716,11 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             service: relaySecretKeychainService
         )
         lock.lock()
-        pendingOutgoingCodePairing = nil
+		let outgoingConnections = Array(outgoingCodePairingConnections.values)
+		outgoingCodePairingConnections.removeAll()
+		outgoingCodePairingCandidates.reset()
 		pendingOutgoingPairingFinalizers.values.forEach { $0.cancel() }
 		pendingOutgoingPairingFinalizers.removeAll()
-        activeCodePairingSearchID = nil
         pendingIncomingCodePairings.removeAll()
         activeIncomingPairingPrompt = nil
         pairedRemoteEndpoint = nil
@@ -695,6 +728,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 		peerSupportsKP2 = false
 		remoteHandoffSuppressedUntil = .distantPast
         lock.unlock()
+		outgoingConnections.forEach { $0.cancel() }
         resetAuthenticator(secretData: relaySharedSecretData())
     }
 
@@ -1546,10 +1580,18 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private func sendPairingHello(
         to target: RelayPingTarget,
         session: UniversalControlRelayPairingSession,
+		searchID: String,
         completion: @escaping (Bool, String) -> Void
     ) {
         let connection = NWConnection(to: target.connectionEndpoint, using: .tcp)
         let buffer = RelayPairingCheckBuffer()
+		lock.lock()
+		guard outgoingCodePairingCandidates.isActive(searchID: searchID) else {
+			lock.unlock()
+			return
+		}
+		outgoingCodePairingConnections[ObjectIdentifier(connection)] = connection
+		lock.unlock()
         connection.stateUpdateHandler = { [weak self, weak connection] state in
             guard let self, let connection else { return }
             switch state {
@@ -1559,6 +1601,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                     on: connection,
                     target: target,
                     session: session,
+					searchID: searchID,
                     buffer: buffer,
                     completion: completion
                 )
@@ -1573,7 +1616,10 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 })
             case .failed(let error):
                 connection.cancel()
+				removeCodePairingConnection(connection)
                 NSLog("[UCMouseRelay] Code pairing failed to %@: %@", target.label, error.localizedDescription)
+			case .cancelled:
+				removeCodePairingConnection(connection)
             default:
                 break
             }
@@ -1581,16 +1627,26 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         connection.start(queue: queue)
     }
 
+	private func removeCodePairingConnection(_ connection: NWConnection) {
+		lock.lock()
+		outgoingCodePairingConnections.removeValue(forKey: ObjectIdentifier(connection))
+		outgoingCodePairingCandidates.remove(id: ObjectIdentifier(connection))
+		lock.unlock()
+	}
+
     private func receivePairingHelloResponse(
         on connection: NWConnection,
         target: RelayPingTarget,
         session: UniversalControlRelayPairingSession,
+		searchID: String,
         buffer: RelayPairingCheckBuffer,
         completion: @escaping (Bool, String) -> Void
     ) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 1024) { [weak self, weak connection] data, _, isComplete, error in
             guard let self, let connection else { return }
             if error != nil {
+				removeCodePairingConnection(connection)
+				connection.cancel()
                 return
             }
             if let data, !data.isEmpty, let text = String(data: data, encoding: .utf8) {
@@ -1612,30 +1668,33 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                     }
 
                     lock.lock()
-                    let alreadyPending = pendingOutgoingCodePairing != nil
-                    if !alreadyPending {
-                        pendingOutgoingCodePairing = OutgoingCodePairing(
+					let isFirst = outgoingCodePairingCandidates.add(
+						id: ObjectIdentifier(connection), searchID: searchID,
+						code: result.code, keyData: result.keyData,
+						value: OutgoingCodePairing(
                             target: target,
                             connection: connection,
                             code: result.code,
                             keyData: result.keyData
                         )
-                        activeCodePairingSearchID = nil
-                    }
+					)
                     lock.unlock()
 
-                    if alreadyPending {
+					if isFirst == nil {
                         connection.cancel()
-                    } else {
+					} else if isFirst == true {
                         DispatchQueue.main.async {
-                            completion(true, "Enter the 6-digit code shown on \(target.label).")
+							completion(true, "Enter the 6-digit code shown on the Mac you want to pair.")
                         }
                     }
                     return
                 }
             }
             if !isComplete {
-                receivePairingHelloResponse(on: connection, target: target, session: session, buffer: buffer, completion: completion)
+				receivePairingHelloResponse(on: connection, target: target, session: session, searchID: searchID, buffer: buffer, completion: completion)
+			} else {
+				removeCodePairingConnection(connection)
+				connection.cancel()
             }
         }
     }

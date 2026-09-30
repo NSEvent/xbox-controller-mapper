@@ -53,6 +53,14 @@ Investigation notes:
 - Removed the settings-sheet pairing result alert; pairing progress and errors now stay inline in the settings UI.
 - The pairing code presenter does not activate ControllerKeys or require an OK click, so controller-driven pointer input can keep routing.
 
+2026-09-30 multi-Mac repair (local): discovery previously kept only the first
+reply and discarded later Macs' codes. With a Studio and M3 MacBook responding,
+the M3's displayed code could incorrectly report "Code did not match."
+Pairing now keeps responses for 60 seconds and selects the Mac by the entered
+code. Duplicate addresses for one handshake are accepted; code collisions
+between different handshakes require a retry. Restart/reset/expiry cancel pending
+connections. Regression coverage includes real key agreement for two receivers.
+
 ## 4. First-run onboarding does not add ControllerKeys to Input Monitoring
 
 Status: fixed in local branch
