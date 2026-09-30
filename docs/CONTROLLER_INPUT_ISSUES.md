@@ -1,6 +1,17 @@
 # Controller Input Issues
 
-Last updated: 2026-07-06
+Last updated: 2026-09-30
+
+## Remote handoff return leaves the local cursor invisible
+
+Observed: after controlling the M3 and returning to the local MacBook, clicks
+still work but the system cursor disappears. The return path flashed a temporary
+teleport overlay without restoring the actual cursor's visibility. Return and
+cancel paths now clear the local keyboard navigation hide and AppKit's
+hide-until-mouse-moves state. Restoration runs only after an active remote
+session ends and is skipped if a new handoff has already started. It does not
+blindly unhide an unknown AppKit hide. Regression tests cover return, cancellation
+and preserving keyboard navigation when no remote session was active.
 
 ## 1. Steam Controller gyro drifts bottom-left
 

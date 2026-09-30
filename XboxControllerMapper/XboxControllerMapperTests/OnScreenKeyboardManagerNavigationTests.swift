@@ -1,4 +1,5 @@
 import XCTest
+import Combine
 @testable import ControllerKeys
 
 @MainActor
@@ -116,6 +117,72 @@ final class OnScreenKeyboardManagerNavigationTests: XCTestCase {
         XCTAssertTrue(manager.isKeyboardPositionHighlighted(keyboardRow: 2, column: 3))
         XCTAssertFalse(manager.isKeyboardPositionHighlighted(keyboardRow: 2, column: 4))
     }
+
+	func testReturningFromRemoteSession_RevealsLocalNavigationCursor() async {
+		let relay = UniversalControlMouseRelay.shared
+		relay.setRemoteSessionActive(true)
+		manager.handleDPadNavigation(.dpadRight)
+		XCTAssertTrue(manager.navigationModeActive)
+		XCTAssertTrue(UserDefaults.standard.bool(forKey: Config.onScreenKeyboardCursorHiddenDefaultsKey))
+
+		let restored = expectation(description: "Local cursor restored after remote return")
+		let observer = manager.$navigationModeActive.dropFirst().filter { !$0 }.prefix(1).sink { _ in
+			restored.fulfill()
+		}
+		defer { observer.cancel(); relay.setRemoteSessionActive(false) }
+		relay.setRemoteSessionActive(false)
+		await fulfillment(of: [restored], timeout: 1)
+
+		XCTAssertFalse(manager.threadSafeNavigationModeActive)
+		XCTAssertFalse(UserDefaults.standard.bool(forKey: Config.onScreenKeyboardCursorHiddenDefaultsKey))
+	}
+
+	func testCancelledRemoteSession_RevealsLocalNavigationCursor() async {
+		let relay = UniversalControlMouseRelay.shared
+		relay.setRemoteSessionActive(true)
+		manager.handleDPadNavigation(.dpadRight)
+		XCTAssertTrue(manager.navigationModeActive)
+
+		let restored = expectation(description: "Local cursor restored after cancelled handoff")
+		let observer = manager.$navigationModeActive.dropFirst().filter { !$0 }.prefix(1).sink { _ in
+			restored.fulfill()
+		}
+		defer { observer.cancel(); relay.setRemoteSessionActive(false) }
+		relay.cancelUnconfirmedRemoteSession()
+		await fulfillment(of: [restored], timeout: 1)
+
+		XCTAssertFalse(manager.threadSafeNavigationModeActive)
+		XCTAssertFalse(UserDefaults.standard.bool(forKey: Config.onScreenKeyboardCursorHiddenDefaultsKey))
+	}
+
+	func testCancellingWithoutRemoteSession_PreservesKeyboardNavigation() async {
+		let relay = UniversalControlMouseRelay.shared
+		manager.handleDPadNavigation(.dpadRight)
+		relay.cancelUnconfirmedRemoteSession()
+		try? await Task.sleep(nanoseconds: 20_000_000)
+
+		XCTAssertTrue(manager.navigationModeActive)
+		XCTAssertTrue(manager.threadSafeNavigationModeActive)
+	}
+
+	func testNewHandoffBeforeQueuedRestore_PreservesNavigationUntilReturn() async {
+		let relay = UniversalControlMouseRelay.shared
+		relay.setRemoteSessionActive(true)
+		manager.handleDPadNavigation(.dpadRight)
+		relay.setRemoteSessionActive(false)
+		relay.setRemoteSessionActive(true)
+		try? await Task.sleep(nanoseconds: 20_000_000)
+		XCTAssertTrue(manager.navigationModeActive)
+
+		let restored = expectation(description: "Cursor restored after the newer handoff ends")
+		let observer = manager.$navigationModeActive.dropFirst().filter { !$0 }.prefix(1).sink { _ in
+			restored.fulfill()
+		}
+		defer { observer.cancel(); relay.setRemoteSessionActive(false) }
+		relay.setRemoteSessionActive(false)
+		await fulfillment(of: [restored], timeout: 1)
+		XCTAssertFalse(manager.threadSafeNavigationModeActive)
+	}
 
     private func resetManager() {
         manager.exitNavigationMode()

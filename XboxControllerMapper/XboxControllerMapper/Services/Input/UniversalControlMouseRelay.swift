@@ -307,6 +307,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 
     func setRemoteSessionActive(_ active: Bool) {
         lock.lock()
+		let wasActive = isRemoteSessionActive
         isRemoteSessionActive = active
         if !active {
             remoteCursorStatus = nil
@@ -328,12 +329,14 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         }
         lock.unlock()
         if !active {
+			if wasActive { restoreLocalCursorAfterRemoteSession() }
             NSLog("[UCMouseRelay] Handoff ended")
         }
     }
 
     func cancelUnconfirmedRemoteSession() {
         lock.lock()
+		let wasActive = isRemoteSessionActive
         isRemoteSessionActive = false
 		remoteCursorStatus = nil
 		remoteSessionReceivedCursorStatus = false
@@ -344,7 +347,20 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 		resetRemoteCursorVisibilityRestoreStateLocked()
         outgoingRemoteMouseButtonsHeld.removeAll()
         lock.unlock()
+		if wasActive { restoreLocalCursorAfterRemoteSession() }
     }
+
+	private func restoreLocalCursorAfterRemoteSession() {
+		Task { @MainActor in
+			// A new handoff may have started while this main-thread work was queued.
+			guard !self.hasActiveRemoteSession else { return }
+			// The teleport flash is an overlay; it does not reveal the real cursor.
+			// Controller movement may not clear AppKit's hide-until-mouse-moves state.
+			OnScreenKeyboardManager.shared.restoreCursorVisibilityForRemotePointer(
+				repairPotentialStaleHide: false
+			)
+		}
+	}
 
     func suppressRemoteHandoff(reason: String, duration: TimeInterval = 5.0) {
 		let until = Date().addingTimeInterval(duration)
