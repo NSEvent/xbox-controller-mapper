@@ -13,6 +13,24 @@ session ends and is skipped if a new handoff has already started. It does not
 blindly unhide an unknown AppKit hide. Regression tests cover return, cancellation
 and preserving keyboard navigation when no remote session was active.
 
+## Physical keyboard focus stays remote after the pointer returns
+
+Apple's native Universal Control can run alongside ControllerKeys' independent
+relay. In the M5 investigation, its system log retained the remote keyboard
+target while returning only pointing input; a later local trackpad click returned
+keyboard focus. ControllerKeys does not intercept physical keyboard key events.
+This can make the physical keyboard appear disabled locally even when the
+ControllerKeys pointer is back. The exact reported typing failure was not
+independently reproduced.
+
+If those two sharing systems overlap, disable Apple's sharing on the sending Mac
+in **System Settings → Displays → Advanced** using the
+**Allow your pointer and keyboard to move between any nearby Mac or iPad** switch.
+ControllerKeys pairing remains independent. This also turns off native sharing
+for the physical keyboard; re-enable the switch if that feature is needed.
+For a temporary native-session disconnect, Apple documents
+**Control-Option-Command-Delete**. See [Apple's Universal Control guide](https://support.apple.com/en-us/102459).
+
 ## 1. Steam Controller gyro drifts bottom-left
 
 Status: fixed in local branch
