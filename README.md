@@ -89,6 +89,7 @@ There are other controller mapping apps for macOS, but none offered everything I
 ## Features
 
 - **Button Mapping**: Map any controller button to keyboard shortcuts
+  - **Press to Edit**: Enter capture mode, then press a physical control to open its editor. **Capture Chord** records buttons held together in the chord editor. Output stays paused through capture/editing and resumes after release, preserving your paused/locked preference.
   - Modifier-only mappings (⌘, ⌥, ⇧, ⌃)
   - Key-only mappings
   - Modifier + Key combinations
@@ -142,6 +143,7 @@ There are other controller mapping apps for macOS, but none offered everything I
   - Assignable to buttons, chords, long-hold, and double-tap
 
 - **System Commands**: Automate actions beyond key presses
+  - Run Shortcut: Search installed macOS Shortcuts and bind one by name. Runs once, with a timeout and no automatic retry; missing shortcuts and errors appear in feedback.
   - Launch App: Open any application
   - Shell Command: Run terminal commands silently or in a terminal window
   - Open Link: Open URLs in your default browser
@@ -156,6 +158,8 @@ There are other controller mapping apps for macOS, but none offered everything I
 - **OBS WebSocket Commands**: Control OBS Studio directly from controller buttons
 
 - **Joystick Control**:
+  - Continuous trigger MIDI: **Joysticks → Continuous Trigger MIDI** maps trigger travel to a channel/CC with range, inversion, and deadzone controls. Output uses the ControllerKeys virtual source, suppresses duplicate values, limits updates to 60 Hz, and returns to the configured neutral value on pause, disconnect, or profile change.
+  - Live calibration: **Joysticks → Live Calibration** measures rest drift and travel, previews raw input, and saves profile-specific deadzones and full-output range without changing speed.
   - Left joystick → Mouse movement (or WASD keys)
   - Right joystick → Scrolling (or Arrow keys)
   - Configurable sensitivity and deadzone
@@ -216,6 +220,7 @@ There are other controller mapping apps for macOS, but none offered everything I
   - Copy shareable card to clipboard for social media
 
 - **Profile System**: Create and switch between multiple mapping profiles
+  - Guided creation: **Profiles → + → Guided Preset** reviews a local Anki, Photo Mechanic, Final Cut, or one-hand Mac preset, creates a separate profile, and walks through verifying one real action. Photo Mechanic ratings use [Camera Bits' standard Control+number bindings](https://docs.camerabits.com/support/solutions/articles/48001143067); customized command sets may need edits.
   - Community profiles: Browse and import pre-made profiles, with optional markdown **setup guides** that render inline above the mappings list (copy buttons on every code block)
   - App-specific auto-switching: Link profiles to applications
   - Linked-controller auto-switching: Bind a profile to a physical controller so it activates on connect
@@ -227,7 +232,7 @@ There are other controller mapping apps for macOS, but none offered everything I
   - Restore any snapshot — the restore itself is snapshotted first, so undo is itself undoable
   - Snapshots live at `~/.config/controllerkeys/snapshots/` (capped at 20)
 
-- **Profile-Import Safety Prompts**: Imports that contain shell commands, scripts, or webhook follow-up commands open an explicit consent sheet listing every code-execution surface verbatim — no silent execution from third-party profiles
+- **Profile-Import Safety Prompts**: Imports that contain shell commands, scripts, Shortcuts actions, or webhook follow-up commands open an explicit consent sheet listing each execution surface.
 
 - **Visual Interface**: Interactive controller-shaped UI for easy configuration
   - Auto-scaling UI based on window size

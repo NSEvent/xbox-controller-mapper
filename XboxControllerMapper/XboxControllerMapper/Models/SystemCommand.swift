@@ -81,6 +81,7 @@ struct HTTPResponseHandling: Codable, Equatable {
 enum SystemCommandCategory: String, CaseIterable, Identifiable {
 	case profile = "Switch Profile"
     case shell = "Shell Command"
+	case shortcut = "Run Shortcut"
     case app = "Launch App"
     case link = "Open Link"
 	case ring = "Ring Control"
@@ -101,6 +102,7 @@ enum SystemCommandCategory: String, CaseIterable, Identifiable {
         switch self {
 		case .profile: return String(localized: "Profile")
         case .shell: return "Shell"
+		case .shortcut: return "Shortcut"
         case .app: return "App"
         case .link: return "Link"
 		case .ring: return "Ring"
@@ -213,6 +215,7 @@ enum SystemCommand: Equatable {
 
     // Shell command execution
     case shellCommand(command: String, inTerminal: Bool)
+	case runShortcut(name: String)
 
     // Open URL in default browser
     case openLink(url: String)
@@ -230,6 +233,7 @@ enum SystemCommand: Equatable {
     /// Human-readable display name for the UI
     var displayName: String {
         switch self {
+		case .runShortcut(let name): return "Run Shortcut: \(name)"
 		case .switchProfile(_, let profileName):
 			if let profileName, !profileName.isEmpty {
 				return "Switch to \(profileName)"
@@ -280,6 +284,7 @@ enum SystemCommand: Equatable {
 		case .switchProfile, .navigateProfile: return .profile
         case .launchApp: return .app
         case .shellCommand: return .shell
+		case .runShortcut: return .shortcut
         case .openLink: return .link
 		case .centerOuraRing, .toggleOuraMotion: return .ring
         case .httpRequest: return .webhook
@@ -292,11 +297,13 @@ enum SystemCommand: Equatable {
 
 extension SystemCommand: Codable {
     private enum CommandType: String, Codable {
+		case runShortcut
 		case switchProfile, launchApp, shellCommand, openLink, httpRequest, obsWebSocket
 		case centerOuraRing, toggleOuraMotion
     }
 
     private enum CodingKeys: String, CodingKey {
+		case shortcutName
 		case type, profileId, profileName, profileNavigation, bundleIdentifier, command, inTerminal, url, newWindow
         case method, headers, body, password, requestType, requestData
         case responseHandling
@@ -307,6 +314,8 @@ extension SystemCommand: Codable {
         let type = try container.decode(CommandType.self, forKey: .type)
 
         switch type {
+		case .runShortcut:
+			self = .runShortcut(name: try container.decode(String.self, forKey: .shortcutName))
 		case .switchProfile:
 			if let navigation: ProfileNavigationAction = try container.decodeLenient(.profileNavigation) {
 				self = .navigateProfile(navigation)
@@ -362,6 +371,9 @@ extension SystemCommand: Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
         switch self {
+		case .runShortcut(let name):
+			try container.encode(CommandType.runShortcut, forKey: .type)
+			try container.encode(name, forKey: .shortcutName)
 		case .switchProfile(let profileId, let profileName):
 			try container.encode(CommandType.switchProfile, forKey: .type)
 			try container.encode(profileId, forKey: .profileId)

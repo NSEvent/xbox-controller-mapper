@@ -24,6 +24,7 @@ struct MappingEditorState {
 	var profileCommand = ProfileCommandSelection()
     var appBundleIdentifier: String = ""
     var appNewWindow: Bool = false
+	var shortcutName: String = ""
     var shellCommandText: String = ""
     var shellRunInTerminal: Bool = true
     var linkURL: String = ""
@@ -113,6 +114,8 @@ struct MappingEditorState {
     /// For webhook/OBS, only valid when called on the primary variant.
     func buildSystemCommand() -> SystemCommand? {
         switch systemCommandCategory {
+		case .shortcut:
+			return shortcutName.isEmpty ? nil : .runShortcut(name: shortcutName)
 		case .profile:
 			return profileCommand.systemCommand
         case .shell:
@@ -159,6 +162,7 @@ struct MappingEditorState {
     mutating func loadSystemCommand(_ command: SystemCommand) {
         systemCommandCategory = command.category
         switch command {
+		case .runShortcut(let name): shortcutName = name
 		case .switchProfile, .navigateProfile:
 			profileCommand.load(command)
         case .launchApp(let bundleId, let newWindow):

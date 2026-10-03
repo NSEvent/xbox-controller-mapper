@@ -4,6 +4,8 @@ import SwiftUI
 
 struct JoystickSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
+	@EnvironmentObject private var controller: ControllerService
+	@State private var calibrationSide: JoystickSide?
     @State private var focusCursorHighlightEnabled: Bool = FocusModeIndicator.isEnabled
 	@State private var overrideLayerId: UUID?
 	private let initialOverrideLayerId: UUID?
@@ -29,6 +31,7 @@ struct JoystickSettingsView: View {
 		ScrollViewReader { proxy in
 			Form {
             Section("Left Joystick") {
+				Button("Live Calibration…") { calibrationSide = .left }.disabled(!controller.isConnected)
                 Picker("Mode", selection: Binding(
                     get: { settings.leftStick.mode },
                     set: { updateSettings(\.leftStick.mode, $0) }
@@ -232,6 +235,7 @@ struct JoystickSettingsView: View {
             }
 
 			Section("Right Joystick") {
+				Button("Live Calibration…") { calibrationSide = .right }.disabled(!controller.isConnected)
                 Picker("Mode", selection: Binding(
                     get: { settings.rightStick.mode },
                     set: { updateSettings(\.rightStick.mode, $0) }
@@ -390,8 +394,26 @@ struct JoystickSettingsView: View {
                 }
 				.id("per-layer-overrides")
             }
+			Section("Continuous Trigger MIDI") {
+				TriggerMIDIEditor(title: "Left Trigger", configuration: Binding(
+					get: { settings.leftTriggerMIDI }, set: { updateSettings(\.leftTriggerMIDI, $0) }
+				))
+				TriggerMIDIEditor(title: "Right Trigger", configuration: Binding(
+					get: { settings.rightTriggerMIDI }, set: { updateSettings(\.rightTriggerMIDI, $0) }
+				))
+				Text("Select ControllerKeys as the MIDI source in your music app. Digital trigger mappings and precision control still run if configured; clear them when using a trigger exclusively for MIDI.")
+					.font(.caption).foregroundStyle(.secondary)
+				if let left = settings.leftTriggerMIDI, let right = settings.rightTriggerMIDI,
+				   left.message.channel == right.message.channel, left.message.controller == right.message.controller {
+					Text("Both triggers share a channel and CC number. Choose different numbers to control them independently.")
+						.font(.caption).foregroundStyle(.orange)
+				}
+			}
         }
         .formStyle(.grouped)
+		.sheet(isPresented: Binding(get: { calibrationSide != nil }, set: { if !$0 { calibrationSide = nil } })) {
+			if let side = calibrationSide { StickCalibrationSheet(side: side) }
+		}
         .padding()
 			.onAppear {
 				guard let initialSide else { return }

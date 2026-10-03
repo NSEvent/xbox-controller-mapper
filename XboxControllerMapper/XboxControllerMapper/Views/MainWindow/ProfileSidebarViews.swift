@@ -53,6 +53,7 @@ struct ProfileSidebar: View {
     @State private var profileToLink: Profile?
     @State private var profileToLinkController: Profile?
     @State private var showingCommunityProfiles = false
+	@State private var showingGuidedPreset = false
 	@State private var draggedProfile: Profile?
 
     // Safety approval (shell commands / scripts in imported profile)
@@ -82,6 +83,7 @@ struct ProfileSidebar: View {
                 Spacer()
 
                 Menu {
+					Button("Guided Preset…") { showingGuidedPreset = true }
                     Button("New Profile") {
                         showingNewProfileAlert = true
                     }
@@ -287,6 +289,7 @@ struct ProfileSidebar: View {
         .sheet(isPresented: $showingCommunityProfiles) {
             CommunityProfilesSheet()
         }
+		.sheet(isPresented: $showingGuidedPreset) { GuidedPresetSheet() }
         .sheet(item: $pendingSafetyApproval) { request in
             ProfileImportSafetySheet(
                 profileName: request.displayName,

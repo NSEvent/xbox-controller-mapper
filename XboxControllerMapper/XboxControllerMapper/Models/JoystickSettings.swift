@@ -262,6 +262,8 @@ enum AppleTVRemoteCircularInputMode: String, Codable, CaseIterable, Identifiable
 /// is genuinely global (touchpad, focus mode, gyro aiming, motion gestures,
 /// scroll double-tap boost).
 struct JoystickSettings: Codable, Equatable {
+	var leftTriggerMIDI: TriggerMIDIConfiguration?
+	var rightTriggerMIDI: TriggerMIDIConfiguration?
     static let defaultCustomSliceSize = 0.75
     static let defaultCustomDeadzone = 0.22
     static let defaultTouchpadDeadzone = 0.005
@@ -586,6 +588,7 @@ struct JoystickSettings: Codable, Equatable {
 
 extension JoystickSettings {
     enum CodingKeys: String, CodingKey {
+		case leftTriggerMIDI, rightTriggerMIDI
         // New per-stick representation.
         case leftStick
         case rightStick
@@ -651,6 +654,8 @@ extension JoystickSettings {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+		leftTriggerMIDI = try container.decodeIfPresent(TriggerMIDIConfiguration.self, forKey: .leftTriggerMIDI)
+		rightTriggerMIDI = try container.decodeIfPresent(TriggerMIDIConfiguration.self, forKey: .rightTriggerMIDI)
         let unit = 0.0...1.0
 
         touchpadSensitivity = try container.decode(.touchpadSensitivity, default: 0.5, clampedTo: unit)
@@ -712,6 +717,8 @@ extension JoystickSettings {
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+		try container.encodeIfPresent(leftTriggerMIDI, forKey: .leftTriggerMIDI)
+		try container.encodeIfPresent(rightTriggerMIDI, forKey: .rightTriggerMIDI)
 
         // New canonical per-stick representation.
         try container.encode(leftStick, forKey: .leftStick)

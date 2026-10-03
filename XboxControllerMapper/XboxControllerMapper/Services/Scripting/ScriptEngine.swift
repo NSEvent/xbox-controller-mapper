@@ -36,6 +36,7 @@ nonisolated private final class AtomicBool {
 /// JavaScript scripting engine that executes user-defined scripts triggered by controller input.
 /// Uses JavaScriptCore (built into macOS) for lightweight, sandboxed script execution.
 class ScriptEngine {
+	let outputGate = ScriptOutputGate()
     private let context: JSContext
     private var scriptState: [UUID: [String: Any]] = [:]  // Per-script persistent state
     private let inputSimulator: InputSimulatorProtocol
@@ -208,9 +209,10 @@ class ScriptEngine {
     // MARK: - Input Simulation API
 
     private func installInputAPI() {
+		let generation = outputGate.currentGeneration
         // press(keyCode) or press(keyCode, {modifiers})
         let press: @convention(block) (Int, JSValue?) -> Void = { [weak self] keyCode, modifiersVal in
-            guard let self else { return }
+			guard let self, self.isTestMode || self.outputGate.permits(generation) else { return }
             let flags = self.parseModifiers(modifiersVal)
             if self.isTestMode {
                 self.testLogs.append("[press] keyCode=\(keyCode) modifiers=\(self.modifierString(flags))")
@@ -222,7 +224,7 @@ class ScriptEngine {
 
         // hold(keyCode, duration) or hold(keyCode, duration, {modifiers})
         let hold: @convention(block) (Int, Double, JSValue?) -> Void = { [weak self] keyCode, duration, modifiersVal in
-            guard let self else { return }
+			guard let self, self.isTestMode || self.outputGate.permits(generation) else { return }
             let flags = self.parseModifiers(modifiersVal)
             if self.isTestMode {
                 self.testLogs.append("[hold] keyCode=\(keyCode) duration=\(duration)s modifiers=\(self.modifierString(flags))")
@@ -239,7 +241,7 @@ class ScriptEngine {
 
         // click() or click("right") or click("middle")
         let click: @convention(block) (JSValue?) -> Void = { [weak self] typeVal in
-            guard let self else { return }
+			guard let self, self.isTestMode || self.outputGate.permits(generation) else { return }
             let clickType = typeVal?.toString() ?? "left"
             let keyCode: CGKeyCode
             switch clickType {
@@ -257,11 +259,12 @@ class ScriptEngine {
 
         // type("text") - character-by-character typing via CGEvent unicode
         let typeText: @convention(block) (String) -> Void = { [weak self] text in
-            guard let self else { return }
+			guard let self, self.isTestMode || self.outputGate.permits(generation) else { return }
             if self.isTestMode {
                 self.testLogs.append("[type] \"\(text)\"")
             } else {
                 for char in text {
+					guard self.outputGate.permits(generation) else { break }
                     var chars = Array(String(char).utf16)
                     let length = chars.count
                     if let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) {
@@ -283,7 +286,7 @@ class ScriptEngine {
 
         // paste("text") - via clipboard
         let paste: @convention(block) (String) -> Void = { [weak self] text in
-            guard let self else { return }
+			guard let self, self.isTestMode || self.outputGate.permits(generation) else { return }
             if self.isTestMode {
                 self.testLogs.append("[paste] \"\(text)\"")
             } else {
@@ -307,7 +310,7 @@ class ScriptEngine {
 
         // pressKey("space"), pressKey("return"), etc.
         let pressKey: @convention(block) (String, JSValue?) -> Void = { [weak self] name, modifiersVal in
-            guard let self else { return }
+			guard let self, self.isTestMode || self.outputGate.permits(generation) else { return }
             guard let keyCode = ScriptEngine.namedKeys[name.lowercased()] else {
                 self.logMessage("[Script Warning] Unknown key name: \(name)")
                 return

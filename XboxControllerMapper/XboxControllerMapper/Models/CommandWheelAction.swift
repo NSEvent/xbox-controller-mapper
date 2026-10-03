@@ -129,6 +129,7 @@ struct CommandWheelAction: Codable, Identifiable, Equatable, ExecutableAction {
             if let cmd = systemCommand {
                 switch cmd {
 				case .switchProfile, .navigateProfile: return "person.crop.circle"
+				case .runShortcut: return "command.square"
                 case .shellCommand: return "terminal"
                 case .launchApp: return "app"
                 case .openLink: return "globe"

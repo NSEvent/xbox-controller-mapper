@@ -332,6 +332,7 @@ struct ActionMappingEditor: View {
     @ViewBuilder
     private var systemCommandFields: some View {
         switch state.systemCommandCategory {
+		case .shortcut: ShortcutActionPicker(name: $state.shortcutName)
 		case .profile:
 			ProfileCommandPicker(selection: $state.profileCommand)
         case .shell:

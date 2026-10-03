@@ -19,9 +19,10 @@ import TriggerKitCore
 struct ProfileImportSafetyReport: Equatable {
     let shellCommands: [DiscoveredShellCommand]
     let scripts: [DiscoveredScript]
+	var shortcuts: [DiscoveredShortcut] = []
 
     var requiresUserConfirmation: Bool {
-        !shellCommands.isEmpty || !scripts.isEmpty
+		!shellCommands.isEmpty || !scripts.isEmpty || !shortcuts.isEmpty
     }
 
     struct DiscoveredShellCommand: Equatable, Identifiable {
@@ -36,6 +37,12 @@ struct ProfileImportSafetyReport: Equatable {
         let name: String
         let lineCount: Int
     }
+
+	struct DiscoveredShortcut: Equatable, Identifiable {
+		let id = UUID()
+		let context: String
+		let name: String
+	}
 }
 
 enum ProfileImportSafetyAuditor {
@@ -46,7 +53,8 @@ enum ProfileImportSafetyAuditor {
         profile.walkSurface(&collector)
         return ProfileImportSafetyReport(
             shellCommands: collector.commands,
-            scripts: collector.scripts
+			scripts: collector.scripts,
+			shortcuts: collector.shortcuts
         )
     }
 
@@ -55,9 +63,12 @@ enum ProfileImportSafetyAuditor {
     private struct SafetySurfaceCollector: ProfileSurfaceVisitor {
         var commands: [ProfileImportSafetyReport.DiscoveredShellCommand] = []
         var scripts: [ProfileImportSafetyReport.DiscoveredScript] = []
+		var shortcuts: [ProfileImportSafetyReport.DiscoveredShortcut] = []
 
         mutating func visit(systemCommand: SystemCommand, context: String) {
             switch systemCommand {
+			case .runShortcut(let name):
+				shortcuts.append(.init(context: context, name: name))
             case let .shellCommand(cmd, inTerminal):
                 guard !cmd.isEmpty else { return }
                 commands.append(.init(context: context, command: cmd, inTerminal: inTerminal))

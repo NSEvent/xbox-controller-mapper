@@ -86,6 +86,10 @@ extension MappingEngine {
 
         // Single lock acquisition for all controller input state (cache-friendly snapshot)
         let controllerSnapshot = controllerService.snapshot()
+		triggerMIDIOutput.update(
+			left: Double(controllerSnapshot.leftTrigger), right: Double(controllerSnapshot.rightTrigger),
+			leftConfiguration: settings.leftTriggerMIDI, rightConfiguration: settings.rightTriggerMIDI, now: now
+		)
         let leftStick = controllerSnapshot.leftStick
 		let analogPrecisionMultiplier = settings.analogPrecisionMultiplier(
 			leftTrigger: Double(controllerSnapshot.leftTrigger),
@@ -254,7 +258,7 @@ extension MappingEngine {
         }
 
         let leftInput = JoystickStickInput(
-            stick: leftStick,
+			stick: StickCalibrationMeasurement.normalized(leftStick, outerRange: leftTuning.outerRange),
             side: .left,
             settings: settings,
             tuning: leftTuning,
@@ -273,7 +277,7 @@ extension MappingEngine {
             updateCommandWheel(rightStick: rightStick, deferring: &deferredIO)
         } else {
             let rightInput = JoystickStickInput(
-                stick: rightStick,
+				stick: StickCalibrationMeasurement.normalized(rightStick, outerRange: rightTuning.outerRange),
                 side: .right,
                 settings: settings,
                 tuning: rightTuning,

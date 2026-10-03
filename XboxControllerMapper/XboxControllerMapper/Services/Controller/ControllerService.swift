@@ -157,6 +157,7 @@ final class ControllerStorage: @unchecked Sendable {
 
     // Typed event boundary consumed by MappingEngine.
     var onInputEvent: ((ControllerInputEvent) -> Void)?
+	var physicalButtonObservers: [UUID: @MainActor (Set<ControllerButton>) -> Void] = [:]
     /// When true, region-click events only fire while a finger is currently touching
     /// the pad. Default true. Mirrors `JoystickSettings.requireActiveTouchForRegionClick`
     /// and is updated by MappingEngine whenever joystick settings change.
@@ -2643,6 +2644,7 @@ class ControllerService: ObservableObject {
         }
 
         storage.activeButtons.insert(button)
+		storage.publishPhysicalButtonsLocked()
         storage.buttonPressTimestamps[button] = Date()
         let shouldBypassChordWindow = storage.lowLatencyInputEnabled
             && !storage.chordParticipantButtons.contains(button)
@@ -2689,6 +2691,7 @@ class ControllerService: ObservableObject {
         }
 
         storage.activeButtons.remove(button)
+		storage.publishPhysicalButtonsLocked()
         let pressTime = storage.buttonPressTimestamps.removeValue(forKey: button)
         let uiButtons = storage.activeButtons
         storage.lock.unlock()

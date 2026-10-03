@@ -67,6 +67,11 @@ class SystemCommandExecutor: @unchecked Sendable {
 
     func execute(_ command: SystemCommand) {
         switch command {
+		case .runShortcut(let name):
+			Task { @MainActor [weak self] in
+				let success = await NativeShortcutService.shared.run(name: name)
+				self?.webhookFeedbackHandler?(success, NativeShortcutService.shared.status)
+			}
 		case .switchProfile(let profileId, _):
 			switchProfile(profileId: profileId)
 		case .navigateProfile(let action):

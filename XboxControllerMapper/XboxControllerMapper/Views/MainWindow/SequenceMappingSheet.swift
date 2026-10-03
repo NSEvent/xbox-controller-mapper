@@ -40,6 +40,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
 	@State private var profileCommand = ProfileCommandSelection()
     @State private var appBundleIdentifier: String = ""
     @State private var appNewWindow: Bool = false
+	@State private var shortcutName = ""
     @State private var shellCommandText: String = ""
     @State private var shellRunInTerminal: Bool = true
     @State private var linkURL: String = ""
@@ -658,6 +659,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
             .pickerStyle(.segmented)
 
             switch systemCommandCategory {
+			case .shortcut: ShortcutActionPicker(name: $shortcutName)
 			case .profile:
 				ProfileCommandPicker(selection: $profileCommand)
             case .app:
@@ -764,6 +766,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
 
     private func buildSystemCommand() -> SystemCommand? {
         switch systemCommandCategory {
+		case .shortcut: return shortcutName.isEmpty ? nil : .runShortcut(name: shortcutName)
 		case .profile:
 			return profileCommand.systemCommand
         case .app:
@@ -807,6 +810,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
     private func loadSystemCommandState(_ command: SystemCommand) {
         systemCommandCategory = command.category
         switch command {
+		case .runShortcut(let name): shortcutName = name
 		case .switchProfile, .navigateProfile:
 			profileCommand.load(command)
         case .launchApp(let bundleId, let newWindow):

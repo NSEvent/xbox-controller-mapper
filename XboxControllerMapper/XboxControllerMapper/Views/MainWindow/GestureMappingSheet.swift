@@ -269,6 +269,7 @@ struct GestureMappingSheet: View {
             .pickerStyle(.segmented)
 
             switch editorState.systemCommandCategory {
+			case .shortcut: ShortcutActionPicker(name: $editorState.shortcutName)
 			case .profile:
 				ProfileCommandPicker(selection: $editorState.profileCommand)
             case .app:

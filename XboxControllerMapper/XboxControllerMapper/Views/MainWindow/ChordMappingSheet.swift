@@ -5,6 +5,8 @@ import SwiftUI
 struct ChordMappingSheet: View, ControllerTypeProviding {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var controllerService: ControllerService
+	@EnvironmentObject var mappingEngine: MappingEngine
+	@StateObject private var physicalCapture = PhysicalInputCaptureSession()
     @Environment(\.dismiss) private var dismiss
 
     var editingChord: ChordMapping?
@@ -39,6 +41,7 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
 	@State private var profileCommand = ProfileCommandSelection()
     @State private var appBundleIdentifier: String = ""
     @State private var appNewWindow: Bool = false
+	@State private var shortcutName = ""
     @State private var shellCommandText: String = ""
     @State private var shellRunInTerminal: Bool = true
     @State private var linkURL: String = ""
@@ -94,7 +97,7 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
     }
 
     private var canSave: Bool {
-        selectedButtons.count >= 2 &&
+		selectedButtons.count >= 2 && !chordAlreadyExists &&
         (mappingType != .singleKey || keyCode != nil || modifiers.hasAny) &&
         (mappingType != .macro || selectedMacroId != nil) &&
         (mappingType != .script || selectedScriptId != nil) &&
@@ -152,6 +155,12 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Select buttons (2 or more):")
                     .font(.subheadline)
+
+				PhysicalInputCaptureBar(session: physicalCapture, mode: .chord)
+				if chordAlreadyExists {
+					Text("This chord already has a mapping. Edit it from the chord list or capture a different combination.")
+						.font(.caption).foregroundStyle(.orange)
+				}
 
                 // Visual Controller Layout
                 VStack(spacing: 10) {
@@ -506,6 +515,10 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
         .padding(20)
     }
     .onSubmit { saveChord() }
+		.onChange(of: physicalCapture.result) { _, buttons in
+		if let buttons { selectedButtons = buttons }
+	}
+	.onDisappear { physicalCapture.cancel() }
     .frame(width: 850)
         .onAppear {
             if let chord = editingChord {
@@ -532,6 +545,9 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
                 }
             }
         }
+		.onChange(of: physicalCapture.interrupted) { _, interrupted in
+			if interrupted { dismiss() }
+		}
         .sheet(isPresented: $showingMacroCreation) {
             MacroEditorSheet(macro: nil, onSave: { newMacro in
                 selectedMacroId = newMacro.id
@@ -557,6 +573,7 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
             .pickerStyle(.segmented)
 
             switch systemCommandCategory {
+			case .shortcut: ShortcutActionPicker(name: $shortcutName)
 			case .profile:
 				ProfileCommandPicker(selection: $profileCommand)
             case .app:
@@ -715,6 +732,7 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
 
     private func buildChordSystemCommand() -> SystemCommand? {
         switch systemCommandCategory {
+		case .shortcut: return shortcutName.isEmpty ? nil : .runShortcut(name: shortcutName)
 		case .profile:
 			return profileCommand.systemCommand
         case .app:
@@ -758,6 +776,7 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
     private func loadChordSystemCommandState(_ command: SystemCommand) {
         systemCommandCategory = command.category
         switch command {
+		case .runShortcut(let name): shortcutName = name
 		case .switchProfile, .navigateProfile:
 			profileCommand.load(command)
         case .launchApp(let bundleId, let newWindow):

@@ -35,7 +35,12 @@ import CoreGraphics
 
 @MainActor
 class MappingEngine: ObservableObject {
+	nonisolated let triggerMIDIOutput: TriggerMIDIOutput
     @Published var isEnabled = true
+	@Published private(set) var inputPreviewCount = 0
+	private var inputPreviewTokens: Set<UUID> = []
+	private var pendingPreviewReleases: Set<UUID> = []
+	private var previewReleaseTask: Task<Void, Never>?
     @Published var isLocked = false
 	/// Highest-priority manually activated layer, for UI presentation.
 	/// App-activated layers are intentionally excluded from editor selection.
@@ -124,6 +129,7 @@ class MappingEngine: ObservableObject {
             inputLogService: inputLogService
         )
         self.scriptEngine = engine
+		self.triggerMIDIOutput = TriggerMIDIOutput(sender: midiService)
 
 		self.mappingExecutor = MappingExecutor(
 			inputSimulator: inputSimulator,
@@ -253,6 +259,7 @@ class MappingEngine: ObservableObject {
     /// Tears down all subscriptions and timers. Must be called before dropping
     /// the last reference to avoid leaking Combine subscriptions.
     func tearDown() {
+		previewReleaseTask?.cancel()
 		controllerService.onInputEvent = nil
         cancellables.removeAll()
         joystickTimer?.cancel()
@@ -437,13 +444,17 @@ class MappingEngine: ObservableObject {
         // double tap, repeat, layer overrides all work for free).
 
         // Enable/Disable toggle sync
-        $isEnabled
+		$isEnabled.combineLatest($inputPreviewCount)
+			.map { enabled, previews in enabled && previews == 0 }
+			.removeDuplicates()
             .sink { [weak self] enabled in
                 guard let self = self else { return }
 				let pendingButtons = self.controllerService.storage.lock.withLock {
 					self.controllerService.storage.activeButtons
 						.union(self.controllerService.storage.capturedButtonsInWindow)
 				}
+				self.scriptEngine.outputGate.setEnabled(enabled)
+				if !enabled { self.mappingExecutor.macroExecutor.cancelAll() }
 				let cleanup: RoutingBoundaryCleanup? = self.state.lock.withLock {
 					self.state.inputMuteGate.setEnabled(enabled, pendingButtons: pendingButtons)
                     self.state.isEnabled = enabled
@@ -524,6 +535,7 @@ class MappingEngine: ObservableObject {
 	}
 
     nonisolated func performRoutingBoundaryCleanup(_ cleanup: RoutingBoundaryCleanup) {
+		triggerMIDIOutput.reset()
 		for mapping in cleanup.heldMappings {
 			stopHeldAction(mapping)
 		}
@@ -1239,6 +1251,7 @@ class MappingEngine: ObservableObject {
         nowLocked = !wasLocked
 
         if nowLocked {
+			triggerMIDIOutput.reset()
             let leftKeys = state.leftStickHeldKeys
             let rightKeys = state.rightStickHeldKeys
             let directionButtons = state.leftStickHeldDirectionButtons.union(state.rightStickHeldDirectionButtons)
@@ -1989,6 +2002,45 @@ class MappingEngine: ObservableObject {
     func enable() {
         isEnabled = true
     }
+
+	/// Preview owns a scoped mute, not the user's enabled/locked preference.
+	func beginInputPreview() -> UUID {
+		triggerMIDIOutput.reset()
+		let id = UUID()
+		inputPreviewTokens.insert(id)
+		inputPreviewCount = inputPreviewTokens.count
+		return id
+	}
+
+	func endInputPreview(_ id: UUID) {
+		guard inputPreviewTokens.contains(id) else { return }
+		pendingPreviewReleases.insert(id)
+		finishNeutralPreviews()
+		guard !pendingPreviewReleases.isEmpty, previewReleaseTask == nil else { return }
+		previewReleaseTask = Task { [weak self] in
+			while !Task.isCancelled {
+				try? await Task.sleep(for: .milliseconds(30))
+				guard !Task.isCancelled, let self else { return }
+				self.finishNeutralPreviews()
+				if self.pendingPreviewReleases.isEmpty { self.previewReleaseTask = nil; return }
+			}
+		}
+	}
+
+	private func finishNeutralPreviews() {
+		let snapshot = controllerService.snapshot()
+		let buttons = controllerService.storage.lock.withLock { controllerService.storage.activeButtons }
+		let settings = profileManager.activeProfile?.joystickSettings ?? .default
+		func neutralRadius(_ tuning: StickTuning) -> Double {
+			max(0.2, max(tuning.mouseDeadzone, max(tuning.scrollDeadzone, tuning.customDeadzone)) * tuning.outerRange)
+		}
+		guard buttons.isEmpty, snapshot.leftTrigger < 0.1, snapshot.rightTrigger < 0.1,
+			  hypot(snapshot.leftStick.x, snapshot.leftStick.y) < neutralRadius(settings.leftStick),
+			  hypot(snapshot.rightStick.x, snapshot.rightStick.y) < neutralRadius(settings.rightStick) else { return }
+		inputPreviewTokens.subtract(pendingPreviewReleases)
+		pendingPreviewReleases.removeAll()
+		inputPreviewCount = inputPreviewTokens.count
+	}
 
     func disable() {
         releaseAllDirectionKeys()

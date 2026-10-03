@@ -19,6 +19,8 @@ import TriggerKitRuntime
 /// Execution policy matches the previous executor: macros run concurrently
 /// (one macro never blocks another) and a failing step logs and continues.
 class MacroExecutor: @unchecked Sendable {
+	private let taskLock = NSLock()
+	private var tasks: [UUID: Task<Void, Never>] = [:]
 	private let automationExecutor: AutomationExecutor
 	private let executionContext: TriggerExecutionContext
 
@@ -56,12 +58,21 @@ class MacroExecutor: @unchecked Sendable {
 	/// Runs a TriggerKit program directly — the execution path for shared
 	/// library macros (and their snapshots), which are already programs.
 	func execute(program: AutomationProgram) {
-		Task(priority: .userInitiated) { [automationExecutor, executionContext] in
+		let id = UUID()
+		taskLock.lock()
+		let task = Task(priority: .userInitiated) { [weak self, automationExecutor, executionContext] in
+			defer { _ = self?.taskLock.withLock { self?.tasks.removeValue(forKey: id) } }
 			let result = await automationExecutor.execute(program, context: executionContext)
 			if !result.isSuccess {
 				NSLog("[Macro] '%@' failed: %@", program.name, result.message)
 			}
 		}
+		tasks[id] = task
+		taskLock.unlock()
+	}
+
+	func cancelAll() {
+		taskLock.withLock { for task in tasks.values { task.cancel() } }
 	}
 
 	/// Maps the steps SystemCommandExecutor owns; returns nil for steps

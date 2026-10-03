@@ -135,6 +135,8 @@ struct MappingExecutor {
                 if inTerminal {
                     service.recordTerminalCommand()
                 }
+			case .runShortcut:
+				break
 			case .centerOuraRing, .toggleOuraMotion:
 				break
             }
@@ -183,7 +185,7 @@ struct MappingExecutor {
             switch command {
             case .switchProfile, .navigateProfile, .centerOuraRing, .toggleOuraMotion:
                 return (.profileControl, false)
-            case .httpRequest, .launchApp, .obsWebSocket, .openLink, .shellCommand:
+			case .httpRequest, .launchApp, .obsWebSocket, .openLink, .shellCommand, .runShortcut:
                 return (.automation, true)
             }
         }

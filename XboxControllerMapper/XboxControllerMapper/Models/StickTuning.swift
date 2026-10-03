@@ -36,6 +36,8 @@ enum JoystickCurves {
 /// both sticks so existing behavior is preserved exactly while becoming
 /// independently editable.
 struct StickTuning: Codable, Equatable {
+	/// Physical travel at which this stick reaches full output. Independent of speed.
+	var outerRange: Double = 1
     /// What this stick does (mouse / scroll / custom / dpad / wasd / arrows / none).
     var mode: StickMode
 
@@ -103,7 +105,7 @@ struct StickTuning: Codable, Equatable {
 
     func isValid() -> Bool {
         let unit = 0.0...1.0
-        return unit.contains(mouseSensitivity) &&
+		return (0.5...1).contains(outerRange) && unit.contains(mouseSensitivity) &&
             unit.contains(mouseAcceleration) &&
             (0.0...0.99).contains(mouseDeadzone) &&
             unit.contains(scrollSensitivity) &&
@@ -117,6 +119,7 @@ struct StickTuning: Codable, Equatable {
     // MARK: - Codable (lenient: unknown mode → keep, clamp ranges, default missing)
 
     enum CodingKeys: String, CodingKey {
+		case outerRange
         case mode
         case mouseSensitivity, mouseAcceleration, mouseDeadzone, invertMouseY
 		case scrollSensitivity, scrollAcceleration, scrollDeadzone, invertScrollX, invertScrollY
@@ -126,6 +129,7 @@ struct StickTuning: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let unit = 0.0...1.0
+		outerRange = try container.decode(.outerRange, default: 1, clampedTo: 0.5...1)
         mode = try container.decodeLenient(.mode, default: .mouse)
         mouseSensitivity = try container.decode(.mouseSensitivity, default: 0.5, clampedTo: unit)
         mouseAcceleration = try container.decode(.mouseAcceleration, default: 0.5, clampedTo: unit)

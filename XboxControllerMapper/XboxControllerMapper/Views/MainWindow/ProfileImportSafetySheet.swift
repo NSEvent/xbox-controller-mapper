@@ -50,6 +50,7 @@ struct ProfileImportSafetySheet: View {
 
     private var summaryLine: String {
         var parts: [String] = []
+		if !report.shortcuts.isEmpty { parts.append("\(report.shortcuts.count) shortcut actions") }
         if !report.shellCommands.isEmpty {
             let count = report.shellCommands.count
             parts.append(count == 1 ? String(localized: "1 shell command") : String(localized: "\(count) shell commands"))
@@ -66,6 +67,17 @@ struct ProfileImportSafetySheet: View {
     private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+				if !report.shortcuts.isEmpty {
+					section(title: "Shortcuts") {
+						ForEach(report.shortcuts) { item in
+							VStack(alignment: .leading) {
+								Text(item.context).font(.caption)
+								Text(item.name).font(.body.bold())
+							}
+						}
+						Text("Review these in Shortcuts before importing. A matching shortcut can run its configured actions on your Mac.").font(.caption)
+					}
+				}
                 if !report.shellCommands.isEmpty {
                     section(title: "Shell commands") {
                         ForEach(report.shellCommands) { item in

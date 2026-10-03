@@ -17,6 +17,7 @@ struct ContentView: View {
     @EnvironmentObject var usageStatsService: UsageStatsService
     @State private var selectedButton: ControllerButton?
     @State private var configuringButton: ControllerButton?
+	@StateObject private var physicalCapture = PhysicalInputCaptureSession()
     @State private var showingChordSheet = false
     @State private var editingChord: ChordMapping?
     @State private var showingSequenceSheet = false
@@ -121,6 +122,12 @@ struct ContentView: View {
                     .zIndex(1) // Keep above content
 
                 permissionBanner
+
+				if selectedTab == 0 {
+					PhysicalInputCaptureBar(session: physicalCapture)
+						.padding(.horizontal, 16)
+						.padding(.vertical, 6)
+				}
 
                 // Custom tab bar + content
                 CustomTabBar(selectedTab: $selectedTab, tabs: customTabs)
@@ -277,6 +284,8 @@ struct ContentView: View {
 					selectedLayerId: selectedLayerId
 				)
         }
+		.modifier(PhysicalInputCaptureRouting(session: physicalCapture, selectedButton: $selectedButton,
+				  configuringButton: $configuringButton, selectedLayerId: selectedLayerId, selectedTab: selectedTab))
         .isolatedSheet(isPresented: $showingChordSheet) {
             ChordMappingSheet()
         }
