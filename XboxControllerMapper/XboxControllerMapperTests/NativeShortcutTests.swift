@@ -30,6 +30,7 @@ final class NativeShortcutTests: XCTestCase {
 		let calls = await runner.calls
 		XCTAssertEqual(calls, [["run", "--", name]])
 		XCTAssertEqual(service.status, "Permission denied")
+		XCTAssertEqual(service.lastRunSucceeded, false)
 	}
 	func testRepeatedPressDoesNotStartConcurrentRun() async {
 		let runner = RecordingShortcutRunner()
@@ -40,6 +41,8 @@ final class NativeShortcutTests: XCTestCase {
 		XCTAssertFalse(second)
 		let success = await first.value
 		XCTAssertTrue(success)
+		XCTAssertEqual(service.lastRunSucceeded, true)
+		XCTAssertFalse(service.isRunning)
 		let calls = await runner.calls
 		XCTAssertEqual(calls, [["run", "--", "Alpha"]])
 	}

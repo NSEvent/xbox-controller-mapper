@@ -7,99 +7,80 @@ struct StickCalibrationSheet: View {
 	@EnvironmentObject private var engine: MappingEngine
 	@EnvironmentObject private var profiles: ProfileManager
 	@Environment(\.dismiss) private var dismiss
-	@State private var profileId: UUID?
-	@State private var previewId: UUID?
-	@State private var measurement = StickCalibrationMeasurement()
-	@State private var trail: [CGPoint] = []
-	@State private var current = CGPoint.zero
-	@State private var restStarted: Date?
-	@State private var measuringRest = false
-	@State private var inner = 0.15
-	@State private var outer = 1.0
+	@StateObject private var session = StickCalibrationSession()
 	private let timer = Timer.publish(every: 1 / 30, on: .main, in: .common).autoconnect()
 
 	var body: some View {
-		VStack(alignment: .leading, spacing: 16) {
+		VStack(alignment: .leading, spacing: 14) {
 			Text("Calibrate \(side == .left ? "Left" : "Right") Stick").font(.title2.bold())
-			Text("Mapped actions are paused. Settings apply to this profile; repeat for another controller or profile.").font(.callout).foregroundStyle(.secondary)
-			Canvas { context, size in
-				let center = CGPoint(x: size.width / 2, y: size.height / 2)
-				let scale = min(size.width, size.height) / 2 - 12
-				for (radius, color) in [(1.0, Color.secondary), (outer, Color.blue), (inner, Color.orange)] {
-					let rect = CGRect(x: center.x - radius * scale, y: center.y - radius * scale, width: radius * scale * 2, height: radius * scale * 2)
-					context.stroke(Path(ellipseIn: rect), with: .color(color), lineWidth: 1.5)
+			ScrollView {
+				VStack(alignment: .leading, spacing: 14) {
+					Text("Mapped actions are paused during measurement. Changes stay in this draft until you save.")
+						.font(.callout).foregroundStyle(.secondary)
+					if !session.invalidationReason.isEmpty {
+						Text(session.invalidationReason).foregroundStyle(.orange)
+						Button("Restart Calibration") { start() }.disabled(!controller.isConnected)
+					}
+					plot
+					Text(session.measuringRest ? "Keep the stick released for two seconds…" : "1. Measure rest drift. 2. Measure the full range.").font(.headline)
+					HStack {
+						Button("Measure Rest Drift") { session.measureRest() }.disabled(session.measuringRest || !session.invalidationReason.isEmpty)
+						Button(session.measuringRange ? "Stop Range" : "Measure Full Range") {
+							if session.measuringRange { session.stopRange() } else { session.measureRange() }
+						}.disabled(session.measurement.suggestedInner == nil || session.measuringRest || !session.invalidationReason.isEmpty)
+					}
+					HStack {
+						Button("Use Rest Suggestion") { session.draft?.inner = session.measurement.suggestedInner ?? 0.15 }
+							.disabled(session.measuringRest || session.measurement.suggestedInner == nil)
+						Button("Use Range Suggestion") { session.draft?.outer = session.measurement.suggestedOuter ?? 1 }
+							.disabled(session.measuringRange || session.measurement.suggestedOuter == nil)
+					}
+					Text("Full range: \(session.measurement.directionsMeasured)/8 directions. \(session.measurement.suggestedOuter == nil ? "Partial measurements do not change the range." : "All directions measured; range suggestion ready.")")
+						.font(.caption).foregroundStyle(.secondary)
+					if session.measurement.restSamples >= 45, session.measurement.suggestedInner == nil {
+						Text("Too much movement at rest. Release the stick and measure again.").font(.caption).foregroundStyle(.orange)
+					}
+					if let draft = session.draft {
+						HStack { Text("Inner deadzone"); Slider(value: field(\.inner), in: 0...1); Text(draft.inner, format: .percent.precision(.fractionLength(0))) }
+						HStack { Text("Full-output range"); Slider(value: field(\.outer), in: 0.5...1); Text(draft.outer, format: .percent.precision(.fractionLength(0))) }
+						Toggle("Apply deadzone to mouse, scroll and custom modes", isOn: field(\.applyToAllModes))
+						Text("Deadzone affects \(draft.applyToAllModes ? "all three response modes" : draft.modeName). Full-output range affects this stick across modes. Layer-specific deadzones can override this profile setting.")
+							.font(.caption).foregroundStyle(.secondary)
+						Text("\(draft.modeName) deadzone: \(percent(StickCalibrationDraft.deadzone(in: draft.original, side: side))) → \(percent(StickCalibrationDraft.deadzone(in: draft.proposed, side: side))) · Range: \(percent(draft.original.outerRange)) → \(percent(draft.proposed.outerRange))")
+							.font(.callout.monospacedDigit())
+						if !draft.isValid { Text("Inner deadzone must be smaller than the full-output range.").foregroundStyle(.orange) }
+						Button("Reset Draft to Current Settings") { session.draft = StickCalibrationDraft(tuning: draft.original, side: side) }
+					}
 				}
-				for point in trail {
-					let rect = CGRect(x: center.x + point.x * scale - 2, y: center.y - point.y * scale - 2, width: 4, height: 4)
-					context.fill(Path(ellipseIn: rect), with: .color(.blue.opacity(0.3)))
-				}
-				let dot = CGRect(x: center.x + current.x * scale - 4, y: center.y - current.y * scale - 4, width: 8, height: 8)
-				context.fill(Path(ellipseIn: dot), with: .color(.primary))
-			}.frame(height: 230).accessibilityLabel("Live stick X \(current.x), Y \(current.y)")
-			Text(measuringRest ? "Release the stick. Measuring drift for two seconds…" : "1. Measure rest drift. 2. Slowly rotate the stick around its full edge.")
-			HStack {
-				Button("Measure Rest Drift") {
-					measurement = StickCalibrationMeasurement()
-					trail = []
-					measuringRest = true
-					restStarted = Date()
-				}.disabled(measuringRest)
-				Text("Range: \(measurement.directionsMeasured)/8 directions").font(.caption)
 			}
-			HStack {
-				Button("Use Suggestions") {
-					if let value = measurement.suggestedInner { inner = value }
-					if let value = measurement.suggestedOuter { outer = value }
-				}.disabled(measurement.suggestedInner == nil)
-				if measurement.restSamples >= 45, measurement.suggestedInner == nil {
-					Text("Too much movement at rest. Release the stick and measure again.").font(.caption).foregroundStyle(.orange)
-				}
-			}
-			HStack { Text("Inner deadzone"); Slider(value: $inner, in: 0.02...0.45); Text(inner, format: .percent.precision(.fractionLength(0))) }
-			HStack { Text("Full-output range"); Slider(value: $outer, in: 0.5...1); Text(outer, format: .percent.precision(.fractionLength(0))) }
-			Text("Orange excludes drift; blue reaches full output. Sensitivity and acceleration stay unchanged.").font(.caption).foregroundStyle(.secondary)
+			Divider()
 			HStack {
 				Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
 				Spacer()
-				Button("Save Calibration") { save(); dismiss() }
-					.keyboardShortcut(.defaultAction)
-					.disabled(measuringRest || !controller.isConnected || profiles.activeProfileId != profileId)
+				Button("Save Calibration") { if session.save() { dismiss() } }
+					.keyboardShortcut(.defaultAction).disabled(!session.canSave)
 			}
 		}
-		.padding(24).frame(width: 560)
-		.onAppear {
-			profileId = profiles.activeProfileId
-			let tuning = side == .left ? profiles.activeProfile?.joystickSettings.leftStick : profiles.activeProfile?.joystickSettings.rightStick
-			outer = tuning?.outerRange ?? 1
-			inner = min(0.45, (tuning?.mouseDeadzone ?? 0.15) * outer)
-			previewId = engine.beginInputPreview()
-		}
-		.onReceive(timer) { now in
-			let snapshot = controller.snapshot()
-			current = side == .left ? snapshot.leftStick : snapshot.rightStick
-			trail.append(current)
-			if trail.count > 300 { trail.removeFirst() }
-			if measuringRest {
-				measurement.recordRest(current)
-				if now.timeIntervalSince(restStarted ?? now) >= 2 { measuringRest = false }
-			} else { measurement.recordRange(current) }
-		}
-		.onChange(of: profiles.activeProfileId) { _, id in if id != profileId { dismiss() } }
-		.onChange(of: controller.isConnected) { _, _ in dismiss() }
-		.onDisappear { if let previewId { engine.endInputPreview(previewId) } }
+		.padding(24).frame(width: 600, height: 720)
+		.onAppear { start() }.onReceive(timer) { session.sample(now: $0) }.onDisappear { session.stop() }
 	}
-
-	private func save() {
-		guard let profile = profiles.activeProfile, profile.id == profileId else { return }
-		var settings = profile.joystickSettings
-		var tuning = side == .left ? settings.leftStick : settings.rightStick
-		// The response strategies apply deadzones after travel normalization.
-		let normalizedInner = min(0.9, inner / outer)
-		tuning.mouseDeadzone = normalizedInner
-		tuning.scrollDeadzone = normalizedInner
-		tuning.customDeadzone = normalizedInner
-		tuning.outerRange = outer
-		if side == .left { settings.leftStick = tuning } else { settings.rightStick = tuning }
-		profiles.updateJoystickSettings(settings, in: profile)
+	private func start() { session.start(side: side, controller: controller, profiles: profiles, engine: engine) }
+	private func percent(_ value: Double) -> String { "\(Int((value * 100).rounded()))%" }
+	private func field<T>(_ path: WritableKeyPath<StickCalibrationDraft, T>) -> Binding<T> {
+		Binding(get: { session.draft![keyPath: path] }, set: { session.draft?[keyPath: path] = $0 })
+	}
+	private var plot: some View {
+		Canvas { context, size in
+			let center = CGPoint(x: size.width / 2, y: size.height / 2)
+			let scale = min(size.width, size.height) / 2 - 12
+			for (radius, color) in [(1.0, Color.secondary), (session.draft?.outer ?? 1, Color.blue), (session.draft?.inner ?? 0.15, Color.orange)] {
+				let rect = CGRect(x: center.x - radius * scale, y: center.y - radius * scale, width: radius * scale * 2, height: radius * scale * 2)
+				context.stroke(Path(ellipseIn: rect), with: .color(color), lineWidth: 1.5)
+			}
+			for point in session.trail {
+				context.fill(Path(ellipseIn: CGRect(x: center.x + point.x * scale - 2, y: center.y - point.y * scale - 2, width: 4, height: 4)), with: .color(.blue.opacity(0.3)))
+			}
+			context.fill(Path(ellipseIn: CGRect(x: center.x + session.current.x * scale - 4, y: center.y - session.current.y * scale - 4, width: 8, height: 8)), with: .color(.primary))
+		}.frame(height: 190).accessibilityLabel("Live stick X \(session.current.x), Y \(session.current.y)")
 	}
 }

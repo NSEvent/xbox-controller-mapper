@@ -122,6 +122,8 @@ struct ContentView: View {
                     .zIndex(1) // Keep above content
 
                 permissionBanner
+				InputPreviewStatusBanner()
+				WorkflowSetupEntryView()
 
 				if selectedTab == 0 {
 					PhysicalInputCaptureBar(session: physicalCapture)

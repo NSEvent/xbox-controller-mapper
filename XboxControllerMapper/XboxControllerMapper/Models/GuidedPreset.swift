@@ -1,6 +1,6 @@
 import Foundation
 
-enum GuidedPreset: String, CaseIterable, Identifiable {
+enum GuidedPreset: String, CaseIterable, Identifiable, Codable {
 	case anki, photoCulling, finalCut, oneHand
 	var id: String { rawValue }
 	var title: String {
@@ -32,7 +32,7 @@ enum GuidedPreset: String, CaseIterable, Identifiable {
 		case .anki: return "Open a review card in Anki. Press A once: the answer should appear."
 		case .photoCulling: return "Open a contact sheet or preview. Press Right Bumper: selection should move to the next photo."
 		case .finalCut: return "Open a timeline in Final Cut Pro. Press A: playback should start or pause."
-		case .oneHand: return "Open a disposable Finder window. Use the left stick to move the pointer; press A on a folder to select it."
+		case .oneHand: return "Open a disposable Finder window. Use the left stick to move the pointer; press Left Bumper on a folder to select it."
 		}
 	}
 	var setupInstruction: String {
@@ -40,12 +40,12 @@ enum GuidedPreset: String, CaseIterable, Identifiable {
 		case .anki: return "Uses Anki's standard review keys. Bring the review pane forward before testing."
 		case .photoCulling: return "Uses arrow navigation and Control+number star ratings. Review your customized Photo Mechanic shortcuts first."
 		case .finalCut: return "Uses the standard Final Cut command set. Customized keyboard layouts may need edits."
-		case .oneHand: return "Left stick moves the pointer; face buttons click, go back, focus next, and open the on-screen keyboard. Adjust reach and sensitivity to suit your hand."
+		case .oneHand: return "Choose the hand you use. The stick and controls on that side move, click, change focus, and open the on-screen keyboard. Adjust reach and sensitivity to suit your hand."
 		}
 	}
 
 	/// Small, local, deterministic starting profiles; no downloads or automation.
-	func makeProfile(name: String, targetBundleId: String?, linkApp: Bool) -> Profile {
+	func makeProfile(name: String, targetBundleId: String?, linkApp: Bool, hand: JoystickSide = .left) -> Profile {
 		func key(_ code: UInt16, _ hint: String, modifiers: ModifierFlags = ModifierFlags()) -> KeyMapping {
 			KeyMapping(keyCode: code, modifiers: modifiers, hint: hint)
 		}
@@ -70,10 +70,19 @@ enum GuidedPreset: String, CaseIterable, Identifiable {
 						.leftBumper: key(123, "Previous Frame"), .rightBumper: key(124, "Next Frame")]
 			settings.leftStick.mode = .none; settings.rightStick.mode = .none
 		case .oneHand:
-			bindings = [.a: key(0xF000, "Left Click"), .b: key(53, "Escape / Back"),
-						.x: key(48, "Next Focus"), .y: key(0xF010, "On-Screen Keyboard"),
-						.leftBumper: key(36, "Confirm"), .rightBumper: key(0xF001, "Right Click")]
-			settings.leftStick.mouseSensitivity = 0.3
+			if hand == .left {
+				bindings = [.leftBumper: key(0xF000, "Left Click"), .leftTrigger: key(0xF001, "Right Click"),
+							.leftThumbstick: key(0xF010, "On-Screen Keyboard"), .dpadLeft: key(53, "Escape / Back"),
+							.dpadUp: key(48, "Next Focus"), .dpadDown: key(36, "Confirm"),
+							.dpadRight: key(48, "Previous Focus", modifiers: ModifierFlags(shift: true))]
+				settings.leftStick.mouseSensitivity = 0.3; settings.rightStick.mode = .none
+			} else {
+				bindings = [.rightBumper: key(0xF000, "Left Click"), .rightTrigger: key(0xF001, "Right Click"),
+							.rightThumbstick: key(0xF010, "On-Screen Keyboard"), .b: key(53, "Escape / Back"),
+							.x: key(48, "Next Focus"), .a: key(36, "Confirm"),
+							.y: key(48, "Previous Focus", modifiers: ModifierFlags(shift: true))]
+				settings.rightStick.mode = .mouse; settings.rightStick.mouseSensitivity = 0.3; settings.leftStick.mode = .none
+			}
 		}
 		return Profile(name: name, icon: icon, buttonMappings: bindings, joystickSettings: settings,
 					   linkedApps: linkApp ? targetBundleId.map { [$0] } ?? [] : [])

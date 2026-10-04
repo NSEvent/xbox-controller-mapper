@@ -38,6 +38,7 @@ class MappingEngine: ObservableObject {
 	nonisolated let triggerMIDIOutput: TriggerMIDIOutput
     @Published var isEnabled = true
 	@Published private(set) var inputPreviewCount = 0
+	@Published private(set) var waitingForNeutralInput = false
 	private var inputPreviewTokens: Set<UUID> = []
 	private var pendingPreviewReleases: Set<UUID> = []
 	private var previewReleaseTask: Task<Void, Never>?
@@ -51,7 +52,7 @@ class MappingEngine: ObservableObject {
 
     let controllerService: ControllerService
     let profileManager: ProfileManager
-    private let appMonitor: AppMonitor
+	let appMonitor: AppMonitor
     nonisolated let inputSimulator: InputSimulatorProtocol
 	nonisolated let codexMicroOutput: any CodexMicroOutputProtocol
     let inputLogService: InputLogService?
@@ -348,6 +349,9 @@ class MappingEngine: ObservableObject {
 					let cleanup = RoutingBoundaryCleanup(state: self.state)
 					let isProfileSwitch = self.state.activeProfile?.id != profile?.id
 					let oldGyroMode = self.state.joystickSettings?.gyroActivationMode
+					if isProfileSwitch {
+						self.triggerMIDIOutput.reset()
+					}
 					self.state.resetTransientInputState(
 						preservingUIOverlays: true,
 						consumingPendingButtonReleases: true,
@@ -378,7 +382,7 @@ class MappingEngine: ObservableObject {
                     self.state.applyProfileIndex(MappingProfileIndex(profile: profile))
 					return cleanup
                 }
-				self.performRoutingBoundaryCleanup(cleanup)
+				self.performRoutingBoundaryCleanup(cleanup, resetMIDI: false)
                 self.syncGestureSettings(from: profile?.joystickSettings)
                 self.syncPointerLockMouseMode(from: profile?.joystickSettings)
                 self.syncTouchpadSettings(from: profile)
@@ -513,7 +517,7 @@ class MappingEngine: ObservableObject {
 		}
 
 		guard let cleanup else { return }
-		performRoutingBoundaryCleanup(cleanup)
+		performRoutingBoundaryCleanup(cleanup, resetMIDI: false)
 		refreshLayerPresentation()
     }
 
@@ -534,8 +538,8 @@ class MappingEngine: ObservableObject {
 		})
 	}
 
-    nonisolated func performRoutingBoundaryCleanup(_ cleanup: RoutingBoundaryCleanup) {
-		triggerMIDIOutput.reset()
+	nonisolated func performRoutingBoundaryCleanup(_ cleanup: RoutingBoundaryCleanup, resetMIDI: Bool = true) {
+		if resetMIDI { triggerMIDIOutput.reset() }
 		for mapping in cleanup.heldMappings {
 			stopHeldAction(mapping)
 		}
@@ -917,7 +921,7 @@ class MappingEngine: ObservableObject {
 			return
 
 		case .layerToggled(let profile, let layerId, let isActive, let cleanup):
-			performRoutingBoundaryCleanup(cleanup)
+			performRoutingBoundaryCleanup(cleanup, resetMIDI: false)
 			if let layer = profile.layers.first(where: { $0.id == layerId }) {
 				#if DEBUG
 				print("🔷 Layer toggled \(isActive ? "on" : "off"): \(layer.name)")
@@ -1831,7 +1835,7 @@ class MappingEngine: ObservableObject {
 
 		for change in startState.layerChanges {
 			if let cleanup = change.cleanup {
-				performRoutingBoundaryCleanup(cleanup)
+				performRoutingBoundaryCleanup(cleanup, resetMIDI: false)
 			}
 			if let layer = startState.profile.layers.first(where: { $0.id == change.layerId }) {
 				#if DEBUG
@@ -2008,6 +2012,7 @@ class MappingEngine: ObservableObject {
 		triggerMIDIOutput.reset()
 		let id = UUID()
 		inputPreviewTokens.insert(id)
+		waitingForNeutralInput = false
 		inputPreviewCount = inputPreviewTokens.count
 		return id
 	}
@@ -2015,6 +2020,7 @@ class MappingEngine: ObservableObject {
 	func endInputPreview(_ id: UUID) {
 		guard inputPreviewTokens.contains(id) else { return }
 		pendingPreviewReleases.insert(id)
+		waitingForNeutralInput = pendingPreviewReleases.count == inputPreviewTokens.count
 		finishNeutralPreviews()
 		guard !pendingPreviewReleases.isEmpty, previewReleaseTask == nil else { return }
 		previewReleaseTask = Task { [weak self] in
@@ -2039,6 +2045,7 @@ class MappingEngine: ObservableObject {
 			  hypot(snapshot.rightStick.x, snapshot.rightStick.y) < neutralRadius(settings.rightStick) else { return }
 		inputPreviewTokens.subtract(pendingPreviewReleases)
 		pendingPreviewReleases.removeAll()
+		waitingForNeutralInput = false
 		inputPreviewCount = inputPreviewTokens.count
 	}
 

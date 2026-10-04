@@ -2,11 +2,27 @@ import SwiftUI
 
 struct TriggerMIDIEditor: View {
 	let title: String
+	var side: JoystickSide = .left
+	var otherConfiguration: TriggerMIDIConfiguration? = nil
 	@Binding var configuration: TriggerMIDIConfiguration?
+	@EnvironmentObject private var controller: ControllerService
+	@EnvironmentObject private var engine: MappingEngine
 	var body: some View {
 		VStack(alignment: .leading, spacing: 8) {
-			Toggle(title, isOn: Binding(get: { configuration != nil }, set: { configuration = $0 ? TriggerMIDIConfiguration() : nil }))
+			Toggle(title, isOn: Binding(get: { configuration != nil }, set: { configuration = $0 ? TriggerMIDIConfiguration.suggested(for: side, avoiding: otherConfiguration) : nil }))
+				.disabled(controller.isConnected && !ControllerVisualDescriptor.inputWorkflow(profile: engine.profileManager.activeProfile, using: controller).hasTriggers && configuration == nil)
 			if let config = configuration {
+				TimelineView(.periodic(from: .now, by: 1 / 30)) { _ in
+					let input = controller.snapshot()
+					let raw = side == .left ? Double(input.leftTrigger) : Double(input.rightTrigger)
+					let stream = engine.triggerMIDIOutput.snapshot(for: side == .left ? 0 : 1)
+					HStack {
+						Text("Pressure \(Int((raw * 100).rounded()))% → calculated CC \(config.value(for: raw))").monospacedDigit()
+						Spacer()
+						Text(!controller.isConnected ? "Disconnected" : !engine.isEnabled || engine.isLocked || engine.inputPreviewCount > 0 ? "Output paused" : stream?.armed == true ? "Sent CC \(stream?.value ?? config.value(for: 0))" : "Release trigger to activate")
+							.font(.caption).foregroundStyle(.secondary)
+					}
+				}
 				HStack {
 					Stepper("Channel \(config.message.channel)", value: field(\.message.channel), in: 1...16)
 					Stepper("CC \(config.message.controller)", value: field(\.message.controller), in: 0...127)

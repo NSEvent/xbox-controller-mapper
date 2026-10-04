@@ -181,6 +181,10 @@ struct MenuBarView: View {
                     }
                 }
                 .toggleStyle(.switch)
+				if mappingEngine.inputPreviewCount > 0 {
+					Text(mappingEngine.waitingForNeutralInput ? "Release controls to resume output" : "Paused for editing")
+						.font(.caption).foregroundStyle(.orange)
+				}
             } else {
                 // Trial expired: the engine stays off and the toggle is replaced
                 // by the license path, so expiry is visible (and not bypassable)

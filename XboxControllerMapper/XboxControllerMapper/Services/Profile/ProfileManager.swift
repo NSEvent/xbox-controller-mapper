@@ -90,6 +90,7 @@ class ProfileManager: ObservableObject {
     
     // Track previous app for restoration logic
     private var previousBundleId: String?
+	private var guidedRoutingOverrides: [(token: UUID, profileId: UUID)] = []
     private var profileIdBeforeBackground: UUID?
     private var currentControllerIdentity: ControllerIdentity?
 	private(set) var lastActiveProfileId: UUID?
@@ -192,7 +193,26 @@ class ProfileManager: ObservableObject {
             .store(in: &cancellables)
     }
     
+	/// A scoped test owns routing until it ends; normal automatic switching resumes afterward.
+	func beginGuidedRouting(profileId: UUID) -> UUID? {
+		guard profiles.contains(where: { $0.id == profileId }) else { return nil }
+		let token = UUID()
+		guidedRoutingOverrides.append((token, profileId))
+		return token
+	}
+
+	func endGuidedRouting(_ token: UUID) {
+		guidedRoutingOverrides.removeAll { $0.token == token }
+		if let previousBundleId { handleAppChange(previousBundleId) }
+	}
+
     private func handleAppChange(_ bundleId: String) {
+		if let pinned = guidedRoutingOverrides.last,
+		   let profile = profiles.first(where: { $0.id == pinned.profileId }) {
+			previousBundleId = bundleId
+			if activeProfileId != profile.id { setActiveProfile(profile, isAutomatic: true) }
+			return
+		}
         let appBundleId = Bundle.main.bundleIdentifier
         let state = ProfileAutoSwitchState(
             previousBundleId: previousBundleId,

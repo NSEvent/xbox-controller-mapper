@@ -34,8 +34,8 @@ final class PhysicalInputCaptureSession: ObservableObject {
 		observerId = registration.id
 		capture = ControllerInputCapture(mode: mode, initiallyHeld: registration.held)
 		updateMessage()
-		controller.$isConnected.dropFirst().sink { [weak self] _ in self?.interrupt() }.store(in: &subscriptions)
-		engine.profileManager.$activeProfileId.removeDuplicates().dropFirst().sink { [weak self] _ in self?.interrupt() }.store(in: &subscriptions)
+		controller.$isConnected.dropFirst().sink { [weak self] _ in self?.interrupt("Controller changed or disconnected. Retry capture with the current controller.") }.store(in: &subscriptions)
+		engine.profileManager.$activeProfileId.removeDuplicates().dropFirst().sink { [weak self] _ in self?.interrupt("Profile changed. Retry capture in the profile you want to edit.") }.store(in: &subscriptions)
 		timeout = Task { [weak self] in
 			try? await Task.sleep(for: .seconds(30))
 			guard !Task.isCancelled, let self, self.isListening else { return }
@@ -82,8 +82,9 @@ final class PhysicalInputCaptureSession: ObservableObject {
 		message = ""
 	}
 
-	private func interrupt() {
+	private func interrupt(_ reason: String) {
 		cancel()
+		message = reason
 		interrupted = true
 	}
 }

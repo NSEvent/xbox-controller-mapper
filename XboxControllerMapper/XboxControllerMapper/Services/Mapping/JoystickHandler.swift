@@ -90,7 +90,12 @@ extension MappingEngine {
 			left: Double(controllerSnapshot.leftTrigger), right: Double(controllerSnapshot.rightTrigger),
 			leftConfiguration: settings.leftTriggerMIDI, rightConfiguration: settings.rightTriggerMIDI, now: now
 		)
-        let leftStick = controllerSnapshot.leftStick
+		// Resolve and normalize once, including keyboard, wheel and directory overlays.
+		let activeLayer = state.effectiveActiveLayerIds.last.flatMap { state.layersById[$0] }
+		let leftTuning = activeLayer?.leftStickTuning?.applied(to: settings.leftStick) ?? settings.leftStick
+		let rightTuning = activeLayer?.rightStickTuning?.applied(to: settings.rightStick) ?? settings.rightStick
+		let leftStick = StickCalibrationMeasurement.normalized(controllerSnapshot.leftStick, outerRange: leftTuning.outerRange)
+		let rightStick = StickCalibrationMeasurement.normalized(controllerSnapshot.rightStick, outerRange: rightTuning.outerRange)
 		let analogPrecisionMultiplier = settings.analogPrecisionMultiplier(
 			leftTrigger: Double(controllerSnapshot.leftTrigger),
 			rightTrigger: Double(controllerSnapshot.rightTrigger)
@@ -236,18 +241,11 @@ extension MappingEngine {
             && (swipeSnapshot.state == .swiping || (remoteKeyboardVisible && inputSimulator.isLeftMouseButtonHeld))
         guard !swipeBlocksLeftStick else {
             if state.commandWheelActive {
-                updateCommandWheel(rightStick: controllerSnapshot.rightStick, deferring: &deferredIO)
+				updateCommandWheel(rightStick: rightStick, deferring: &deferredIO)
             }
             return
         }
 
-        // Resolve effective per-side tuning: active layer override (if any) is
-        // overlaid onto the profile's base stick tuning, per field. Mode is part
-        // of that tuning, so this also resolves the effective stick mode.
-		// Lock is held for the whole function, so effective layer state is safe to read.
-		let activeLayer = state.effectiveActiveLayerIds.last.flatMap { state.layersById[$0] }
-        let leftTuning = activeLayer?.leftStickTuning?.applied(to: settings.leftStick) ?? settings.leftStick
-        let rightTuning = activeLayer?.rightStickTuning?.applied(to: settings.rightStick) ?? settings.rightStick
         let effectiveLeftMode = leftTuning.mode
         let effectiveRightMode = rightTuning.mode
 
@@ -258,7 +256,7 @@ extension MappingEngine {
         }
 
         let leftInput = JoystickStickInput(
-			stick: StickCalibrationMeasurement.normalized(leftStick, outerRange: leftTuning.outerRange),
+			stick: leftStick,
             side: .left,
             settings: settings,
             tuning: leftTuning,
@@ -268,7 +266,6 @@ extension MappingEngine {
         )
         effectiveLeftMode.strategy.process(leftInput, on: self)
 
-        let rightStick = controllerSnapshot.rightStick
 
         // Right stick navigates directory navigator when visible
         if navigatorVisible {
@@ -277,7 +274,7 @@ extension MappingEngine {
             updateCommandWheel(rightStick: rightStick, deferring: &deferredIO)
         } else {
             let rightInput = JoystickStickInput(
-				stick: StickCalibrationMeasurement.normalized(rightStick, outerRange: rightTuning.outerRange),
+				stick: rightStick,
                 side: .right,
                 settings: settings,
                 tuning: rightTuning,

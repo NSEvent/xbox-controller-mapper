@@ -19,10 +19,10 @@ struct PhysicalInputCaptureRouting: ViewModifier {
 				if interrupted { configuringButton = nil }
 			}
 			.onChange(of: configuringButton) { _, button in
-				if button == nil { session.cancel() }
+				if button == nil, !session.interrupted { session.cancel() }
 			}
-			.onChange(of: selectedLayerId) { _, _ in session.cancel() }
-			.onChange(of: selectedTab) { _, _ in session.cancel() }
+			.onChange(of: selectedLayerId) { _, _ in if !session.interrupted { session.cancel() } }
+			.onChange(of: selectedTab) { _, _ in if !session.interrupted { session.cancel() } }
 			.onDisappear { session.cancel() }
 	}
 }

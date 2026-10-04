@@ -143,7 +143,7 @@ There are other controller mapping apps for macOS, but none offered everything I
   - Assignable to buttons, chords, long-hold, and double-tap
 
 - **System Commands**: Automate actions beyond key presses
-  - Run Shortcut: Search installed macOS Shortcuts and bind one by name. Runs once, with a timeout and no automatic retry; missing shortcuts and errors appear in feedback.
+  - Run Shortcut: Search installed macOS Shortcuts and bind one by name. Use **Test Shortcut** to deliberately run the selection and see progress or its result. Runs once, stops waiting after 60 seconds, and never retries automatically; missing shortcuts and errors appear in feedback.
   - Launch App: Open any application
   - Shell Command: Run terminal commands silently or in a terminal window
   - Open Link: Open URLs in your default browser
@@ -158,8 +158,8 @@ There are other controller mapping apps for macOS, but none offered everything I
 - **OBS WebSocket Commands**: Control OBS Studio directly from controller buttons
 
 - **Joystick Control**:
-  - Continuous trigger MIDI: **Joysticks → Continuous Trigger MIDI** maps trigger travel to a channel/CC with range, inversion, and deadzone controls. Output uses the ControllerKeys virtual source, suppresses duplicate values, limits updates to 60 Hz, and returns to the configured neutral value on pause, disconnect, or profile change.
-  - Live calibration: **Joysticks → Live Calibration** measures rest drift and travel, previews raw input, and saves profile-specific deadzones and full-output range without changing speed.
+  - Continuous trigger MIDI: **Joysticks → Continuous Trigger MIDI** maps trigger travel to a channel/CC with range, inversion, and deadzone controls. A live pressure/CC monitor, muted preview, actual conflict edit links, distinct suggested CCs, and a Logic Pro walkthrough help verify setup. Output uses the ControllerKeys virtual source, suppresses duplicate values, limits updates to 60 Hz, and returns to the configured neutral value on pause, disconnect, or profile change. Unchanged streams continue through layer changes.
+  - Live calibration: **Joysticks → Live Calibration** separately measures rest drift and eight-direction travel, previews raw input, and shows current/proposed values. Saves the current response mode’s deadzone unless you explicitly apply it to all modes; opening and saving unchanged preserves settings. Controller replacement invalidates measurements and offers Restart.
   - Left joystick → Mouse movement (or WASD keys)
   - Right joystick → Scrolling (or Arrow keys)
   - Configurable sensitivity and deadzone
@@ -220,7 +220,7 @@ There are other controller mapping apps for macOS, but none offered everything I
   - Copy shareable card to clipboard for social media
 
 - **Profile System**: Create and switch between multiple mapping profiles
-  - Guided creation: **Profiles → + → Guided Preset** reviews a local Anki, Photo Mechanic, Final Cut, or one-hand Mac preset, creates a separate profile, and walks through verifying one real action. Photo Mechanic ratings use [Camera Bits' standard Control+number bindings](https://docs.camerabits.com/support/solutions/articles/48001143067); customized command sets may need edits.
+  - Guided creation: **Set Up a Workflow** (also **Profiles → + → Guided Preset**) reviews a local Anki, Photo Mechanic, Final Cut, or one-hand Mac preset, creates a separate profile, and walks through verifying one real action with a readiness checklist and a temporarily pinned test profile. Choose an app link or default activation explicitly. One-hand presets have left/right layouts; **Resume Setup** continues unfinished verification without creating another profile. Photo Mechanic ratings use [Camera Bits' standard Control+number bindings](https://docs.camerabits.com/support/solutions/articles/48001143067); customized command sets may need edits.
   - Community profiles: Browse and import pre-made profiles, with optional markdown **setup guides** that render inline above the mappings list (copy buttons on every code block)
   - App-specific auto-switching: Link profiles to applications
   - Linked-controller auto-switching: Bind a profile to a physical controller so it activates on connect

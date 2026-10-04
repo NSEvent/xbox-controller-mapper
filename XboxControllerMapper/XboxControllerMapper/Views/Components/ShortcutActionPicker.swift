@@ -12,6 +12,7 @@ struct ShortcutActionPicker: View {
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 8) {
+			if shortcuts.isLoading { ProgressView("Loading installed shortcuts…").controlSize(.small) }
 			TextField("Search installed shortcuts", text: $search)
 			Picker("Shortcut", selection: $name) {
 				Text("Choose a shortcut").tag("")
@@ -23,11 +24,17 @@ struct ShortcutActionPicker: View {
 				}
 			}
 			HStack {
-				Button("Refresh") { Task { await shortcuts.refresh() } }.disabled(shortcuts.isLoading)
+				Button("Test Shortcut") { Task { await shortcuts.run(name: name) } }
+					.disabled(name.isEmpty || !shortcuts.names.contains(name) || shortcuts.isRunning || shortcuts.isLoading)
+				Button("Refresh") { Task { await shortcuts.refresh() } }.disabled(shortcuts.isLoading || shortcuts.isRunning)
 				Button("Open Shortcuts") { NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: "/System/Applications/Shortcuts.app"), configuration: .init()) }
 			}
-			if !shortcuts.status.isEmpty { Text(shortcuts.status).font(.caption).foregroundStyle(.secondary) }
-			Text("The controller runs this shortcut once per press. macOS may ask for permissions on its first run.")
+			if shortcuts.isRunning { ProgressView("Running shortcut…").controlSize(.small) }
+			if !shortcuts.status.isEmpty {
+				Label(shortcuts.status, systemImage: shortcuts.lastRunSucceeded == true ? "checkmark.circle" : shortcuts.lastRunSucceeded == false ? "exclamationmark.circle" : "info.circle")
+					.font(.caption).foregroundStyle(shortcuts.lastRunSucceeded == false ? Color.orange : Color.secondary)
+			}
+			Text("Test Shortcut runs its actions immediately. Nothing runs just by selecting a shortcut. Tests stop waiting after 60 seconds and never retry automatically. The controller runs this shortcut once per press. macOS may ask for permissions on its first run.")
 				.font(.caption).foregroundStyle(.secondary)
 		}
 		.task { await shortcuts.refresh() }

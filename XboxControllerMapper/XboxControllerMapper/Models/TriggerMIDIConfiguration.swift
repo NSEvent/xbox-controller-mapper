@@ -11,6 +11,14 @@ struct TriggerMIDIConfiguration: Codable, Equatable {
 		self.deadzone = min(0.9, max(0, deadzone))
 	}
 
+	static func suggested(for side: JoystickSide, avoiding other: TriggerMIDIConfiguration?) -> TriggerMIDIConfiguration {
+		var config = TriggerMIDIConfiguration(message: MIDIControlChange(controller: side == .left ? 1 : 11))
+		if let other, other.message.channel == config.message.channel, other.message.controller == config.message.controller {
+			config.message.controller = (config.message.controller + 1) % 128
+		}
+		return config
+	}
+
 	private enum CodingKeys: String, CodingKey { case message, inverted, deadzone }
 	init(from decoder: Decoder) throws {
 		let container = try decoder.container(keyedBy: CodingKeys.self)

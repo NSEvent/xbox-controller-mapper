@@ -11,13 +11,31 @@ final class FeatureCreationRenderingTests: MappingEngineTestCase {
 	func testGuidedCreationAndCalibrationRenderInBothThemes() async throws {
 		for scheme in [ColorScheme.light, .dark] {
 			try await render(ShortcutActionPicker(name: .constant("Missing Workflow"), shortcuts: NativeShortcutService(runner: ShortcutListRunner())),
-						 size: CGSize(width: 520, height: 250), scheme: scheme, label: "shortcuts")
+						 size: CGSize(width: 580, height: 350), scheme: scheme, label: "shortcuts")
 			try await render(PhysicalInputCaptureBar(session: PhysicalInputCaptureSession()),
 						 size: CGSize(width: 650, height: 90), scheme: scheme, label: "press-to-edit")
-			try await render(GuidedPresetSheet(), size: CGSize(width: 570, height: 640), scheme: scheme, label: "guided-preset")
-			try await render(StickCalibrationSheet(side: .left), size: CGSize(width: 560, height: 760), scheme: scheme, label: "stick-calibration")
+			try await render(GuidedPresetSheet(), size: CGSize(width: 620, height: 660), scheme: scheme, label: "guided-preset")
+			try await render(StickCalibrationSheet(side: .left), size: CGSize(width: 600, height: 720), scheme: scheme, label: "stick-calibration")
+			try await render(TriggerMIDIPreviewSheet(), size: CGSize(width: 560, height: 330), scheme: scheme, label: "midi-preview")
 			try await render(TriggerMIDIEditor(title: "Left Trigger", configuration: .constant(TriggerMIDIConfiguration())),
-							 size: CGSize(width: 560, height: 260), scheme: scheme, label: "trigger-midi")
+							 size: CGSize(width: 650, height: 330), scheme: scheme, label: "trigger-midi")
+		}
+	}
+
+	func testConnectedCalibrationAndResumedWorkflowRender() async throws {
+		let suite = "controllerkeys-render-progress-\(UUID())"
+		let defaults = UserDefaults(suiteName: suite)!
+		defer { defaults.removePersistentDomain(forName: suite) }
+		let progress = GuidedPresetProgressStore(defaults: defaults)
+		var profile = GuidedPreset.oneHand.makeProfile(name: "Right hand", targetBundleId: nil, linkApp: false, hand: .right)
+		profile.isDefault = true
+		profile.controllerPreviewLayout = .dualSense
+		profileManager.setActiveProfile(profile)
+		controllerService.isConnected = true
+		progress.save(.init(preset: .oneHand, hand: .right, targetBundleId: "com.apple.finder"), for: profile.id)
+		for scheme in [ColorScheme.light, .dark] {
+			try await render(GuidedPresetSheet(resumeProfileId: profile.id, progress: progress), size: CGSize(width: 620, height: 660), scheme: scheme, label: "resume-workflow")
+			try await render(StickCalibrationSheet(side: .right), size: CGSize(width: 600, height: 720), scheme: scheme, label: "connected-calibration")
 		}
 	}
 

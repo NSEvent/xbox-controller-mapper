@@ -22,9 +22,9 @@ final class VirtualMIDIService: MIDIControlChangeSending, @unchecked Sendable {
 		UUID: (workItem: DispatchWorkItem, message: MIDIControlChange)
 	] = [:]
 
-	private init() {
+	init(sourceName: String = VirtualMIDIService.sourceName, uniqueID: MIDIUniqueID = VirtualMIDIService.sourceUniqueID) {
 		let clientStatus = MIDIClientCreate(
-			"\(Self.sourceName) MIDI Client" as CFString,
+			"\(sourceName) MIDI Client" as CFString,
 			nil,
 			nil,
 			&client
@@ -34,7 +34,7 @@ final class VirtualMIDIService: MIDIControlChangeSending, @unchecked Sendable {
 			return
 		}
 
-		let sourceStatus = MIDISourceCreate(client, Self.sourceName as CFString, &source)
+		let sourceStatus = MIDISourceCreate(client, sourceName as CFString, &source)
 		guard sourceStatus == noErr else {
 			NSLog("[VirtualMIDI] MIDISourceCreate failed: %d", sourceStatus)
 			MIDIClientDispose(client)
@@ -45,12 +45,14 @@ final class VirtualMIDIService: MIDIControlChangeSending, @unchecked Sendable {
 		let idStatus = MIDIObjectSetIntegerProperty(
 			source,
 			kMIDIPropertyUniqueID,
-			Self.sourceUniqueID
+			uniqueID
 		)
 		if idStatus != noErr {
 			NSLog("[VirtualMIDI] Could not set stable source unique ID: %d", idStatus)
 		}
 	}
+
+	var sourceEndpoint: MIDIEndpointRef { source }
 
 	deinit {
 		if source != MIDIEndpointRef() {

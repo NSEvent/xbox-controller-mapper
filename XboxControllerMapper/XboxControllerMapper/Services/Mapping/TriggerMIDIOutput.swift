@@ -21,6 +21,10 @@ nonisolated final class TriggerMIDIOutput: @unchecked Sendable {
 		}
 	}
 
+	func snapshot(for side: Int) -> (armed: Bool, value: Int?)? {
+		lock.withLock { streams[side].map { ($0.armed, $0.lastValue) } }
+	}
+
 	func reset() {
 		lock.withLock {
 			for stream in streams.values { reset(stream) }
