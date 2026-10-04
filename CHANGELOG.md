@@ -11,14 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **S29 Bluetooth button ring support (experimental)**: the inexpensive S29 "scroller" ring now works as a mappable controller. Swipes and holds land on Up/Down/Left/Right (the d-pad buttons, so existing d-pad mappings just work), plus dedicated **Camera** and **Home** buttons — including Camera double-tap and Down hold, which the ring's firmware sends as the same volume-down code. ControllerKeys takes exclusive control of the ring while mapping is on so its built-in swipe and volume actions stop, and hands it back to macOS when mapping is turned off. Built from hardware captures and not yet verified on a physical ring — reports welcome.
 - **8BitDo Ultimate 2 Wireless support (experimental)**: the Ultimate 2 now connects with a dedicated Elite-style preview showing all four back paddles. Home and the extra back buttons — which macOS's GameController framework drops — are read straight from the controller, so every button is mappable, and the bundled SDL mapping covers the pad when macOS doesn't claim it at all. Not yet verified on physical hardware — reports welcome.
+- **Guided workflow presets**: create a separate starting profile for Anki review, Photo Mechanic photo culling, Final Cut Pro timeline review, or one-hand Mac control from **Set Up → Set Up a Workflow**. Choose an app link or default activation explicitly; one-hand presets offer left- and right-hand layouts.
+- **Physical input capture**: **Press to Edit** opens the mapping editor for the next controller control you press. **Capture Chord** selects buttons held together, and **Capture Sequence** records presses in order, including repeated taps. Mapped actions stay paused while capturing and editing.
+- **Native Shortcuts actions**: choose an installed macOS Shortcut directly, test it deliberately, and see running, success, or failure feedback. Repeated presses cannot start overlapping runs of the same shortcut.
+- **Live stick calibration**: measure rest drift and directional travel, compare current and proposed settings, and preview raw input before applying changes. Save the deadzone for the current stick mode or explicitly apply it to all modes.
+- **Continuous trigger MIDI**: map left or right trigger pressure to configurable MIDI channel/CC output under **Hardware → Triggers**, with range, inversion, and deadzone controls. Includes live pressure/CC meters, a muted preview, conflict warnings with editor links, and a Logic Pro setup guide.
 
 ### Changed
 
 - **Clearer trigger precision settings**: a separate Trigger Cursor Slowdown section explains how trigger pressure affects joystick and touchpad mouse speed, displays full-pull speed as a percentage, and calls out overlap with the on-screen keyboard and other mapped actions.
+- **Interactive preset review**: prompts suggest which controller button to try next and highlight every held button's row, including several buttons held together. Exploratory presses do not execute mapped actions.
+- **Compact setup and capture controls**: the Set Up menu lives in the toolbar, and Press to Edit fits inside **Map → Buttons**. Preset verification is optional and can be revisited through **Set Up → Test This Preset** for the selected guided profile, with permission and connection checks.
 
 ### Fixed
 
 - **DualSense touchpad recovery after connecting**: an unused second-finger position could remain stuck after connection and suppress mouse movement until restart. ControllerKeys now uses fresh USB/Bluetooth contact reports to clear that phantom touch and end its gesture state, while preserving real stationary fingers and held-click releases.
+- **Guided setup layout and activation**: the profile-name field no longer clips at its edges, and testing uses the preset you created without replacing your intended activation choices.
+- **Calibration preserves existing settings**: opening and saving unchanged calibration retains the current values, and mode-specific settings survive calibration in another mode. Replacing or disconnecting the controller invalidates measurements and offers a fresh start.
+- **Responsive trigger MIDI preview**: native meters sample raw pressure at 60 Hz without interpolated progress-bar lag or repeated SwiftUI layout.
+- **Trigger MIDI continuity and cleanup**: unchanged streams continue across layer changes; pausing, disconnecting, or changing profiles returns output to its configured neutral value.
+- **Capture recovery and sequence editing**: profile or controller changes cancel capture, initially held controls must be released before recording, and ambiguous simultaneous sequence presses ask for a retry. Manual step edits and saving are disabled until recording finishes.
 
 ## [2.9.0] - 2026-09-21
 
