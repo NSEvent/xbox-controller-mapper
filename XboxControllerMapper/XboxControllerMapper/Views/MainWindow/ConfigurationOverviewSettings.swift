@@ -196,6 +196,16 @@ extension ConfigurationOverviewBuilder {
 		))
 
 		if presentation.hasTriggers || hasSavedAnalogPrecision {
+			let midiConfigurations = [settings.leftTriggerMIDI, settings.rightTriggerMIDI].compactMap { $0 }
+			rows.append(settingRow(
+				id: "trigger-midi",
+				trigger: "Continuous Trigger MIDI",
+				action: midiConfigurations.isEmpty ? "Off" : midiConfigurations.map { "Ch \($0.message.channel) · CC \($0.message.controller)" }.joined(separator: ", "),
+				detail: "Configure pressure, range and MIDI output for each trigger",
+				systemImage: "slider.horizontal.3",
+				target: .section(MainWindowSection.triggers.rawValue),
+				isCurrentDevice: presentation.hasTriggers
+			))
 			rows.append(settingRow(
 				id: "analog-precision",
 				trigger: String(localized: "Trigger Cursor Slowdown"),

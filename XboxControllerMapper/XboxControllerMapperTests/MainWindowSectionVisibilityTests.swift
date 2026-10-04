@@ -20,7 +20,7 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
 
 		XCTAssertEqual(groupedSections[.map], [.overview, .buttons, .chords, .sequences, .gestures])
         XCTAssertEqual(groupedSections[.automate], [.macros, .scripts, .wheel, .keyboard])
-		XCTAssertEqual(groupedSections[.hardware], [.input, .ring, .joysticks, .touchpad, .leds, .microphone])
+		XCTAssertEqual(groupedSections[.hardware], [.input, .ring, .joysticks, .triggers, .touchpad, .leds, .microphone])
         XCTAssertEqual(groupedSections[.activity], [.stats, .history])
     }
 

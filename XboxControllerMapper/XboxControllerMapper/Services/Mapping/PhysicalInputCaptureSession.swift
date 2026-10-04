@@ -7,6 +7,8 @@ final class PhysicalInputCaptureSession: ObservableObject {
 	@Published private(set) var result: Set<ControllerButton>?
 	@Published private(set) var message = ""
 	@Published private(set) var interrupted = false
+	@Published private(set) var sequence: ControllerSequenceCapture?
+	@Published private(set) var sequenceResult: [ControllerButton]?
 	private var observerId: UUID?
 	private var previewId: UUID?
 	private weak var controller: ControllerService?
@@ -33,6 +35,7 @@ final class PhysicalInputCaptureSession: ObservableObject {
 		}
 		observerId = registration.id
 		capture = ControllerInputCapture(mode: mode, initiallyHeld: registration.held)
+		if mode == .sequence { sequence = ControllerSequenceCapture(initiallyHeld: registration.held) }
 		updateMessage()
 		controller.$isConnected.dropFirst().sink { [weak self] _ in self?.interrupt("Controller changed or disconnected. Retry capture with the current controller.") }.store(in: &subscriptions)
 		engine.profileManager.$activeProfileId.removeDuplicates().dropFirst().sink { [weak self] _ in self?.interrupt("Profile changed. Retry capture in the profile you want to edit.") }.store(in: &subscriptions)
@@ -46,6 +49,18 @@ final class PhysicalInputCaptureSession: ObservableObject {
 
 	private func receive(_ buttons: Set<ControllerButton>) {
 		guard var next = capture else { return }
+		if next.mode == .sequence, next.phase != .captured, var sequence {
+			sequence.receive(buttons)
+			self.sequence = sequence
+			if sequence.ambiguous {
+				message = "Two buttons arrived together. Retry and press one at a time to record their order."
+			} else if sequence.waitingForRelease {
+				message = "Release held controls before recording."
+			} else {
+				message = sequence.steps.count == sequence.limit ? "Maximum steps reached. Choose Use Sequence or retry." : "Press buttons in order, then choose Use Sequence. Mapped actions are paused."
+			}
+			return
+		}
 		let selected = next.receive(buttons)
 		capture = next
 		updateMessage()
@@ -60,9 +75,11 @@ final class PhysicalInputCaptureSession: ObservableObject {
 		switch capture.phase {
 		case .waitingForRelease: message = "Release the controls you're holding, then try your input."
 		case .listening:
-			message = capture.mode == .button
-				? "Press the control you want to edit. Mapped actions are paused."
-				: "Hold the chord together, then release. Mapped actions are paused."
+			switch capture.mode {
+			case .button: message = "Press the control you want to edit. Mapped actions are paused."
+			case .chord: message = "Hold the chord together, then release. Mapped actions are paused."
+			case .sequence: message = "Press buttons in order, then choose Use Sequence. Mapped actions are paused."
+			}
 		case .captured: message = "Input captured. Mapped actions stay paused while you edit."
 		case .ambiguous: message = "Different chords overlapped. Retry and hold one combination together."
 		}
@@ -79,7 +96,18 @@ final class PhysicalInputCaptureSession: ObservableObject {
 		previewId = nil
 		capture = nil
 		result = nil
+		sequence = nil
+		sequenceResult = nil
 		message = ""
+	}
+
+	func finishSequence() {
+		guard let sequence, !sequence.ambiguous, sequence.steps.count >= 2 else { return }
+		timeout?.cancel()
+		sequenceResult = sequence.steps
+		// Keep the preview lease while the user edits the captured sequence.
+		capture = nil
+		message = "Sequence captured. Mapped actions stay paused while you edit."
 	}
 
 	private func interrupt(_ reason: String) {

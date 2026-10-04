@@ -22,6 +22,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
     }
 
     @State private var steps: [ControllerButton] = []
+	@StateObject private var physicalCapture = PhysicalInputCaptureSession()
     @State private var stepTimeout: TimeInterval = Config.defaultSequenceStepTimeout
     @State private var keyCode: CGKeyCode?
     @State private var modifiers = ModifierFlags()
@@ -95,7 +96,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
     }
 
     private func saveSequence() {
-        guard canSave else { return }
+		guard canSave, !physicalCapture.isListening else { return }
 
         let hintValue = hint.isEmpty ? nil : hint
         let finalKeyCode = mappingType == .singleKey ? keyCode : nil
@@ -146,6 +147,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
 
                 // Steps section
                 VStack(alignment: .leading, spacing: 8) {
+					PhysicalInputCaptureBar(session: physicalCapture, mode: .sequence)
                     Text("Button sequence (press order):")
                         .font(.subheadline)
 
@@ -197,6 +199,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
 							.frame(height: 40)
 							.background(Color.black.opacity(0.2))
 							.cornerRadius(8)
+							.disabled(physicalCapture.isListening)
 								.accessibilityLabel("Current sequence: \(steps.map { $0.displayName(forDualSense: presentationState.isPlayStation, forNintendo: presentationState.isNintendo, forAppleTVRemote: presentationState.isAppleTVRemote) }.joined(separator: ", then "))")
 						}
 
@@ -213,6 +216,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
                             .foregroundColor(.secondary)
 
 							sequenceButtonGrid(presentationState: presentationState)
+								.disabled(physicalCapture.isListening)
                     } else {
                         Text("Maximum \(Config.maxSequenceSteps) steps reached")
                             .font(.caption)
@@ -380,7 +384,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
                     Button(isEditing ? "Save" : "Add") {
                         saveSequence()
                     }
-                    .disabled(!canSave)
+					.disabled(!canSave || physicalCapture.isListening)
                     .keyboardShortcut(.return, modifiers: .command)
                     .buttonStyle(.borderedProminent)
                 }
@@ -389,6 +393,13 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
         }
         .onSubmit { saveSequence() }
         .frame(width: 850)
+		.onChange(of: physicalCapture.sequence?.steps) { _, captured in
+			if let captured { steps = captured }
+		}
+		.onChange(of: physicalCapture.interrupted) { _, interrupted in
+			if interrupted { dismiss() }
+		}
+		.onDisappear { physicalCapture.cancel() }
         .onAppear {
             if let sequence = editingSequence {
                 steps = sequence.steps

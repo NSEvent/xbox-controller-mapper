@@ -394,22 +394,7 @@ struct JoystickSettingsView: View {
                 }
 				.id("per-layer-overrides")
             }
-			Section("Continuous Trigger MIDI") {
-				TriggerMIDIEditor(title: "Left Trigger", side: .left, otherConfiguration: settings.rightTriggerMIDI, configuration: Binding(
-					get: { settings.leftTriggerMIDI }, set: { updateSettings(\.leftTriggerMIDI, $0) }
-				))
-				TriggerMIDIEditor(title: "Right Trigger", side: .right, otherConfiguration: settings.leftTriggerMIDI, configuration: Binding(
-					get: { settings.rightTriggerMIDI }, set: { updateSettings(\.rightTriggerMIDI, $0) }
-				))
-				Text("ControllerKeys sends continuous MIDI through its virtual MIDI source. Digital trigger actions still run when configured.")
-					.font(.caption).foregroundStyle(.secondary)
-				if let left = settings.leftTriggerMIDI, let right = settings.rightTriggerMIDI,
-				   left.message.channel == right.message.channel, left.message.controller == right.message.controller {
-					Text("Both triggers share a channel and CC number. Choose different numbers to control them independently.")
-						.font(.caption).foregroundStyle(.orange)
-				}
-				TriggerMIDITools()
-			}
+
         }
         .formStyle(.grouped)
 		.sheet(isPresented: Binding(get: { calibrationSide != nil }, set: { if !$0 { calibrationSide = nil } })) {

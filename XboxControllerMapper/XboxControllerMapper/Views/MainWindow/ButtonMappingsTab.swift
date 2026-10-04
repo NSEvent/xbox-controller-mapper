@@ -41,6 +41,7 @@ struct ButtonMappingsTab: View {
     @Binding var isMagnifying: Bool
     var actionFeedbackEnabled: Binding<Bool>
     var streamOverlayEnabled: Binding<Bool>
+	var physicalCapture: PhysicalInputCaptureSession? = nil
     @AppStorage(ButtonMappingsTabSection.hiddenDefaultsKey) private var hiddenSectionTags = ""
 
     // Canvas pan/zoom. The pan offset is view state (resets on relaunch);
@@ -179,6 +180,8 @@ struct ButtonMappingsTab: View {
 							streamOverlayEnabled: streamOverlayEnabled
 						)
 					}
+
+					if let physicalCapture { PhysicalInputCaptureBar(session: physicalCapture) }
 
 					if let runtimeLayerId = mappingEngine.activeRuntimeLayerId,
 					   let runtimeLayer = profileManager.activeProfile?.layers.first(where: { $0.id == runtimeLayerId }) {

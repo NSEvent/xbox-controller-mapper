@@ -76,14 +76,9 @@ struct TriggerMIDIPreviewSheet: View {
 	var body: some View {
 		VStack(alignment: .leading, spacing: 16) {
 			Text("Preview Trigger MIDI").font(.title2.bold())
-			Text("Mapped actions are paused. Existing MIDI output returns to its rest value; trigger squeezes in this preview are not sent to your music app.").font(.callout).foregroundStyle(.secondary)
-			TimelineView(.periodic(from: .now, by: 1 / 30)) { _ in
-				VStack(alignment: .leading, spacing: 16) {
-					let snapshot = controller.snapshot()
-					valueRow("Left", raw: Double(snapshot.leftTrigger), config: profiles.activeProfile?.joystickSettings.leftTriggerMIDI)
-					valueRow("Right", raw: Double(snapshot.rightTrigger), config: profiles.activeProfile?.joystickSettings.rightTriggerMIDI)
-				}
-			}
+			Text("Mapped actions are paused. Existing MIDI output returns to its rest value; trigger squeezes in this preview are not sent to your music app.").font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+			valueRow("Left", side: .left, config: profiles.activeProfile?.joystickSettings.leftTriggerMIDI)
+			valueRow("Right", side: .right, config: profiles.activeProfile?.joystickSettings.rightTriggerMIDI)
 			if !controller.isConnected { Text("Controller disconnected. Reconnect to continue previewing.").foregroundStyle(.orange) }
 			Text("Release both triggers before closing to resume output.").font(.caption)
 			HStack { Spacer(); Button("Close Preview") { dismiss() }.keyboardShortcut(.cancelAction) }
@@ -91,15 +86,12 @@ struct TriggerMIDIPreviewSheet: View {
 		.onAppear { previewId = engine.beginInputPreview() }
 		.onDisappear { if let previewId { engine.endInputPreview(previewId) } }
 	}
-	private func valueRow(_ name: String, raw: Double, config: TriggerMIDIConfiguration?) -> some View {
-		VStack(alignment: .leading, spacing: 6) {
-			HStack {
-				Text("\(name): \(Int((raw * 100).rounded()))% pressure").monospacedDigit()
-				Spacer()
-				if let config { Text("Channel \(config.message.channel) · CC \(config.message.controller) → \(config.value(for: raw))").monospacedDigit() }
-				else { Text("MIDI off").foregroundStyle(.secondary) }
-			}
-			ProgressView(value: raw, total: 1)
-		}
+	private func valueRow(_ name: String, side: JoystickSide, config: TriggerMIDIConfiguration?) -> some View {
+		TriggerMIDIMeter(title: name) {
+			let input = controller.snapshot()
+			let raw = side == .left ? Double(input.leftTrigger) : Double(input.rightTrigger)
+			let detail = config.map { "Channel \($0.message.channel) · CC \($0.message.controller) → \($0.value(for: raw))" } ?? "MIDI off"
+			return TriggerMIDIMeterSample(raw: raw, detail: detail)
+		}.frame(height: 54)
 	}
 }

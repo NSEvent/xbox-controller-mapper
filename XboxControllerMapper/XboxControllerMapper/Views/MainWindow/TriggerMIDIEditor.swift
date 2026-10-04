@@ -12,17 +12,13 @@ struct TriggerMIDIEditor: View {
 			Toggle(title, isOn: Binding(get: { configuration != nil }, set: { configuration = $0 ? TriggerMIDIConfiguration.suggested(for: side, avoiding: otherConfiguration) : nil }))
 				.disabled(controller.isConnected && !ControllerVisualDescriptor.inputWorkflow(profile: engine.profileManager.activeProfile, using: controller).hasTriggers && configuration == nil)
 			if let config = configuration {
-				TimelineView(.periodic(from: .now, by: 1 / 30)) { _ in
+				TriggerMIDIMeter(title: title) {
 					let input = controller.snapshot()
 					let raw = side == .left ? Double(input.leftTrigger) : Double(input.rightTrigger)
 					let stream = engine.triggerMIDIOutput.snapshot(for: side == .left ? 0 : 1)
-					HStack {
-						Text("Pressure \(Int((raw * 100).rounded()))% → calculated CC \(config.value(for: raw))").monospacedDigit()
-						Spacer()
-						Text(!controller.isConnected ? "Disconnected" : !engine.isEnabled || engine.isLocked || engine.inputPreviewCount > 0 ? "Output paused" : stream?.armed == true ? "Sent CC \(stream?.value ?? config.value(for: 0))" : "Release trigger to activate")
-							.font(.caption).foregroundStyle(.secondary)
-					}
-				}
+					let status = !controller.isConnected ? "Disconnected" : !engine.isEnabled || engine.isLocked || engine.inputPreviewCount > 0 ? "Output paused" : stream?.armed == true ? "Sent CC \(stream?.value ?? config.value(for: 0))" : "Release trigger to activate"
+					return TriggerMIDIMeterSample(raw: raw, detail: "Calculated CC \(config.value(for: raw)) · \(status)")
+				}.frame(height: 54)
 				HStack {
 					Stepper("Channel \(config.message.channel)", value: field(\.message.channel), in: 1...16)
 					Stepper("CC \(config.message.controller)", value: field(\.message.controller), in: 0...127)

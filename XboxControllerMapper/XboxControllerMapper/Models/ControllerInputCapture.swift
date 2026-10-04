@@ -2,7 +2,7 @@ import Foundation
 
 /// Capture physical overlap, independently of the mapping engine's chord window.
 struct ControllerInputCapture {
-	enum Mode { case button, chord }
+	enum Mode { case button, chord, sequence }
 	enum Phase: Equatable { case waitingForRelease, listening, captured, ambiguous }
 
 	let mode: Mode
@@ -31,6 +31,7 @@ struct ControllerInputCapture {
 		}
 		guard phase == .listening else { return nil }
 		switch mode {
+		case .sequence: return nil // Ordered capture lives in ControllerSequenceCapture.
 		case .button:
 			guard let button = fresh.sorted(by: { $0.rawValue < $1.rawValue }).first else { return nil }
 			candidate = [button]

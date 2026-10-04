@@ -123,13 +123,6 @@ struct ContentView: View {
 
                 permissionBanner
 				InputPreviewStatusBanner()
-				WorkflowSetupEntryView()
-
-				if selectedTab == 0 {
-					PhysicalInputCaptureBar(session: physicalCapture)
-						.padding(.horizontal, 16)
-						.padding(.vertical, 6)
-				}
 
                 // Custom tab bar + content
                 CustomTabBar(selectedTab: $selectedTab, tabs: customTabs)
@@ -183,7 +176,8 @@ struct ContentView: View {
                             editingSequence: $editingSequence,
                             isMagnifying: $isMagnifying,
                             actionFeedbackEnabled: $actionFeedbackEnabled,
-                            streamOverlayEnabled: $streamOverlayEnabled
+							streamOverlayEnabled: $streamOverlayEnabled,
+							physicalCapture: physicalCapture
                         )
                     case 1:
                         ChordsTab(
@@ -212,6 +206,8 @@ struct ContentView: View {
 					case 15:
 						RingSettingsView()
 							.scrollContentBackground(.hidden)
+					case 17:
+						TriggerSettingsView().scrollContentBackground(.hidden)
 					case 2:
 						JoystickSettingsView(
 							initialOverrideLayerId: selectedLayerId,
@@ -1191,6 +1187,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
     case history = 13
     case input = 14
 	case ring = 15
+	case triggers = 17
 
     static let hiddenDefaultsKey = "hiddenMainWindowSectionTags"
 
@@ -1206,6 +1203,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         .input,
 		.ring,
         .joysticks,
+		.triggers,
         .touchpad,
         .leds,
         .microphone,
@@ -1222,6 +1220,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .buttons: return "Buttons"
         case .chords: return "Chords"
         case .joysticks: return "Joysticks"
+		case .triggers: return "Triggers"
         case .keyboard: return "Keyboard"
         case .touchpad: return "Touchpad"
         case .leds: return "LEDs"
@@ -1253,7 +1252,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
             return .map
         case .macros, .scripts, .wheel, .keyboard:
             return .automate
-		case .input, .ring, .joysticks, .touchpad, .leds, .microphone:
+		case .input, .ring, .joysticks, .triggers, .touchpad, .leds, .microphone:
             return .hardware
         case .stats, .history:
             return .activity
@@ -1274,6 +1273,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
 		case .ring: return "circle.dashed"
         case .keyboard: return "keyboard"
         case .joysticks: return "circle.circle"
+		case .triggers: return "slider.horizontal.3"
         case .touchpad: return "rectangle.and.hand.point.up.left"
         case .leds: return "lightbulb.fill"
         case .microphone: return "mic.fill"
@@ -1297,6 +1297,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .input: return ["latency", "realtime", "timing", "mode"]
 		case .ring: return ["oura", "motion", "tilt", "tap", "flick", "bluetooth", "pairing", "calibration", "recenter"]
         case .joysticks: return ["sticks", "deadzone", "sensitivity", "curve", "analog"]
+		case .triggers: return ["MIDI", "CC", "pressure", "continuous", "analog", "music"]
         case .touchpad: return ["trackpad", "gyro", "regions", "quadrants", "pad"]
         case .leds: return ["lightbar", "color", "lighting", "rgb"]
         case .microphone: return ["mic", "mute", "audio"]

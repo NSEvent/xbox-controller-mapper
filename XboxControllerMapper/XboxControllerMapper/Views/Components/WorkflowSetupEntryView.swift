@@ -6,18 +6,19 @@ struct WorkflowSetupEntryView: View {
 	@State private var showingSetup = false
 	@State private var resumeId: UUID?
 	var body: some View {
-		HStack {
-			Button { resumeId = nil; showingSetup = true } label: { Label("Set Up a Workflow", systemImage: "wand.and.stars") }
-			Text("Start with a preset, then verify one action.").font(.caption).foregroundStyle(.secondary)
-			Spacer()
-			if !progress.pending(in: profiles.profiles).isEmpty {
-				Menu("Resume Setup") {
-					ForEach(progress.pending(in: profiles.profiles)) { profile in
-						Button(profile.name) { resumeId = profile.id; showingSetup = true }
-					}
-				}.fixedSize()
+		Menu {
+			Button("Set Up a Workflow…") { resumeId = nil; showingSetup = true }
+			if let id = profiles.activeProfileId, progress.entries[id.uuidString] != nil {
+				Button("Test This Preset…") { resumeId = id; showingSetup = true }
 			}
-		}.padding(.horizontal, 16).padding(.vertical, 8)
+		} label: {
+			Label("Set Up", systemImage: "wand.and.stars")
+				.font(.caption.weight(.medium))
+				.padding(.horizontal, 10).padding(.vertical, 6)
+				.background(Color.primary.opacity(0.06), in: Capsule())
+		}
+		.menuStyle(.borderlessButton).fixedSize()
+		.help("Create a guided preset, or test the selected preset")
 		.sheet(isPresented: $showingSetup) { GuidedPresetSheet(resumeProfileId: resumeId) }
 	}
 }

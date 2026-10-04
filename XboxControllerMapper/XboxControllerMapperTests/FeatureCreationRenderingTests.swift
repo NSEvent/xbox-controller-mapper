@@ -16,7 +16,7 @@ final class FeatureCreationRenderingTests: MappingEngineTestCase {
 						 size: CGSize(width: 650, height: 90), scheme: scheme, label: "press-to-edit")
 			try await render(GuidedPresetSheet(), size: CGSize(width: 620, height: 660), scheme: scheme, label: "guided-preset")
 			try await render(StickCalibrationSheet(side: .left), size: CGSize(width: 600, height: 720), scheme: scheme, label: "stick-calibration")
-			try await render(TriggerMIDIPreviewSheet(), size: CGSize(width: 560, height: 330), scheme: scheme, label: "midi-preview")
+			try await render(TriggerMIDIPreviewSheet(), size: CGSize(width: 560, height: 380), scheme: scheme, label: "midi-preview")
 			try await render(TriggerMIDIEditor(title: "Left Trigger", configuration: .constant(TriggerMIDIConfiguration())),
 							 size: CGSize(width: 650, height: 330), scheme: scheme, label: "trigger-midi")
 		}
@@ -39,7 +39,32 @@ final class FeatureCreationRenderingTests: MappingEngineTestCase {
 		}
 	}
 
-	private func render<Content: View>(_ content: Content, size: CGSize, scheme: ColorScheme, label: String) async throws {
+	func testControllerReviewAndSequenceCaptureRenderInBothThemes() async throws {
+		let profile = GuidedPreset.anki.makeProfile(name: "Review Anki cards", targetBundleId: nil, linkApp: false)
+		profileManager.setActiveProfile(profile); controllerService.isConnected = true
+		let lease = mappingEngine.beginInputPreview()
+		defer {
+			controllerService.buttonReleased(.a); controllerService.buttonReleased(.b)
+			mappingEngine.endInputPreview(lease)
+		}
+		for scheme in [ColorScheme.light, .dark] {
+			try await render(GuidedPresetReviewView(profile: profile), size: CGSize(width: 572, height: 390), scheme: scheme, label: "live-preset-review", afterMount: {
+				self.controllerService.buttonPressed(.a); self.controllerService.buttonPressed(.b)
+			})
+			controllerService.buttonReleased(.a); controllerService.buttonReleased(.b)
+			await waitForTasks(0.05)
+			let capture = PhysicalInputCaptureSession()
+			capture.start(mode: .sequence, controller: controllerService, engine: mappingEngine)
+			controllerService.buttonPressed(.a); controllerService.buttonReleased(.a)
+			controllerService.buttonPressed(.b); controllerService.buttonReleased(.b)
+			await waitForTasks(0.05)
+			try await render(PhysicalInputCaptureBar(session: capture, mode: .sequence), size: CGSize(width: 780, height: 100), scheme: scheme, label: "capture-sequence")
+			capture.cancel()
+			try await render(TriggerSettingsView(), size: CGSize(width: 700, height: 500), scheme: scheme, label: "triggers-section")
+		}
+	}
+
+	private func render<Content: View>(_ content: Content, size: CGSize, scheme: ColorScheme, label: String, afterMount: (@MainActor () -> Void)? = nil) async throws {
 		let host = NSHostingView(rootView: content
 			.environmentObject(controllerService).environmentObject(profileManager).environmentObject(mappingEngine)
 			.frame(width: size.width, height: size.height)
@@ -51,6 +76,7 @@ final class FeatureCreationRenderingTests: MappingEngineTestCase {
 		host.frame = CGRect(origin: .zero, size: size)
 		defer { window.close() }
 		await waitForTasks(0.15)
+		if let afterMount { afterMount(); await waitForTasks(0.05) }
 		host.layoutSubtreeIfNeeded()
 		let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
 		host.cacheDisplay(in: host.bounds, to: bitmap)

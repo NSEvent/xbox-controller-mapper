@@ -55,24 +55,24 @@ struct GuidedPresetSheet: View {
 	var body: some View {
 		VStack(alignment: .leading, spacing: 14) {
 			Text(step == 0 ? "What do you want to do?" : step == 1 ? "Review your starting preset" : "Try one real action").font(.title2.bold())
-			Text("\(step + 1) of 3 · \(step < 2 ? "Mapped actions are paused during setup." : "Saved as a separate profile; Finish Later keeps this test available.")").font(.caption).foregroundStyle(.secondary)
+			Text("\(step + 1) of 3 · \(step < 2 ? "Mapped actions are paused during setup." : "Profile saved. Testing is optional; revisit it from Set Up → Test This Preset.")").font(.caption).foregroundStyle(.secondary)
 			ScrollView {
 				VStack(alignment: .leading, spacing: 14) {
 					if step == 0 { choices }
 					if step == 1 { review }
 					if step == 2 { test }
-				}.frame(maxWidth: .infinity, alignment: .leading)
+				}.frame(maxWidth: .infinity, alignment: .leading).padding(4)
 			}
 			Divider()
 			HStack {
-				Button(step == 2 ? "Finish Later" : "Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+				Button(step == 2 ? "Close" : "Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
 				if step == 1 { Button("Back") { step = 0 } }
 				Spacer()
 				if step == 0 {
 					Button("Review Preset") { step = 1 }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 				} else if step == 1 {
 					Button("Create New Profile") { create() }.keyboardShortcut(.defaultAction)
-				} else { Button("Done") { dismiss() }.disabled(!verified) }
+				} else { Button("Done") { dismiss() } }
 			}
 		}.padding(24).frame(width: 620, height: 660)
 		.onAppear { load(); permissions.startPolling() }
@@ -94,7 +94,10 @@ struct GuidedPresetSheet: View {
 					}.padding(10).background(preset == option ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
 				}.buttonStyle(.plain)
 			}
-			TextField("Profile name", text: $name)
+			VStack(alignment: .leading, spacing: 4) {
+				Text("Profile name").font(.caption).foregroundStyle(.secondary)
+				TextField("Profile name", text: $name).textFieldStyle(.roundedBorder)
+			}
 			if preset == .oneHand {
 				Picker("Hand", selection: $hand) { Text("Left hand").tag(JoystickSide.left); Text("Right hand").tag(JoystickSide.right) }.pickerStyle(.segmented)
 			} else {
@@ -110,13 +113,7 @@ struct GuidedPresetSheet: View {
 		VStack(alignment: .leading, spacing: 12) {
 			Text(name).font(.headline); Text(preset.setupInstruction).font(.callout)
 			if preset == .oneHand { Text("Uses the \(hand.rawValue) stick and controls on that side.").font(.callout) }
-			ForEach(candidate.buttonMappings.keys.sorted { $0.rawValue < $1.rawValue }, id: \.self) { button in
-				HStack {
-					Text(label(button)).frame(width: 110, alignment: .leading)
-					Text(candidate.buttonMappings[button]?.hint ?? ""); Spacer()
-					Text(candidate.buttonMappings[button]?.displayString ?? "").foregroundStyle(.secondary)
-				}.font(.callout)
-			}
+			GuidedPresetReviewView(profile: candidate)
 			Text(useDefault ? "Will become your default for unlinked apps." : linkApp && !targetBundleId.isEmpty ? "Will activate in the selected app." : "Saved for later; choose activation before finishing.").font(.caption)
 			Text("Customize any mapping with Press to Edit afterward.").font(.caption).foregroundStyle(.secondary)
 		}

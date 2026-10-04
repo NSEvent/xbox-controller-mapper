@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import ControllerKeys
 
@@ -78,5 +79,51 @@ final class NativeShortcutTests: XCTestCase {
 		XCTAssertTrue(report.requiresUserConfirmation)
 		XCTAssertEqual(report.shortcuts.map(\.name), ["Workflow"])
 		XCTAssertEqual(report.shortcuts.map(\.context), ["Button A"])
+	}
+
+	func testLiveClipboardFixtureThroughProductionRunnerAndCommandExecutor() async throws {
+		guard let name = ProcessInfo.processInfo.environment["CONTROLLERKEYS_SHORTCUT_FIXTURE"], name.hasPrefix("ControllerKeys QA ") else {
+			throw XCTSkip("Opt in with an owned Text → Copy to Clipboard → Nothing QA shortcut")
+		}
+		let expected = "ControllerKeys native Shortcuts integration passed 01a10068"
+		let clipboard = NSPasteboard.general
+		func snapshot() throws -> [[NSPasteboard.PasteboardType: Data]] {
+			try (clipboard.pasteboardItems ?? []).map { item in
+				try Dictionary(uniqueKeysWithValues: item.types.map { type in
+					(type, try XCTUnwrap(item.data(forType: type), "Cannot preserve a clipboard type"))
+				})
+			}
+		}
+		let saved = try snapshot()
+		defer {
+			clipboard.clearContents()
+			let items = saved.map { values in
+				let item = NSPasteboardItem()
+				for (type, data) in values { item.setData(data, forType: type) }
+				return item
+			}
+			if !items.isEmpty { clipboard.writeObjects(items) }
+			XCTAssertTrue((try? snapshot()) == saved, "Original clipboard types and data restored")
+		}
+		let runner = NativeShortcutProcessRunner()
+		_ = try await runner.run(arguments: ["run", "--", name], timeout: 60)
+		XCTAssertTrue(clipboard.string(forType: .string) == expected, "Production runner delivered the QA message")
+		let service = NativeShortcutService.shared
+		await service.refresh()
+		XCTAssertTrue(service.names.contains(name))
+		let folder = FileManager.default.temporaryDirectory.appendingPathComponent("controllerkeys-shortcut-qa-\(UUID())")
+		let profiles = ProfileManager(configDirectoryOverride: folder)
+		defer { try? FileManager.default.removeItem(at: folder) }
+		let executor = SystemCommandExecutor(profileManager: profiles)
+		let finished = expectation(description: "Mapped Shortcut command completed")
+		executor.webhookFeedbackHandler = { success, message in
+			XCTAssertTrue(success, message)
+			XCTAssertEqual(message, "Finished \(name).")
+			XCTAssertTrue(clipboard.string(forType: .string) == expected, "Mapped command delivered the QA message")
+			finished.fulfill()
+		}
+		clipboard.clearContents(); clipboard.setString("ControllerKeys QA waiting for mapped action", forType: .string)
+		executor.execute(.runShortcut(name: name))
+		await fulfillment(of: [finished], timeout: 65)
 	}
 }

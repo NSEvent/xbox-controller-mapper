@@ -89,7 +89,7 @@ There are other controller mapping apps for macOS, but none offered everything I
 ## Features
 
 - **Button Mapping**: Map any controller button to keyboard shortcuts
-  - **Press to Edit**: Enter capture mode, then press a physical control to open its editor. **Capture Chord** records buttons held together in the chord editor. Output stays paused through capture/editing and resumes after release, preserving your paused/locked preference.
+  - **Press to Edit**: Use the compact control inside the Buttons view, then press a physical control to open its editor. **Capture Chord** records buttons held together; **Capture Sequence** records presses in order, including repeated taps. Choose **Use Sequence** to finish recording before saving its action. Output stays paused through capture/editing and resumes after release, preserving your paused/locked preference.
   - Modifier-only mappings (⌘, ⌥, ⇧, ⌃)
   - Key-only mappings
   - Modifier + Key combinations
@@ -157,8 +157,9 @@ There are other controller mapping apps for macOS, but none offered everything I
 
 - **OBS WebSocket Commands**: Control OBS Studio directly from controller buttons
 
+- **Continuous Trigger MIDI**: **Hardware → Triggers → Continuous Trigger MIDI** maps trigger travel to a channel/CC with range, inversion, and deadzone controls. Native meters sample raw pressure at 60 Hz without animated lag or repeated SwiftUI layout. A muted preview, actual conflict edit links, distinct suggested CCs, and a Logic Pro walkthrough help verify setup. Output uses the ControllerKeys virtual source, suppresses duplicate values, limits updates to 60 Hz, and returns to the configured neutral value on pause, disconnect, or profile change. Unchanged streams continue through layer changes.
+
 - **Joystick Control**:
-  - Continuous trigger MIDI: **Joysticks → Continuous Trigger MIDI** maps trigger travel to a channel/CC with range, inversion, and deadzone controls. A live pressure/CC monitor, muted preview, actual conflict edit links, distinct suggested CCs, and a Logic Pro walkthrough help verify setup. Output uses the ControllerKeys virtual source, suppresses duplicate values, limits updates to 60 Hz, and returns to the configured neutral value on pause, disconnect, or profile change. Unchanged streams continue through layer changes.
   - Live calibration: **Joysticks → Live Calibration** separately measures rest drift and eight-direction travel, previews raw input, and shows current/proposed values. Saves the current response mode’s deadzone unless you explicitly apply it to all modes; opening and saving unchanged preserves settings. Controller replacement invalidates measurements and offers Restart.
   - Left joystick → Mouse movement (or WASD keys)
   - Right joystick → Scrolling (or Arrow keys)
@@ -220,7 +221,7 @@ There are other controller mapping apps for macOS, but none offered everything I
   - Copy shareable card to clipboard for social media
 
 - **Profile System**: Create and switch between multiple mapping profiles
-  - Guided creation: **Set Up a Workflow** (also **Profiles → + → Guided Preset**) reviews a local Anki, Photo Mechanic, Final Cut, or one-hand Mac preset, creates a separate profile, and walks through verifying one real action with a readiness checklist and a temporarily pinned test profile. Choose an app link or default activation explicitly. One-hand presets have left/right layouts; **Resume Setup** continues unfinished verification without creating another profile. Photo Mechanic ratings use [Camera Bits' standard Control+number bindings](https://docs.camerabits.com/support/solutions/articles/48001143067); customized command sets may need edits.
+  - Guided creation: **Set Up → Set Up a Workflow** (also **Profiles → + → Guided Preset**) reviews a local Anki, Photo Mechanic, Final Cut, or one-hand Mac preset and creates a separate profile. During review, controller presses highlight the matching rows; hold several buttons to explore their actions together. Choose an app link or default activation explicitly. One-hand presets have left/right layouts. Verification is optional: **Set Up → Test This Preset** revisits the selected preset's readiness checklist and temporarily pinned test profile without creating another profile. Photo Mechanic ratings use [Camera Bits' standard Control+number bindings](https://docs.camerabits.com/support/solutions/articles/48001143067); customized command sets may need edits.
   - Community profiles: Browse and import pre-made profiles, with optional markdown **setup guides** that render inline above the mappings list (copy buttons on every code block)
   - App-specific auto-switching: Link profiles to applications
   - Linked-controller auto-switching: Bind a profile to a physical controller so it activates on connect

@@ -17,6 +17,7 @@ struct ContentToolbar: View {
     var body: some View {
         HStack {
 			ProfileToolbarMenu(profileSidebarVisible: $profileSidebarVisible)
+			WorkflowSetupEntryView()
 
             Spacer()
 

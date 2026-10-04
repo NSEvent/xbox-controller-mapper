@@ -29,7 +29,10 @@ struct ShortcutActionPicker: View {
 				Button("Refresh") { Task { await shortcuts.refresh() } }.disabled(shortcuts.isLoading || shortcuts.isRunning)
 				Button("Open Shortcuts") { NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: "/System/Applications/Shortcuts.app"), configuration: .init()) }
 			}
-			if shortcuts.isRunning { ProgressView("Running shortcut…").controlSize(.small) }
+			if shortcuts.isRunning {
+				ProgressView("Running shortcut…").controlSize(.small)
+				Text("If macOS is waiting for approval, open Shortcuts and check its prompt. Let this run finish before retrying.").font(.caption).foregroundStyle(.secondary)
+			}
 			if !shortcuts.status.isEmpty {
 				Label(shortcuts.status, systemImage: shortcuts.lastRunSucceeded == true ? "checkmark.circle" : shortcuts.lastRunSucceeded == false ? "exclamationmark.circle" : "info.circle")
 					.font(.caption).foregroundStyle(shortcuts.lastRunSucceeded == false ? Color.orange : Color.secondary)
