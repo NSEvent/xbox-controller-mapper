@@ -7,6 +7,81 @@ import XCTest
 final class ControllerVisualRenderingTests: XCTestCase {
 	private static var retainedControllerServices: [ControllerService] = []
 
+	func testLayerOverrideHighlightsStickWellFaceButtonAndDpadDirection() throws {
+		let service = ControllerService(enableHardwareMonitoring: false)
+		Self.retainedControllerServices.append(service)
+		let style = ControllerMinimapStyle.xbox
+		let size = style.previewSize
+		let overrides: Set<ControllerButton> = [.leftThumbstick, .a, .dpadUp]
+		let image = try render(
+			ControllerAnalogOverlay(
+				controllerService: service,
+				descriptor: ControllerVisualDescriptor.resolved(previewLayout: .xbox, using: service),
+				onButtonTap: { _ in },
+				overrideColorForButton: { overrides.contains($0) ? Color.cyan : nil }
+			)
+			.frame(width: size.width, height: size.height).background(Color.black),
+			size: size, label: "layer overrides"
+		)
+		let bitmap = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(image.tiffRepresentation)))
+		func cyanPixels(center: CGPoint, inner: CGFloat = 0, outer: CGFloat) -> Int {
+			let cx = center.x * size.width, cy = center.y * size.height
+			var count = 0
+			for y in max(0, Int(cy - outer))..<min(bitmap.pixelsHigh, Int(cy + outer + 1)) {
+				for x in max(0, Int(cx - outer))..<min(bitmap.pixelsWide, Int(cx + outer + 1)) {
+					let distance = hypot(CGFloat(x) - cx, CGFloat(y) - cy)
+					guard distance >= inner, distance <= outer,
+						let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else { continue }
+					if color.greenComponent > 0.45, color.blueComponent > 0.6,
+						color.redComponent < 0.4 { count += 1 }
+				}
+			}
+			return count
+		}
+		let wellRadius = size.width * XboxMinimapLayout.stickWellSize / 2
+		XCTAssertGreaterThan(cyanPixels(center: XboxMinimapLayout.leftStick,
+			inner: wellRadius - 4, outer: wellRadius + 3), 20, "Outline belongs on the stick well")
+		XCTAssertEqual(cyanPixels(center: XboxMinimapLayout.leftStick, outer: wellRadius * 0.6), 0,
+			"The cap must remain unoutlined")
+		XCTAssertEqual(cyanPixels(center: XboxMinimapLayout.rightStick, outer: wellRadius + 3), 0,
+			"Inherited stick must not receive an override border")
+		let dpadUp = CGPoint(x: XboxMinimapLayout.dpad.x,
+			y: XboxMinimapLayout.dpad.y - size.width * XboxMinimapLayout.dpadSize * 0.25 / size.height)
+		let dpadDown = CGPoint(x: XboxMinimapLayout.dpad.x,
+			y: XboxMinimapLayout.dpad.y + size.width * XboxMinimapLayout.dpadSize * 0.40 / size.height)
+		XCTAssertGreaterThan(cyanPixels(center: dpadUp, outer: size.width * 0.05), 8)
+		XCTAssertEqual(cyanPixels(center: dpadDown, outer: size.width * 0.018), 0)
+		let faceA = CGPoint(x: XboxMinimapLayout.faceCluster.x,
+			y: XboxMinimapLayout.faceCluster.y + size.width * XboxMinimapLayout.faceButtonOffset / size.height)
+		XCTAssertGreaterThan(cyanPixels(center: faceA, outer: size.width * 0.04), 10)
+		try writePNGIfRequested(image, name: "layer-overrides-wells-dpad-face")
+	}
+
+	func testJonInspiredProfileRendersEachSelectedLayer() throws {
+		let root = URL(fileURLWithPath: #filePath)
+			.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+		let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+		let source = try decoder.decode(Profile.self, from: Data(contentsOf:
+			root.appendingPathComponent("community-profiles/AeroSpace & Codex.json")))
+		let service = ControllerService(enableHardwareMonitoring: false)
+		Self.retainedControllerServices.append(service)
+		let manager = ProfileManager(configDirectoryOverride: temporaryConfigDirectory(for: .xbox))
+		let profile = manager.importFetchedProfile(source)
+		manager.setActiveProfile(profile)
+		for layer in [nil] + profile.layers.map(Optional.some) {
+			let image = try render(
+				ControllerVisualView(selectedButton: .constant(nil), selectedLayerId: layer?.id,
+					previewLayout: .xbox, onButtonTap: { _ in })
+					.environmentObject(service).environmentObject(manager)
+					.frame(width: 1400, height: 900).padding(24)
+					.background(Color(NSColor.windowBackgroundColor)),
+				size: CGSize(width: 1448, height: 948), label: layer?.name ?? "Base"
+			)
+			XCTAssertGreaterThan(try sampledStats(from: image).foregroundSamples, 250)
+			try writePNGIfRequested(image, name: "jon-inspired-\(layer?.name ?? "base")")
+		}
+	}
+
 	func testAllControllerLayoutsRenderVisibleCanvas() throws {
 		for layout in ControllerPreviewLayout.concreteLayouts {
 			let image = try renderControllerCanvas(layout)

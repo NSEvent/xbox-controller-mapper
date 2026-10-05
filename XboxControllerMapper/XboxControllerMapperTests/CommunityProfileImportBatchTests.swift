@@ -3,6 +3,41 @@ import XCTest
 
 @MainActor
 final class CommunityProfileImportBatchTests: XCTestCase {
+	func testAeroSpaceCodexCommunityPresetSurvivesProductionImport() throws {
+		let root = URL(fileURLWithPath: #filePath)
+			.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+		let decoder = JSONDecoder()
+		decoder.dateDecodingStrategy = .iso8601
+		let source = try decoder.decode(Profile.self, from: Data(contentsOf:
+			root.appendingPathComponent("community-profiles/AeroSpace & Codex.json")))
+		let imported = ProfileTransferService.prepareForImport(source)
+		XCTAssertNotEqual(imported.id, source.id)
+		XCTAssertEqual(imported.layers.map(\.name), ["AeroSpace", "Codex"])
+		XCTAssertEqual(imported.layers.map(\.activatorButton), [.leftTrigger, .rightTrigger])
+		XCTAssertTrue(imported.layers.allSatisfy { $0.activationStyle == .hold })
+		XCTAssertTrue(imported.linkedApps.isEmpty, "Window management must remain available across apps")
+		XCTAssertEqual(imported.joystickSettings.leftStick.mode, .mouse)
+		XCTAssertEqual(imported.joystickSettings.rightStick.mode, .scroll)
+		XCTAssertTrue(imported.buttonMappings[.a]?.isHoldModifier == true)
+		XCTAssertTrue(imported.buttonMappings[.leftBumper]?.isHoldModifier == true)
+		for (original, layer) in zip(source.layers, imported.layers) {
+			XCTAssertEqual(layer.buttonMappings, original.buttonMappings)
+			XCTAssertEqual(layer.dualSenseLEDSettings, original.dualSenseLEDSettings)
+			XCTAssertNil(layer.buttonMappings[layer.activatorButton!])
+		}
+		let codex = imported.layers[1]
+		XCTAssertNil(codex.buttonMappings[.a], "Click/drag must fall through from base")
+		XCTAssertNil(codex.buttonMappings[.x], "Return must fall through from base")
+		XCTAssertEqual(codex.buttonMappings[.b]?.keyCode, 46)
+		XCTAssertTrue(codex.buttonMappings[.b]?.hint?.contains("adapted") == true,
+			"Model picker must not claim to reproduce an unverified cycle-reasoning shortcut")
+		let roundTrip = try decoder.decode(Profile.self, from: {
+			let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+			return try encoder.encode(imported)
+		}())
+		XCTAssertEqual(roundTrip.layers, imported.layers)
+	}
+
 	private func info(_ name: String) throws -> CommunityProfileInfo {
 		let data = try JSONSerialization.data(withJSONObject: [
 			"name": "\(name).json", "download_url": "https://example.invalid/\(name).json"
