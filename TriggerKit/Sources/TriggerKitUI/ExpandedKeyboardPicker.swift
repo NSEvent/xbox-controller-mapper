@@ -265,6 +265,8 @@ struct ExpandedKeyboardPicker: View {
 			.overlay(RoundedRectangle(cornerRadius: 4).stroke(borderColor(selected: selected, hovered: hoveredID == id), lineWidth: selected ? 2 : 1))
 		}
 		.buttonStyle(.plain)
+		.help(label)
+		.accessibilityLabel(label)
 		.onHover { hovering in
 			hoveredID = hovering ? id : nil
 		}
@@ -331,6 +333,8 @@ struct ExpandedKeyboardPicker: View {
 				.overlay(RoundedRectangle(cornerRadius: 4).stroke(borderColor(selected: selected, hovered: hoveredID == id), lineWidth: selected ? 2 : 1))
 		}
 		.buttonStyle(.plain)
+		.help(label)
+		.accessibilityLabel(label)
 		.onHover { hovering in
 			hoveredID = hovering ? id : nil
 		}
@@ -351,6 +355,8 @@ struct ExpandedKeyboardPicker: View {
 				}
 			}
 			.buttonStyle(.plain)
+			.help("Toggle \(label)")
+			.accessibilityLabel("Toggle \(label)")
 
 			if selection != nil {
 				HStack(spacing: 2) {
@@ -375,6 +381,8 @@ struct ExpandedKeyboardPicker: View {
 			}
 		}
 		.buttonStyle(.plain)
+		.help("Toggle Fn modifier")
+		.accessibilityLabel("Toggle Fn modifier")
 	}
 
 	private func sideChip(_ label: String, value: ModifierSidePreference, kind: KeyboardModifierKind) -> some View {

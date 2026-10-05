@@ -138,6 +138,8 @@ public struct ScrollDirectionPicker: View {
 				.clipShape(RoundedRectangle(cornerRadius: 6))
 		}
 		.buttonStyle(.plain)
+		.help(title)
+		.accessibilityLabel(title)
 	}
 }
 
@@ -201,6 +203,8 @@ private struct ExpandedMouseButtonPicker: View {
 			.overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Color.accentColor : hovered ? Color.accentColor.opacity(0.5) : Color.gray.opacity(0.3), lineWidth: selected ? 2 : 1))
 		}
 		.buttonStyle(.plain)
+		.help(label)
+		.accessibilityLabel(label)
 		.onHover { hovering in
 			hoveredButton = hovering ? candidate : nil
 		}
@@ -249,6 +253,8 @@ private struct ExpandedMouseScrollPicker: View {
 			.overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Color.accentColor : hovered ? Color.accentColor.opacity(0.5) : Color.gray.opacity(0.3), lineWidth: selected ? 2 : 1))
 		}
 		.buttonStyle(.plain)
+		.help(title)
+		.accessibilityLabel(title)
 		.onHover { hovering in
 			hoveredScroll = hovering ? value : nil
 		}
