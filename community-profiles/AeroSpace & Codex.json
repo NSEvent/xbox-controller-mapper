@@ -1,0 +1,155 @@
+{
+  "buttonMappings": {
+    "a": {"keyCode": 61440, "modifiers": {"command": false, "control": false, "option": false, "shift": false}, "isHoldModifier": true, "hint": "Left Click / Drag"},
+    "b": {"keyCode": 51, "modifiers": {"command": false, "control": false, "option": false, "shift": false}, "isHoldModifier": false, "hint": "Backspace", "longHoldMapping": {"keyCode": 51, "modifiers": {"command": true, "control": false, "option": false, "shift": false}, "hint": "Delete to Line Start", "threshold": 0.5}, "doubleTapMapping": {"keyCode": 51, "modifiers": {"command": false, "control": false, "option": true, "shift": false}, "hint": "Delete Previous Word", "threshold": 0.3}},
+    "x": {"keyCode": 36, "modifiers": {"command": false, "control": false, "option": false, "shift": false}, "isHoldModifier": false, "hint": "Return / Confirm", "longHoldMapping": {"keyCode": 36, "modifiers": {"command": true, "control": false, "option": false, "shift": false}, "hint": "Send with Command-Return", "threshold": 0.5}},
+    "y": {"keyCode": 53, "modifiers": {"command": false, "control": false, "option": false, "shift": false}, "isHoldModifier": false, "hint": "Escape / Cancel"},
+    "leftBumper": {"keyCode": 49, "modifiers": {"command": false, "control": true, "option": false, "shift": true}, "isHoldModifier": true, "hint": "Handy Push-to-Talk (set Handy to Ctrl+Shift+Space)"},
+    "rightBumper": {"keyCode": 48, "modifiers": {"command": false, "control": false, "option": false, "shift": false}, "isHoldModifier": false, "hint": "Tab / Next Control"},
+    "view": {"keyCode": 48, "modifiers": {"command": false, "control": false, "option": false, "shift": true}, "isHoldModifier": false, "hint": "Shift-Tab / Previous Control"},
+    "menu": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace layout floating tiling", "inTerminal": false}, "hint": "AeroSpace: Toggle Floating", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+    "xbox": {"keyCode": 40, "modifiers": {"command": true, "control": false, "option": false, "shift": false}, "isHoldModifier": false, "hint": "Codex: Command Menu"},
+    "leftThumbstick": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace workspace --wrap-around prev", "inTerminal": false}, "hint": "AeroSpace: Previous Workspace", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+    "rightThumbstick": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace workspace --wrap-around next", "inTerminal": false}, "hint": "AeroSpace: Next Workspace", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+    "dpadUp": {"keyCode": 126, "modifiers": {"command": false, "control": false, "option": false, "shift": false}, "isHoldModifier": false, "hint": "Up Arrow", "repeatMapping": {"enabled": true, "interval": 0.12}},
+    "dpadDown": {"keyCode": 125, "modifiers": {"command": false, "control": false, "option": false, "shift": false}, "isHoldModifier": false, "hint": "Down Arrow", "repeatMapping": {"enabled": true, "interval": 0.12}},
+    "dpadLeft": {"keyCode": 123, "modifiers": {"command": false, "control": false, "option": false, "shift": false}, "isHoldModifier": false, "hint": "Left Arrow", "repeatMapping": {"enabled": true, "interval": 0.12}},
+    "dpadRight": {"keyCode": 124, "modifiers": {"command": false, "control": false, "option": false, "shift": false}, "isHoldModifier": false, "hint": "Right Arrow", "repeatMapping": {"enabled": true, "interval": 0.12}}
+  },
+  "chordMappings": [],
+  "createdAt": "2026-10-05T12:00:00Z",
+  "dualSenseLEDSettings": {
+    "lightBarEnabled": true,
+    "lightBarBrightness": "bright",
+    "lightBarColor": {
+      "red": 0.2,
+      "green": 0.45,
+      "blue": 1
+    },
+    "muteButtonLED": "off",
+    "playerLEDs": {
+      "led1": false,
+      "led2": false,
+      "led3": false,
+      "led4": false,
+      "led5": false
+    }
+  },
+  "gestureMappings": [],
+  "icon": "rectangle.3.group",
+  "id": "3620732C-C27F-5863-BDAF-71DA01DF6E81",
+  "isDefault": false,
+  "joystickSettings": {
+    "focusModeModifier": {"command": true, "control": false, "option": false, "shift": false},
+    "focusModeSensitivity": 0.1,
+    "gyroAimingEnabled": false,
+    "gyroAimingSensitivity": 0.3,
+    "invertMouseY": false,
+    "invertScrollY": false,
+    "mouseAcceleration": 0.5,
+    "mouseDeadzone": 0.15,
+    "mouseSensitivity": 0.5,
+    "scrollAcceleration": 0.5,
+    "scrollBoostMultiplier": 2.0,
+    "scrollDeadzone": 0.15,
+    "scrollSensitivity": 0.5,
+    "touchpadAcceleration": 0.5,
+    "touchpadDeadzone": 0.001,
+    "touchpadPanSensitivity": 0.5,
+    "touchpadSensitivity": 0.5,
+    "touchpadSmoothing": 0.4,
+    "touchpadUseNativeZoom": true,
+    "touchpadZoomToPanRatio": 1.8
+  },
+  "linkedApps": [],
+  "macros": [],
+  "modifiedAt": "2026-10-05T12:00:00Z",
+  "name": "AeroSpace & Codex",
+  "onScreenKeyboardSettings": {
+    "activateAllWindows": true,
+    "appBarItems": [],
+    "defaultTerminalApp": "Terminal",
+    "quickTexts": [],
+    "showExtendedFunctionKeys": false,
+    "toggleShortcutModifiers": {"command": false, "control": false, "option": false, "shift": false},
+    "typingDelay": 0.03,
+    "websiteLinks": []
+  },
+  "sequenceMappings": [],
+  "layers": [
+    {
+      "id": "DFEB8D64-A95F-5410-862C-EB5BDD89B0ED",
+      "name": "AeroSpace",
+      "activatorButton": "leftTrigger",
+      "activationStyle": "hold",
+      "buttonMappings": {
+        "dpadUp": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace focus up", "inTerminal": false}, "hint": "AeroSpace: Focus Up", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+        "dpadDown": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace focus down", "inTerminal": false}, "hint": "AeroSpace: Focus Down", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+        "dpadLeft": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace focus left", "inTerminal": false}, "hint": "AeroSpace: Focus Left", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+        "dpadRight": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace focus right", "inTerminal": false}, "hint": "AeroSpace: Focus Right", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+        "x": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace workspace --wrap-around prev", "inTerminal": false}, "hint": "AeroSpace: Previous Workspace", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+        "y": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace workspace --wrap-around next", "inTerminal": false}, "hint": "AeroSpace: Next Workspace", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+        "a": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace move-node-to-workspace --wrap-around prev", "inTerminal": false}, "hint": "AeroSpace: Move Window to Previous Workspace", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+        "b": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace move-node-to-workspace --wrap-around next", "inTerminal": false}, "hint": "AeroSpace: Move Window to Next Workspace", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+        "leftThumbstick": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace layout tiles", "inTerminal": false}, "hint": "AeroSpace: Tiles Layout", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+        "rightThumbstick": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace layout accordion", "inTerminal": false}, "hint": "AeroSpace: Accordion Layout", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+        "menu": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace balance-sizes", "inTerminal": false}, "hint": "AeroSpace: Balance Sizes", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+        "rightBumper": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace move-node-to-monitor --wrap-around next", "inTerminal": false}, "hint": "AeroSpace: Move Window to Next Monitor (inferred)", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+        "view": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace move-workspace-to-monitor --wrap-around next", "inTerminal": false}, "hint": "AeroSpace: Move Workspace to Next Monitor (inferred)", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}},
+        "xbox": {"systemCommand": {"type": "shellCommand", "command": "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; aerospace focus-back-and-forth", "inTerminal": false}, "hint": "AeroSpace: Previous Window (inferred)", "isHoldModifier": false, "modifiers": {"command": false, "control": false, "option": false, "shift": false}}
+      },
+      "dualSenseLEDSettings": {
+        "lightBarEnabled": true,
+        "lightBarBrightness": "bright",
+        "lightBarColor": {
+          "red": 0.7,
+          "green": 0.2,
+          "blue": 0.95
+        },
+        "muteButtonLED": "off",
+        "playerLEDs": {
+          "led1": false,
+          "led2": false,
+          "led3": false,
+          "led4": false,
+          "led5": false
+        }
+      }
+    },
+    {
+      "id": "F0E36CDB-CA96-544E-9BFF-24B905829CC5",
+      "name": "Codex",
+      "activatorButton": "rightTrigger",
+      "activationStyle": "hold",
+      "buttonMappings": {
+        "dpadUp": {"keyCode": 48, "modifiers": {"command": false, "control": true, "option": false, "shift": true}, "isHoldModifier": false, "hint": "Codex: Previous Chat"},
+        "dpadDown": {"keyCode": 48, "modifiers": {"command": false, "control": true, "option": false, "shift": false}, "isHoldModifier": false, "hint": "Codex: Next Chat"},
+        "dpadLeft": {"keyCode": 33, "modifiers": {"command": true, "control": false, "option": false, "shift": false}, "isHoldModifier": false, "hint": "Codex: Previous Recent Chat / Back (adapted)"},
+        "dpadRight": {"keyCode": 30, "modifiers": {"command": true, "control": false, "option": false, "shift": false}, "isHoldModifier": false, "hint": "Codex: Next Recent Chat / Forward (adapted)"},
+        "view": {"keyCode": 11, "modifiers": {"command": true, "control": false, "option": false, "shift": false}, "isHoldModifier": false, "hint": "Codex: Toggle Sidebar"},
+        "menu": {"keyCode": 45, "modifiers": {"command": true, "control": false, "option": false, "shift": false}, "isHoldModifier": false, "hint": "Codex: New Task"},
+        "rightBumper": {"keyCode": 40, "modifiers": {"command": true, "control": false, "option": false, "shift": false}, "isHoldModifier": false, "hint": "Codex: Command Menu"},
+        "y": {"keyCode": 31, "modifiers": {"command": true, "control": false, "option": true, "shift": false}, "isHoldModifier": false, "hint": "Codex: New Standalone Chat (Quick Chat adapted)"},
+        "b": {"keyCode": 46, "modifiers": {"command": false, "control": true, "option": false, "shift": true}, "isHoldModifier": false, "hint": "Codex: Model / Reasoning Picker (adapted)"},
+        "leftThumbstick": {"keyCode": 5, "modifiers": {"command": false, "control": true, "option": false, "shift": true}, "isHoldModifier": false, "hint": "Codex: Open Review (adapted)"}
+      },
+      "dualSenseLEDSettings": {
+        "lightBarEnabled": true,
+        "lightBarBrightness": "bright",
+        "lightBarColor": {
+          "red": 0,
+          "green": 0.85,
+          "blue": 0.85
+        },
+        "muteButtonLED": "off",
+        "playerLEDs": {
+          "led1": false,
+          "led2": false,
+          "led3": false,
+          "led4": false,
+          "led5": false
+        }
+      }
+    }
+  ]
+}
