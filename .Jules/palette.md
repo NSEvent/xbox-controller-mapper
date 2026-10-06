@@ -55,3 +55,7 @@
 ## 2024-11-20 - [Dynamic Accessibility Labels for Form Lists]
 **Learning:** Icon-only buttons used to delete items in form lists (like Webhook Headers using minus.circle.fill) lack context if they just say "Remove header", which creates ambiguous accessibility labels for VoiceOver.
 **Action:** Interpolate the item's key or context (e.g., `key`) into both `.help()` and `.accessibilityLabel()` strings for item removal buttons in form loops (e.g., `"Remove \(key) header"`).
+
+## 2024-11-20 - [Contextual Accessibility Labels for Linked Controllers]
+**Learning:** Using `binding.name` to interpolate the controller's name into a removal button's accessibility label failed because `binding` (a `LinkedControllerBinding`) did not have a `.name` property. It had a `.displayName` property instead.
+**Action:** When updating dynamic tooltips/accessibility labels for custom models (like Linked Controllers), always verify the model's actual property names (e.g., using `grep` or `sed -n`) before interpolating them.
