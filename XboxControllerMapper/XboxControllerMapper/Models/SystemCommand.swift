@@ -410,7 +410,7 @@ extension SystemCommand: Codable {
             try container.encode(CommandType.obsWebSocket, forKey: .type)
             try container.encode(url, forKey: .url)
             // Store password in Keychain, write stable key reference to JSON
-            if let password = password, !password.isEmpty {
+			if encoder.userInfo[.omitPrivateCredentials] as? Bool != true, let password = password, !password.isEmpty {
                 let key = KeychainService.stableKey(for: "obs-websocket:\(url)")
                 if KeychainService.storePassword(password, key: key) != nil {
                     try container.encode(key, forKey: .password)

@@ -14,6 +14,7 @@ struct CommunityProfilesSheet: View {
     @State private var isDownloading = false
     @State private var errorMessage: String?
     @State private var downloadedCount = 0
+	@State private var profileToShare: Profile?
 	@State private var downloadTotal = 0
 	@State private var importFailures: [CommunityProfileImportBatch.Failure] = []
 	@State private var importTask: Task<Void, Never>?
@@ -78,6 +79,9 @@ struct CommunityProfilesSheet: View {
                 Text("Community Profiles")
                     .font(.headline)
                 Spacer()
+				Button("Share Your Profile…") {
+					if let profile = profileManager.activeProfile { profileToShare = profileManager.communitySharingSource(for: profile) }
+				}.disabled(profileManager.activeProfile == nil)
                 Button("Done") {
                     dismiss()
                 }
@@ -235,6 +239,7 @@ struct CommunityProfilesSheet: View {
             .padding()
         }
         .frame(width: 700, height: 500)
+		.sheet(item: $profileToShare) { ShareCommunityProfileSheet(profile: $0) }
         .onAppear {
             loadProfiles()
         }
