@@ -5,6 +5,36 @@ import XCTest
 
 @MainActor
 final class OnboardingCompletionRenderingTests: XCTestCase {
+	func testPurposeAndPhotoRecommendationsFitWizardWidth() throws {
+		let welcome = VStack(alignment: .leading, spacing: 18) {
+			Text("Welcome to ControllerKeys").font(.title2.bold())
+			OnboardingPurposeView(selection: .photoVideo, onSelect: { _ in })
+			Text("Next, we'll connect your controller and set up macOS permissions.").font(.caption)
+			HStack { Button("Skip") {}; Spacer(); Button("Get Started") {} }
+		}.padding(24).frame(width: 480)
+		let completion = VStack(alignment: .leading, spacing: 18) {
+			Text("Ready to try your mappings").font(.title2.bold())
+			OnboardingCompletionView(readiness: .ready, permissions: .init(accessibility: .granted, inputMonitoring: .notDetermined, bluetooth: .notDetermined))
+			OnboardingSetupSuggestionsView(purpose: .photoVideo, onOpen: { _ in })
+			Button("Start Using ControllerKeys") {}
+		}.padding(24).frame(width: 480)
+		try checkAndSave(welcome, name: "onboarding-purpose-welcome")
+		try checkAndSave(completion, name: "onboarding-purpose-photos")
+	}
+
+	private func checkAndSave<V: View>(_ content: V, name: String) throws {
+		let renderer = ImageRenderer(content: content.background(Color(NSColor.windowBackgroundColor)))
+		renderer.scale = 2
+		let image = try XCTUnwrap(renderer.nsImage)
+		XCTAssertEqual(image.size.width, 480)
+		XCTAssertLessThan(image.size.height, 620, "Purpose and suggestions should fit without clipped actions")
+		if let directory = ProcessInfo.processInfo.environment["CONTROLLERKEYS_RENDER_SNAPSHOT_DIR"] {
+			let bitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(image.tiffRepresentation)))
+			try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+				.write(to: URL(fileURLWithPath: directory).appendingPathComponent("\(name).png"))
+		}
+	}
+
 	func testCompletionStatesRenderAtWizardWidth() throws {
 		for (name, readiness) in [("accessibility", OnboardingReadiness.accessibilityMissing),
 								  ("controller", .controllerMissing), ("ready", .ready)] {

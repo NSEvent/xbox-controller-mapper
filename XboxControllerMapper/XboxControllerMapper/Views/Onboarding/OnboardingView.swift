@@ -28,7 +28,10 @@ struct OnboardingView: View {
     @State private var showAccessibilityHelp = false
     @State private var bluetoothRequested = false
     @State private var startedAt = Date()
-    @State private var selectedUseCase: TelemetryService.ProductUseCase?
+	@State private var selectedUseCase = OnboardingPurposePreference.load(from: .standard)
+	@State private var setupDestination: OnboardingSetupDestination?
+
+	private var isFirstRun: Bool { !UserDefaults.standard.bool(forKey: "hasCompletedPermissionsOnboarding") }
 
 	private var readiness: OnboardingReadiness {
 		OnboardingReadiness(accessibilityGranted: permissions.accessibilityGranted,
@@ -59,7 +62,7 @@ struct OnboardingView: View {
             footer
         }
         .padding(24)
-        .frame(width: 480, height: 580)
+		.frame(width: 480, height: 640)
         .onAppear {
             startedAt = Date()
             permissions.startPolling()
@@ -70,6 +73,17 @@ struct OnboardingView: View {
         .onChange(of: permissions.accessibility) { _, _ in advancePastGrantedRequiredStepIfNeeded() }
         .onChange(of: permissions.inputMonitoring) { _, _ in advancePastGrantedRequiredStepIfNeeded() }
         .onDisappear { permissions.stopPolling() }
+		.sheet(item: $setupDestination) { destination in
+			Group {
+				switch destination {
+				case .guided(let preset): GuidedPresetSheet(initialPreset: preset)
+				case .profiles: CommunityProfilesSheet()
+				}
+			}
+			.environmentObject(profileManager)
+			.environmentObject(controllerService)
+			.environmentObject(mappingEngine)
+		}
     }
 
     // MARK: - Header
@@ -132,22 +146,21 @@ struct OnboardingView: View {
     }
 
     private var welcomeContent: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("ControllerKeys turns any game controller into a full keyboard and mouse for your Mac.")
-                .font(.callout)
-
-            Text("macOS needs your permission before the app can read your controller and control the pointer. We'll set these up one at a time — it takes about 30 seconds.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-
-            VStack(alignment: .leading, spacing: 10) {
+		VStack(alignment: .leading, spacing: 12) {
+			Text("Use your controller as a keyboard and mouse for your Mac.").font(.callout)
+			if isFirstRun {
+				OnboardingPurposeView(selection: selectedUseCase) { purpose in
+					selectedUseCase = purpose
+					OnboardingPurposePreference.save(purpose, to: .standard)
+					TelemetryService.shared.onboardingPurposeSelected(purpose)
+				}
+				Text("Next, we'll connect your controller and set up macOS permissions.")
+					.font(.caption).foregroundStyle(.secondary)
+			} else {
                 upcomingRow(icon: "keyboard", title: "Input Monitoring", subtitle: "Optional — Steam Controller, HID pads, Apple TV Remote")
-		upcomingRow(icon: "accessibility", title: "Accessibility", subtitle: "Required — move the mouse and press keys")
+				upcomingRow(icon: "accessibility", title: "Accessibility", subtitle: "Required — move the mouse and press keys")
                 upcomingRow(icon: "dot.radiowaves.left.and.right", title: "Bluetooth", subtitle: "Optional — wireless battery level")
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.06)))
         }
     }
 
@@ -254,13 +267,9 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 14) {
 			OnboardingCompletionView(readiness: readiness, permissions: stepState)
 
-            Picker("What will you mainly use ControllerKeys for?", selection: $selectedUseCase) {
-                Text("Prefer not to say").tag(nil as TelemetryService.ProductUseCase?)
-                ForEach(TelemetryService.ProductUseCase.allCases) { useCase in
-                    Text(useCaseTitle(useCase)).tag(Optional(useCase))
-                }
-            }
-            .accessibilityHint("Optional anonymous product feedback")
+			if readiness == .ready {
+				OnboardingSetupSuggestionsView(purpose: selectedUseCase) { setupDestination = $0 }
+			}
         }
     }
 
@@ -275,7 +284,13 @@ struct OnboardingView: View {
 
             Spacer()
 
-			if step == .done && readiness.repairStep != nil {
+			if step == .welcome && isFirstRun {
+				Button("Skip") {
+					selectedUseCase = nil
+					OnboardingPurposePreference.save(nil, to: .standard)
+					goNext()
+				}.controlSize(.large)
+			} else if step == .done && readiness.repairStep != nil {
 				Button("Set Up Later") { finishOnboarding() }
 					.controlSize(.large)
 			} else if step.isRequired && !stepState.canAdvance(from: step) {
@@ -379,17 +394,15 @@ struct OnboardingView: View {
     /// The step the wizard should open on.
     ///
     /// - A caller-pinned `startStep` (the upgrader intro) always wins.
-    /// - Otherwise, if every required permission is already granted, skip the
-    ///   prompts and open straight on the interactive controller-test step.
-    /// - Otherwise start at the welcome page.
+	/// Fresh runs always see the optional starting point, even with permissions granted.
     private func resolvedInitialStep() -> OnboardingStep {
-        if startStep != .welcome { return startStep }
-        if stepState.firstIncompleteStep == .done { return .controllerTest }
-        return .welcome
+		OnboardingEntryPolicy.initialStep(requested: startStep, isFirstRun: isFirstRun,
+										  permissionsReady: stepState.firstIncompleteStep == .done)
     }
 
     private func goNext() {
-        guard let next = step.next else { finishOnboarding(); return }
+		if step == .welcome && isFirstRun { TelemetryService.shared.onboardingPurposeSelected(selectedUseCase) }
+		guard let next = stepState.nextStep(after: step) else { finishOnboarding(); return }
         withAnimation { step = next }
     }
 
@@ -418,18 +431,6 @@ struct OnboardingView: View {
             accessibilityGranted: permissions.accessibility == .granted,
             inputMonitoringGranted: permissions.inputMonitoring == .granted
         )
-    }
-
-    private func useCaseTitle(_ useCase: TelemetryService.ProductUseCase) -> String {
-        switch useCase {
-        case .study: return "Study or flashcards"
-        case .couchControl: return "Couch or media control"
-        case .presentations: return "Presentations"
-        case .creativeTools: return "Creative tools"
-        case .accessibility: return "Accessibility"
-        case .gaming: return "Gaming"
-        case .other: return "Other"
-        }
     }
 
     /// When the user grants a required permission while sitting on its step, flip

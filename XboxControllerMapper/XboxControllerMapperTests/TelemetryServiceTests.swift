@@ -250,6 +250,42 @@ final class TelemetryServiceTests: XCTestCase {
         XCTAssertEqual(completed["use_case"] as? String, "couch_control")
     }
 
+	func testPurposeRecordsIntentBeforeCompletionAndDeduplicatesChoices() throws {
+		let recorder = TransportRecorder()
+		let service = makeService(recorder: recorder)
+		service.onboardingPurposeSelected(.photoVideo)
+		service.synchronizeForTesting()
+		recorder.respondNext(200)
+		service.synchronizeForTesting()
+		service.onboardingPurposeSelected(.photoVideo)
+		service.onboardingPurposeSelected(nil)
+		service.synchronizeForTesting()
+		recorder.respondNext(200)
+		service.synchronizeForTesting()
+		service.onboardingPurposeSelected(nil)
+		service.synchronizeForTesting()
+		let events = try eventPayloads(in: recorder.requestBodies()).flatMap { $0 }
+		let selected = events.filter { ($0["event"] as? String) == "onboarding_purpose_selected" }
+		XCTAssertEqual(selected.count, 1)
+		XCTAssertEqual(selected.first?["use_case"] as? String, "photo_video")
+		XCTAssertEqual(selected.first?["onboarding_stage"] as? String, "welcome")
+		let skipped = events.filter { ($0["event"] as? String) == "onboarding_purpose_skipped" }
+		XCTAssertEqual(skipped.count, 1)
+		XCTAssertNil(skipped.first?["use_case"])
+		XCTAssertFalse(events.contains { ($0["event"] as? String) == "onboarding_completed" })
+	}
+
+	func testPurposeHonorsTelemetryOptOut() {
+		let recorder = TransportRecorder()
+		let service = makeService(recorder: recorder)
+		defaults.set(false, forKey: "telemetryEnabled")
+		service.onboardingPurposeSelected(.coding)
+		service.onboardingPurposeSelected(nil)
+		service.synchronizeForTesting()
+		XCTAssertTrue(recorder.requestBodies().isEmpty)
+		XCTAssertEqual(service.pendingEventCountForTesting(), 0)
+	}
+
     func testOptOutDeletesPendingEvents() {
         let recorder = TransportRecorder()
         let service = makeService(recorder: recorder)

@@ -24,6 +24,9 @@ extension TelemetryService {
 
     enum ProductUseCase: String, Codable, CaseIterable, Identifiable {
         case study, presentations, accessibility, gaming, other
+		case music, coding
+		case photoVideo = "photo_video"
+		case macControl = "mac_control"
         case couchControl = "couch_control"
         case creativeTools = "creative_tools"
 

@@ -8,6 +8,7 @@ struct CommunityProfilesSheet: View {
 
     @State private var availableProfiles: [CommunityProfileInfo] = []
     @State private var selectedProfiles: Set<String> = []
+	@State private var searchText = ""
     @State private var alreadyImportedProfiles: Set<String> = []
     @State private var isLoading = true
     @State private var isDownloading = false
@@ -63,6 +64,13 @@ struct CommunityProfilesSheet: View {
         selectedProfiles.subtracting(alreadyImportedProfiles).count
     }
 
+	private var matchingProfiles: [CommunityProfileInfo] {
+		let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+		return query.isEmpty ? availableProfiles : availableProfiles.filter {
+			$0.displayName.localizedCaseInsensitiveContains(query)
+		}
+	}
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -115,7 +123,13 @@ struct CommunityProfilesSheet: View {
                 HStack(spacing: 0) {
                     // Left: Profile list
                     VStack(spacing: 0) {
-                        List(availableProfiles) { profileInfo in
+						TextField("Find an app or workflow", text: $searchText)
+							.textFieldStyle(.roundedBorder).padding(8)
+						if matchingProfiles.isEmpty {
+							Text("No matching profiles. Try another app or clear the search.")
+								.font(.caption).foregroundStyle(.secondary).padding(8)
+						}
+						List(matchingProfiles) { profileInfo in
                             CommunityProfileRow(
                                 profileInfo: profileInfo,
                                 isSelected: selectedProfiles.contains(profileInfo.id),

@@ -21,9 +21,10 @@ struct GuidedPresetSheet: View {
 	@State private var previewId: UUID?
 	@State private var verified = false
 
-	init(resumeProfileId: UUID? = nil, progress: GuidedPresetProgressStore = .shared) {
+	init(resumeProfileId: UUID? = nil, initialPreset: GuidedPreset = .anki, progress: GuidedPresetProgressStore = .shared) {
 		self.resumeProfileId = resumeProfileId
 		self.progress = progress
+		_preset = State(initialValue: initialPreset)
 	}
 
 	private var candidate: Profile { preset.makeProfile(name: name, targetBundleId: targetBundleId.isEmpty ? nil : targetBundleId, linkApp: linkApp, hand: hand) }

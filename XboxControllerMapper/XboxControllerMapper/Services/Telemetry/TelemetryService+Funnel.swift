@@ -35,6 +35,17 @@ extension TelemetryService {
                 accessibilityGranted: accessibilityGranted,
                 inputMonitoringGranted: inputMonitoringGranted
             ).rawValue
+		)
+	}
+
+	/// Record intent before permissions, including users who never finish setup.
+	/// One milestone per coarse choice; no typed answers or target-app names.
+	func onboardingPurposeSelected(_ purpose: ProductUseCase?) {
+		enqueueMilestoneAsync(
+			event: purpose == nil ? "onboarding_purpose_skipped" : "onboarding_purpose_selected",
+			marker: "telemetryOnboardingPurpose.\(purpose?.rawValue ?? "skipped")",
+			useCase: purpose?.rawValue,
+			onboardingStage: OnboardingStage.welcome.rawValue
         )
     }
 
@@ -202,6 +213,8 @@ extension TelemetryService {
         case "onboarding_step_reached":
             guard let stage = event.onboardingStage else { return nil }
             return DeliveryMarker(key: "telemetryOnboardingStep.\(stage)", value: .flag)
+		case "onboarding_purpose_selected", "onboarding_purpose_skipped":
+			return DeliveryMarker(key: "telemetryOnboardingPurpose.\(event.useCase ?? "skipped")", value: .flag)
         default:
             return nil
         }

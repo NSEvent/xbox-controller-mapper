@@ -80,6 +80,15 @@ struct OnboardingStepState: Equatable {
         }
     }
 
+	/// Reopening setup should not walk through permissions already granted.
+	func nextStep(after step: OnboardingStep) -> OnboardingStep? {
+		var next = step.next
+		while let candidate = next, state(for: candidate) == .granted {
+			next = candidate.next
+		}
+		return next
+	}
+
     /// First permission step the user hasn't granted, scanning in wizard order.
     /// Used to resume a re-walk (Settings ▸ "Set Up Permissions…") at the right
     /// place rather than always starting at `.welcome`. Input Monitoring is

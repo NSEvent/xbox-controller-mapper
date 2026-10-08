@@ -67,8 +67,6 @@ struct OnboardingCompletionView: View {
 			Text("You can revisit permissions from **Settings › Permissions**.")
 				.font(.caption)
 				.foregroundStyle(.secondary)
-			Text("For a workflow preset, choose **Profiles › + › Guided Preset** after setup.")
-				.font(.caption).foregroundStyle(.secondary)
 		}
 	}
 
