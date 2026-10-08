@@ -8,6 +8,9 @@ The preference is saved immediately in `onboardingStartingPurpose.v1`, so quitti
 during permissions does not lose it. Fresh runs see Welcome even when permissions
 are already granted. Explicit permission-repair/controller-intro entry points
 retain their existing behavior. Advancing skips permissions already granted.
+Mapped output is muted while choosing a purpose or granting permissions. The
+controller-test screen owns its existing preview gate; Done releases the welcome
+gate so a guided real-action test can run. Leaving setup releases its gate too.
 
 When the controller and Accessibility are ready, the final screen offers:
 
@@ -35,7 +38,9 @@ New values are `photo_video`, `mac_control`, `music`, and `coding`. Historical
 and `other` remain accepted. Deploy the compatible analytics allowlist before an
 app release; no database migration is necessary. Keep null/skipped distinct from
 other/exploring. Multiple choice milestones are not multiple users: join by install
-and order by event time, using the final completion choice when available.
+and use the final completion choice when available. For incomplete setup, use the
+first choice or mark multi-choice intent separately: these are milestones, not
+a complete click history.
 
 ## Next experiments, not implemented
 

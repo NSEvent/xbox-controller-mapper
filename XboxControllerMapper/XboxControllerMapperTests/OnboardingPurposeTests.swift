@@ -2,6 +2,16 @@ import XCTest
 @testable import ControllerKeys
 
 final class OnboardingPurposeTests: XCTestCase {
+	func testConnectedControllerCannotDispatchMappingsDuringPurposeOrPermissions() {
+		let firstStep = OnboardingEntryPolicy.initialStep(requested: .welcome, isFirstRun: true, permissionsReady: true)
+		XCTAssertTrue(OnboardingInputPreviewPolicy.shouldMute(step: firstStep))
+		for step in [OnboardingStep.inputMonitoring, .accessibility, .bluetooth] {
+			XCTAssertTrue(OnboardingInputPreviewPolicy.shouldMute(step: step))
+		}
+		XCTAssertFalse(OnboardingInputPreviewPolicy.shouldMute(step: .controllerTest), "The controller test owns its preview gate")
+		XCTAssertFalse(OnboardingInputPreviewPolicy.shouldMute(step: .done), "A guided real-action test must be able to resume output")
+	}
+
 	func testFreshRunStillOffersPurposeWithExistingPermissions() {
 		XCTAssertEqual(OnboardingEntryPolicy.initialStep(requested: .welcome, isFirstRun: true, permissionsReady: true), .welcome)
 		XCTAssertEqual(OnboardingEntryPolicy.initialStep(requested: .welcome, isFirstRun: false, permissionsReady: true), .controllerTest)

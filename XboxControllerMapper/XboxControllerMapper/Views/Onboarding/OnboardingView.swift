@@ -30,6 +30,7 @@ struct OnboardingView: View {
     @State private var startedAt = Date()
 	@State private var selectedUseCase = OnboardingPurposePreference.load(from: .standard)
 	@State private var setupDestination: OnboardingSetupDestination?
+	@State private var setupPreviewToken: UUID?
 
 	private var isFirstRun: Bool { !UserDefaults.standard.bool(forKey: "hasCompletedPermissionsOnboarding") }
 
@@ -67,12 +68,13 @@ struct OnboardingView: View {
             startedAt = Date()
             permissions.startPolling()
             step = resolvedInitialStep()
+			updateSetupPreview()
             recordStepReached(step)
         }
-        .onChange(of: step) { _, newStep in recordStepReached(newStep) }
+		.onChange(of: step) { _, newStep in updateSetupPreview(); recordStepReached(newStep) }
         .onChange(of: permissions.accessibility) { _, _ in advancePastGrantedRequiredStepIfNeeded() }
         .onChange(of: permissions.inputMonitoring) { _, _ in advancePastGrantedRequiredStepIfNeeded() }
-        .onDisappear { permissions.stopPolling() }
+		.onDisappear { releaseSetupPreview(); permissions.stopPolling() }
 		.sheet(item: $setupDestination) { destination in
 			Group {
 				switch destination {
@@ -405,6 +407,15 @@ struct OnboardingView: View {
 		guard let next = stepState.nextStep(after: step) else { finishOnboarding(); return }
         withAnimation { step = next }
     }
+
+	private func updateSetupPreview() {
+		if OnboardingInputPreviewPolicy.shouldMute(step: step), setupPreviewToken == nil {
+			setupPreviewToken = mappingEngine.beginInputPreview()
+		} else if !OnboardingInputPreviewPolicy.shouldMute(step: step) { releaseSetupPreview() }
+	}
+	private func releaseSetupPreview() {
+		if let token = setupPreviewToken { mappingEngine.endInputPreview(token); setupPreviewToken = nil }
+	}
 
     private func finishOnboarding() {
         TelemetryService.shared.onboardingCompleted(

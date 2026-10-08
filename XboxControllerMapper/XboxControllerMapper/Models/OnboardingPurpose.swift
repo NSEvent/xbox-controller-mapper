@@ -82,3 +82,13 @@ enum OnboardingEntryPolicy {
 		return permissionsReady ? .controllerTest : .welcome
 	}
 }
+
+enum OnboardingInputPreviewPolicy {
+	static func shouldMute(step: OnboardingStep) -> Bool {
+		switch step {
+		case .welcome, .inputMonitoring, .accessibility, .bluetooth: return true
+		// ControllerTest owns its preview; Done must allow the guided real-action test.
+		case .controllerTest, .done: return false
+		}
+	}
+}
