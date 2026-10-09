@@ -1,10 +1,8 @@
 import XCTest
 @testable import ControllerKeys
 
-/// Pins the raw Bluetooth LED report layouts (per Linux hid-playstation.c).
-/// These payloads became load-bearing on macOS 27, where GCDeviceLight is
-/// foreground-scoped and reverts the light bar for backgrounded apps — and
-/// no controller hardware exists on CI, so the exact bytes are verified here.
+/// Pins complete numbered reports, including the ID IOHIDDeviceSetReport needs
+/// in the buffer. Hardware background behavior remains a separate acceptance test.
 final class PlayStationLEDReportTests: XCTestCase {
 
     private func settings(
@@ -16,11 +14,12 @@ final class PlayStationLEDReportTests: XCTestCase {
         s.lightBarColor = CodableColor(red: red, green: green, blue: blue)
         s.lightBarBrightness = brightness
         s.lightBarEnabled = enabled
+        s.playerLEDs = PlayerLEDs()
         return s
     }
 
     private func storedCRC(_ report: [UInt8]) -> UInt32 {
-        UInt32(report[73]) | (UInt32(report[74]) << 8) | (UInt32(report[75]) << 16) | (UInt32(report[76]) << 24)
+        UInt32(report[74]) | (UInt32(report[75]) << 8) | (UInt32(report[76]) << 16) | (UInt32(report[77]) << 24)
     }
 
     // MARK: CRC32
@@ -35,28 +34,30 @@ final class PlayStationLEDReportTests: XCTestCase {
     func testDualShock4PayloadLayout() {
         let report = PlayStationLEDReports.dualShock4Bluetooth(settings: settings())
 
-        XCTAssertEqual(report.count, DualShock4HIDConstants.btReportSize - 1)
-        XCTAssertEqual(report[0], 0xC0, "hw_control: HID | CRC32 enable")
-        XCTAssertEqual(report[2], 0x03, "valid_flag0 must set MOTOR | LED for DS4 firmware")
-        XCTAssertEqual(report[5], 0, "LED report must not rumble")
+        XCTAssertEqual(report.count, 78)
+        XCTAssertEqual(report[0], 0x11, "IOKit does not prepend the numbered report ID")
+        XCTAssertEqual(report[1], 0xC0, "hw_control: HID | CRC32 enable")
+        XCTAssertEqual(report[3], 0x07, "MOTOR | LED | BLINK, matching ds4color")
         XCTAssertEqual(report[6], 0, "LED report must not rumble")
-        XCTAssertEqual(Array(report[7...9]), [255, 0, 0])
+        XCTAssertEqual(report[7], 0, "LED report must not rumble")
+        XCTAssertEqual(Array(report[8...10]), [255, 0, 0])
+        XCTAssertEqual(Array(report[11...12]), [0, 0], "Clear previous flash durations")
     }
 
     func testDualShock4BrightnessScalesRGB() {
         let report = PlayStationLEDReports.dualShock4Bluetooth(settings: settings(brightness: .mid))
-        XCTAssertEqual(Array(report[7...9]), [128, 0, 0])
+        XCTAssertEqual(Array(report[8...10]), [128, 0, 0])
     }
 
     func testDualShock4DisabledLightBarZeroesRGB() {
         let report = PlayStationLEDReports.dualShock4Bluetooth(settings: settings(enabled: false))
-        XCTAssertEqual(Array(report[7...9]), [0, 0, 0])
+        XCTAssertEqual(Array(report[8...10]), [0, 0, 0])
     }
 
     func testDualShock4CRCTrailerCoversSeedReportIDAndBody() {
         let report = PlayStationLEDReports.dualShock4Bluetooth(settings: settings())
         let expected = PlayStationLEDReports.crc32(
-            Data([0xA2, DualShock4HIDConstants.btOutputReportID] + report[0..<73])
+            Data([0xA2] + report[0..<74])
         )
         XCTAssertEqual(storedCRC(report), expected)
     }
@@ -66,26 +67,45 @@ final class PlayStationLEDReportTests: XCTestCase {
     func testDualSensePayloadLayout() {
         let report = PlayStationLEDReports.dualSenseBluetooth(settings: settings(), sequence: 5)
 
-        XCTAssertEqual(report.count, DualSenseHIDConstants.bluetoothReportSize - 1)
-        XCTAssertEqual(report[0], 0x50, "upper nibble carries the sequence number")
-        XCTAssertEqual(report[1], 0x10, "DS_OUTPUT_TAG")
-        XCTAssertEqual(report[2], 0xFF, "valid flag0: enable all")
-        XCTAssertEqual(report[3], 0x57, "valid flag1")
-        XCTAssertEqual(report[2 + DualSenseHIDConstants.lightbarRedOffset], 255)
-        XCTAssertEqual(report[2 + DualSenseHIDConstants.lightbarGreenOffset], 0)
-        XCTAssertEqual(report[2 + DualSenseHIDConstants.lightbarBlueOffset], 0)
+        XCTAssertEqual(report.count, 78)
+        XCTAssertEqual(report[0], 0x31, "IOKit does not prepend the numbered report ID")
+        XCTAssertEqual(report[1], 0x50, "upper nibble carries the sequence number")
+        XCTAssertEqual(report[2], 0x10, "DS_OUTPUT_TAG")
+        XCTAssertEqual(report[3], 0xFF, "valid flag0: enable all")
+        XCTAssertEqual(report[4], 0x57, "valid flag1")
+        XCTAssertEqual(report[3 + DualSenseHIDConstants.lightbarRedOffset], 255)
+        XCTAssertEqual(report[3 + DualSenseHIDConstants.lightbarGreenOffset], 0)
+        XCTAssertEqual(report[3 + DualSenseHIDConstants.lightbarBlueOffset], 0)
     }
 
     func testDualSenseSequenceZeroEncodesAsZeroHeader() {
         let report = PlayStationLEDReports.dualSenseBluetooth(settings: settings(), sequence: 0)
-        XCTAssertEqual(report[0], 0x00)
+        XCTAssertEqual(report[1], 0x00)
     }
 
     func testDualSenseCRCTrailerCoversSeedReportIDAndBody() {
         let report = PlayStationLEDReports.dualSenseBluetooth(settings: settings(), sequence: 0)
         let expected = PlayStationLEDReports.crc32(
-            Data([0xA2, DualSenseHIDConstants.bluetoothOutputReportID] + report[0..<73])
+            Data([0xA2] + report[0..<74])
         )
         XCTAssertEqual(storedCRC(report), expected)
+    }
+
+    func testDS4MatchesIndependentDs4colorRedFixture() {
+        // ds4color/core.py _bt_report(255, 0, 0), a6e491de82e7969eda1d0341583a31cb3b01ea1a.
+        // CRC calculated with Python zlib, not our production CRC implementation.
+        let expected: [UInt8] = [0x11, 0xC0, 0, 7, 0, 0, 0, 0, 255]
+            + Array(repeating: 0, count: 65) + [0x69, 0x6C, 0x2B, 0x16]
+        XCTAssertEqual(PlayStationLEDReports.dualShock4Bluetooth(settings: settings()), expected)
+    }
+
+    func testDualSenseMatchesIndependentFullReportFixture() {
+        // Complete 0x31 report: sequence 5, red, player/mute LEDs off, bright.
+        // Fixed trailer computed independently using Python zlib.crc32.
+        let expected: [UInt8] = [0x31, 0x50, 0x10, 0xFF, 0x57]
+            + Array(repeating: 0, count: 36) + [3]
+            + Array(repeating: 0, count: 5) + [255]
+            + Array(repeating: 0, count: 26) + [0xE7, 0x3C, 0xCF, 0xDF]
+        XCTAssertEqual(PlayStationLEDReports.dualSenseBluetooth(settings: settings(), sequence: 5), expected)
     }
 }

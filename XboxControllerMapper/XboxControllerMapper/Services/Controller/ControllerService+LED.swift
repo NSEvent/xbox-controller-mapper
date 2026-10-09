@@ -47,45 +47,46 @@ enum DualSenseHIDConstants {
 
 // MARK: - Pure BT LED report builders
 
-/// Builds the raw Bluetooth LED output payloads (report ID passed separately
-/// to IOHIDDeviceSetReport). Pure functions so unit tests can pin the exact
-/// byte layout — these reports became load-bearing on macOS 27, where
-/// GCDeviceLight is foreground-scoped and can't be verified on CI hardware.
+/// Complete numbered reports for IOHIDDeviceSetReport. The report ID belongs
+/// BOTH in byte zero and in the API's reportID argument (see HIDAPI mac/hid.c).
+/// Omitting byte zero produces a truncated report even if IOKit returns success.
 enum PlayStationLEDReports {
 
-    /// 77-byte DS4 BT payload (report ID 0x11). Layout per Linux hid-playstation.c.
+    /// 78-byte DS4 BT report, matching ds4color's _bt_report wire format.
     static func dualShock4Bluetooth(settings: DualSenseLEDSettings) -> [UInt8] {
-        var report = [UInt8](repeating: 0, count: DualShock4HIDConstants.btReportSize - 1)
+        var report = [UInt8](repeating: 0, count: DualShock4HIDConstants.btReportSize)
 
-        report[0] = 0xC0  // hw_control: DS4_OUTPUT_HWCTL_HID (0x80) | DS4_OUTPUT_HWCTL_CRC32 (0x40)
-        report[2] = 0x03  // valid_flag0: MOTOR | LED (DS4 firmware needs both bits)
+        report[0] = DualShock4HIDConstants.btOutputReportID
+        report[1] = 0xC0  // hw_control: HID | CRC32
+        report[3] = 0x07  // MOTOR | LED | BLINK; zero flash durations restore solid color
 
         let brightness = UInt16(settings.lightBarBrightness.multiplier)
         if settings.lightBarEnabled {
-            report[7] = UInt8(UInt16(settings.lightBarColor.redByte) * brightness / 255)
-            report[8] = UInt8(UInt16(settings.lightBarColor.greenByte) * brightness / 255)
-            report[9] = UInt8(UInt16(settings.lightBarColor.blueByte) * brightness / 255)
+            report[8] = UInt8(UInt16(settings.lightBarColor.redByte) * brightness / 255)
+            report[9] = UInt8(UInt16(settings.lightBarColor.greenByte) * brightness / 255)
+            report[10] = UInt8(UInt16(settings.lightBarColor.blueByte) * brightness / 255)
         }
-        // else: bytes 7-9 stay 0 (light bar off)
+        // else: bytes 8-10 stay 0 (light bar off)
 
-        // CRC32 over: seed (0xA2) + report ID (0x11) + bytes 0-72 of report
-        let crcData = Data([0xA2, DualShock4HIDConstants.btOutputReportID] + report[0..<73])
+        // CRC32 covers the output seed followed by the report, including its ID.
+        let crcData = Data([0xA2] + report[0..<74])
         let crc = crc32(crcData)
-        report[73] = UInt8(crc & 0xFF)
-        report[74] = UInt8((crc >> 8) & 0xFF)
-        report[75] = UInt8((crc >> 16) & 0xFF)
-        report[76] = UInt8((crc >> 24) & 0xFF)
+        report[74] = UInt8(crc & 0xFF)
+        report[75] = UInt8((crc >> 8) & 0xFF)
+        report[76] = UInt8((crc >> 16) & 0xFF)
+        report[77] = UInt8((crc >> 24) & 0xFF)
         return report
     }
 
-    /// 77-byte DualSense BT payload (report ID 0x31). Layout per Linux hid-playstation.c.
+    /// 78-byte DualSense BT report (0x31). Layout per Linux hid-playstation.c.
     static func dualSenseBluetooth(settings: DualSenseLEDSettings, sequence: UInt8) -> [UInt8] {
-        var report = [UInt8](repeating: 0, count: DualSenseHIDConstants.bluetoothReportSize - 1)
+        var report = [UInt8](repeating: 0, count: DualSenseHIDConstants.bluetoothReportSize)
 
-        report[0] = (sequence << 4) | 0x00  // Upper 4 bits = seq number
-        report[1] = 0x10  // DS_OUTPUT_TAG
+        report[0] = DualSenseHIDConstants.bluetoothOutputReportID
+        report[1] = (sequence << 4) | 0x00  // Upper 4 bits = seq number
+        report[2] = 0x10  // DS_OUTPUT_TAG
 
-        let dataOffset = 2
+        let dataOffset = 3
         report[dataOffset + 0] = 0xFF  // flag0: enable all
         report[dataOffset + 1] = 0x57  // flag1: 0x01|0x02|0x04|0x10|0x40
         report[dataOffset + DualSenseHIDConstants.validFlag2Offset] =
@@ -99,13 +100,12 @@ enum PlayStationLEDReports {
         report[dataOffset + DualSenseHIDConstants.lightbarGreenOffset] = UInt8(UInt16(settings.lightBarColor.greenByte) * brightness / 255)
         report[dataOffset + DualSenseHIDConstants.lightbarBlueOffset] = UInt8(UInt16(settings.lightBarColor.blueByte) * brightness / 255)
 
-        // CRC32 over: seed (0xA2) + report ID (0x31) + bytes 0-72 of report
-        let crcData = Data([0xA2, DualSenseHIDConstants.bluetoothOutputReportID] + report[0..<73])
+        let crcData = Data([0xA2] + report[0..<74])
         let crc = crc32(crcData)
-        report[73] = UInt8(crc & 0xFF)
-        report[74] = UInt8((crc >> 8) & 0xFF)
-        report[75] = UInt8((crc >> 16) & 0xFF)
-        report[76] = UInt8((crc >> 24) & 0xFF)
+        report[74] = UInt8(crc & 0xFF)
+        report[75] = UInt8((crc >> 8) & 0xFF)
+        report[76] = UInt8((crc >> 16) & 0xFF)
+        report[77] = UInt8((crc >> 24) & 0xFF)
         return report
     }
 
@@ -126,11 +126,10 @@ enum PlayStationLEDReports {
 @MainActor
 extension ControllerService {
 
-    /// macOS 27 scopes GCDeviceLight to the foreground app: the system reverts
-    /// the light bar (to white) when the setting app resigns active, while raw
-    /// HID output reports still reach the controller from the background
-    /// (Discord #bug-reports DP, 2026-09-19). On 27+ we send the raw BT report
-    /// too; GCController.light still runs last so pre-27 behavior is unchanged.
+    /// A macOS 27 user reports that backgrounding resets GCDeviceLight color,
+    /// while ds4color's raw HID write works (Discord, 2026-09). Preserve the
+    /// existing OS gate pending hardware verification; this is not an Apple-
+    /// documented API restriction. The 2.9.0 raw fallback omitted the report ID.
     static var rawBluetoothLEDReportsNeeded: Bool {
         if #available(macOS 27.0, *) { return true }
         return false
@@ -197,8 +196,8 @@ extension ControllerService {
                 #if DEBUG
                 print("[LED] Applying light bar color via GCController.light (Bluetooth)")
                 #endif
-                // macOS 27: raw report first so background color survives;
-                // GCController.light last keeps foreground behavior identical.
+                // Preserve the existing raw/framework ordering while correcting
+                // framing. Background retention still needs hardware verification.
                 if Self.rawBluetoothLEDReportsNeeded, let device = hidDevice {
                     sendBluetoothOutputReport(device: device, settings: settings)
                 }
@@ -216,11 +215,9 @@ extension ControllerService {
                 sendUSBOutputReport(device: device, settings: settings)
             }
         } else if isDualShock {
-            // For DS4 over Bluetooth on macOS <= 26, IOHIDDeviceSetReport silently fails
-            // (returns success but reports never reach the device — same as DualSense BT),
-            // so GCController.light is the only working path there. On macOS 27 the raw
-            // report does land while GCController.light is foreground-scoped, so send
-            // both. Over USB, the HID report works directly.
+            // Retain the framework path on older systems and the raw fallback
+            // on 27+. Earlier claims of silent OS drops were based on truncated
+            // BT reports; re-test before broadening the raw path to older macOS.
             if isBluetooth {
                 if Self.rawBluetoothLEDReportsNeeded, let device = hidDevice {
                     sendDualShock4BluetoothLEDReport(device: device, settings: settings)
@@ -245,12 +242,8 @@ extension ControllerService {
         }
     }
 
-    /// Sets light bar color via GCController.light — works over Bluetooth.
-    /// On macOS <= 26 this is the only LED control channel over BT:
-    /// IOHIDDeviceSetReport returns success but the kernel silently drops reports for
-    /// controllers managed by the GameController framework. On macOS 27 this path is
-    /// foreground-scoped (system reverts the bar when the app resigns active), so the
-    /// callers above also send the raw BT report there.
+    /// Framework light-bar path. A macOS 27 report describes color resetting
+    /// on backgrounding; callers also try a raw report on those systems.
     private func applyLightBarViaBluetooth(settings: DualSenseLEDSettings) {
         guard let controller = connectedController,
               let light = controller.light else {
@@ -318,8 +311,7 @@ extension ControllerService {
     }
 
     func sendBluetoothOutputReport(device: IOHIDDevice, settings: DualSenseLEDSettings) {
-        // Report WITHOUT report ID at position 0 (IOHIDDeviceSetReport takes it
-        // separately); layout lives in the pure builder so tests can pin it.
+        // Numbered reports retain the ID in byte zero as well as the API argument.
         let report = PlayStationLEDReports.dualSenseBluetooth(settings: settings, sequence: bluetoothOutputSeq)
 
         // Increment sequence number (wraps at 16)
@@ -328,7 +320,7 @@ extension ControllerService {
         #if DEBUG
         // Debug: print first 10 bytes of report
         let headerBytes = report[0..<10].map { String(format: "%02X", $0) }.joined(separator: " ")
-        print("[LED] BT Report (no ID): \(headerBytes), seq=\((bluetoothOutputSeq + 15) & 0x0F)")
+        NSLog("[LED] BT Report: %@, seq=%d", headerBytes, (bluetoothOutputSeq + 15) & 0x0F)
         #endif
 
         // Try Output Report first
@@ -413,22 +405,7 @@ extension ControllerService {
         #endif
     }
 
-    /// Sends a Bluetooth output report to set the DS4 light bar color.
-    /// Per Linux hid-playstation.c, layout (with report ID stripped by IOHIDDeviceSetReport):
-    ///   byte 0: hw_control (0xC0 = HID | CRC32 enable)
-    ///   byte 1: audio_control (0)
-    ///   byte 2: valid_flag0 (0x03 = MOTOR | LED — both bits required for DS4 firmware)
-    ///   byte 3: valid_flag1 (0)
-    ///   byte 4: reserved (0)
-    ///   byte 5: motor_right (0 = no rumble)
-    ///   byte 6: motor_left  (0 = no rumble)
-    ///   byte 7: lightbar_red
-    ///   byte 8: lightbar_green
-    ///   byte 9: lightbar_blue
-    ///   bytes 10-72: padding
-    ///   bytes 73-76: CRC32 (last 4 bytes of 77)
-    /// Total payload: 77 bytes (78-byte report minus the 1-byte report ID).
-    /// CRC32 covers: seed byte (0xA2) + report ID (0x11) + report bytes 0-72.
+    /// Sends all 78 bytes, including the numbered report ID and CRC trailer.
     func sendDualShock4BluetoothLEDReport(device: IOHIDDevice, settings: DualSenseLEDSettings) {
         // Layout lives in the pure builder so tests can pin it.
         let report = PlayStationLEDReports.dualShock4Bluetooth(settings: settings)
@@ -441,11 +418,9 @@ extension ControllerService {
             report.count
         )
 
-        #if DEBUG
         if result != kIOReturnSuccess {
-            print("[LED] DS4 BT LED report failed: \(String(format: "0x%08X", result))")
+            NSLog("[LED] DS4 BT LED report failed: 0x%08X (length=%d)", result, report.count)
         }
-        #endif
     }
 
     // MARK: - Party Mode

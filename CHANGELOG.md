@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Bluetooth light-bar report framing**: corrected the truncated raw DS4/DualSense packets used by the macOS 27 fallback and keep-alive. DS4 writes also clear flashing to match ds4color. Background color retention still needs verification on the affected hardware.
 - **DualSense touchpad recovery after connecting**: an unused second-finger position could remain stuck after connection and suppress mouse movement until restart. ControllerKeys now uses fresh USB/Bluetooth contact reports to clear that phantom touch and end its gesture state, while preserving real stationary fingers and held-click releases.
 - **Guided setup layout and activation**: the profile-name field no longer clips at its edges, and testing uses the preset you created without replacing your intended activation choices.
 - **Calibration preserves existing settings**: opening and saving unchanged calibration retains the current values, and mode-specific settings survive calibration in another mode. Replacing or disconnecting the controller invalidates measurements and offers a fresh start.
