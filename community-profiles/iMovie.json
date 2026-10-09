@@ -1,17 +1,6 @@
 {
   "buttonMappings": {
     "a": {
-      "doubleTapMapping": {
-        "hint": "Play Selection (/)",
-        "keyCode": 44,
-        "modifiers": {
-          "command": false,
-          "control": false,
-          "option": false,
-          "shift": false
-        },
-        "threshold": 0.3
-      },
       "hint": "Play / Pause (Space)",
       "isHoldModifier": false,
       "keyCode": 49,
@@ -112,18 +101,16 @@
       }
     },
     "leftTrigger": {
-      "hint": "Zoom Out (Cmd+-)",
-      "isHoldModifier": false,
-      "keyCode": 27,
+      "hint": "Fast frame backward (held repeat 30/s)",
+      "holdRepeatEnabled": true,
+      "holdRepeatInterval": 0.03333333333333333,
+      "isHoldModifier": true,
+      "keyCode": 123,
       "modifiers": {
-        "command": true,
+        "command": false,
         "control": false,
         "option": false,
         "shift": false
-      },
-      "repeatMapping": {
-        "enabled": true,
-        "interval": 0.2
       }
     },
     "menu": {
@@ -164,57 +151,22 @@
       }
     },
     "rightThumbstick": {
-      "hint": "Toggle Fullscreen (Cmd+Ctrl+F)",
+      "hint": "Play Full Screen (Shift+Cmd+F)",
       "isHoldModifier": false,
       "keyCode": 3,
       "modifiers": {
         "command": true,
-        "control": true,
+        "control": false,
         "option": false,
-        "shift": false
+        "shift": true
       }
     },
     "rightTrigger": {
-      "hint": "Zoom In (Cmd+=)",
-      "isHoldModifier": false,
-      "keyCode": 24,
-      "modifiers": {
-        "command": true,
-        "control": false,
-        "option": false,
-        "shift": false
-      },
-      "repeatMapping": {
-        "enabled": true,
-        "interval": 0.2
-      }
-    },
-    "share": {
-      "hint": "Crop (C)",
-      "isHoldModifier": false,
-      "keyCode": 8,
-      "modifiers": {
-        "command": false,
-        "control": false,
-        "option": false,
-        "shift": false
-      }
-    },
-    "view": {
-      "hint": "Favorite (F)",
-      "isHoldModifier": false,
-      "keyCode": 3,
-      "longHoldMapping": {
-        "hint": "Delete Selected (Delete)",
-        "keyCode": 51,
-        "modifiers": {
-          "command": false,
-          "control": false,
-          "option": false,
-          "shift": false
-        },
-        "threshold": 0.5
-      },
+      "hint": "Fast frame forward (held repeat 30/s)",
+      "holdRepeatEnabled": true,
+      "holdRepeatInterval": 0.03333333333333333,
+      "isHoldModifier": true,
+      "keyCode": 124,
       "modifiers": {
         "command": false,
         "control": false,
@@ -223,20 +175,9 @@
       }
     },
     "x": {
-      "hint": "Add to End (E)",
+      "macroId": "73C745FC-F5D7-4EB2-B638-E74ACCAA1B99",
+      "hint": "Delete clip at playhead",
       "isHoldModifier": false,
-      "keyCode": 14,
-      "longHoldMapping": {
-        "hint": "Insert at Playhead (W)",
-        "keyCode": 13,
-        "modifiers": {
-          "command": false,
-          "control": false,
-          "option": false,
-          "shift": false
-        },
-        "threshold": 0.5
-      },
       "modifiers": {
         "command": false,
         "control": false,
@@ -245,9 +186,9 @@
       }
     },
     "y": {
-      "hint": "Add Transition (Cmd+T)",
+      "hint": "Undo",
       "isHoldModifier": false,
-      "keyCode": 17,
+      "keyCode": 6,
       "modifiers": {
         "command": true,
         "control": false,
@@ -309,8 +250,45 @@
   "linkedApps": [
     "com.apple.iMovieApp"
   ],
-  "macros": [],
-  "modifiedAt": "2026-02-26T12:00:00Z",
+  "macros": [
+    {
+      "id": "73C745FC-F5D7-4EB2-B638-E74ACCAA1B99",
+      "name": "Delete clip at playhead",
+      "steps": [
+        {
+          "type": "press",
+          "payload": {
+            "keyCode": 7,
+            "modifiers": {
+              "command": false,
+              "control": false,
+              "option": false,
+              "shift": false
+            },
+            "isHoldModifier": false
+          }
+        },
+        {
+          "type": "delay",
+          "payload": 0.12
+        },
+        {
+          "type": "press",
+          "payload": {
+            "keyCode": 51,
+            "modifiers": {
+              "command": false,
+              "control": false,
+              "option": false,
+              "shift": false
+            },
+            "isHoldModifier": false
+          }
+        }
+      ]
+    }
+  ],
+  "modifiedAt": "2026-10-09T22:33:16Z",
   "name": "iMovie",
   "onScreenKeyboardSettings": {
     "activateAllWindows": true,
