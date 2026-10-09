@@ -51,3 +51,7 @@
 **Rule:** Rows inside `.onMove` / `.onDrag` containers (chord & sequence lists, profile sidebar, macro steps, command wheel actions) intentionally use `.onTapGesture`. Wrapping them in a `Button` can swallow the mouse-down that starts a drag on macOS, and each row already has an explicit, labeled Edit button for keyboard/VoiceOver users. Never wrap a view that contains its own buttons in another `Button`. PRs doing either will be closed.
 ## 2026-09-26 - [Maintainer] Stay in scope; never touch debug logging
 **Rule:** Do not delete or comment out `#if DEBUG` `print` statements (MappingEngine, LED, ProfileManager, etc.) and do not commit helper scripts. Each PR must change only the files its title describes. Do not add labels/tooltips to buttons that already show the same visible text.
+
+## 2024-10-09 - Contextualize List Item Removal Buttons
+**Learning:** Icon-only remove buttons inside iterations (like `ForEach` loops for linked apps or controllers) create ambiguous and repetitive VoiceOver announcements ("Remove, Remove, Remove").
+**Action:** Always interpolate the item's dynamic name or identifier (e.g., `appInfo.name` or `binding.displayName`) into the button's `.help()` and `.accessibilityLabel()` modifiers to provide necessary context to screen reader users and tooltip viewers.
