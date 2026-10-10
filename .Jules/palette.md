@@ -55,3 +55,6 @@
 ## 2024-10-25 - [Dynamic Context in List Iteration Actions]
 **Learning:** Generic accessibility labels and tooltips (e.g., "Delete", "Move up") on icon buttons repeated inside list/ForEach loops offer no context. VoiceOver announces "Delete, Button" multiple times, forcing the user to deduce which item it targets based on focus order.
 **Action:** Always interpolate the looped item's specific context (e.g., `item.displaySummary` or `item.name`) into both `.help()` and `.accessibilityLabel()` modifiers for icon-only action buttons inside loops.
+
+## 2024-10-25 - [Maintainer] Stay in scope; never touch debug logging
+**Rule:** When assigned to fix an unrelated CI failure (like a deadlock due to excessive `print` statements in a high-frequency backend component), strictly adhere to the agent boundaries: never change backend logic or performance code. Complete all in-scope work, run pre-commit verification, and submit the PR normally. Do not attempt to fix the CI failure.
