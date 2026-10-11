@@ -51,3 +51,6 @@
 **Rule:** Rows inside `.onMove` / `.onDrag` containers (chord & sequence lists, profile sidebar, macro steps, command wheel actions) intentionally use `.onTapGesture`. Wrapping them in a `Button` can swallow the mouse-down that starts a drag on macOS, and each row already has an explicit, labeled Edit button for keyboard/VoiceOver users. Never wrap a view that contains its own buttons in another `Button`. PRs doing either will be closed.
 ## 2026-09-26 - [Maintainer] Stay in scope; never touch debug logging
 **Rule:** Do not delete or comment out `#if DEBUG` `print` statements (MappingEngine, LED, ProfileManager, etc.) and do not commit helper scripts. Each PR must change only the files its title describes. Do not add labels/tooltips to buttons that already show the same visible text.
+## 2024-11-20 - Do not add tooltips to buttons with visible labels
+**Learning:** Adding .help or .accessibilityLabel to buttons that already display their function via visible text (like modifier toggle captions or key labels) creates redundant labels and violates design guidelines.
+**Action:** Before adding tooltips or accessibility labels, verify that the button is truly icon-only and does not already contain visible, descriptive text.
