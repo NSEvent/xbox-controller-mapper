@@ -13,7 +13,9 @@ enum ProfileConfigurationMigrationService {
 
     static func migrateTouchpadSettingsIfNeeded(in profiles: [Profile]) -> ([Profile], Bool) {
         var didMigrate = false
-        let defaultTouchpadDeadzone = JoystickSettings.defaultTouchpadDeadzone
+		// Preserve the historical migration target; changing new-user defaults
+		// must not retune existing profiles during load.
+		let defaultTouchpadDeadzone = 0.005
         let migratedProfiles = profiles.map { profile in
             var updated = profile
             if approxEqual(updated.joystickSettings.touchpadSensitivity, 0.8) &&

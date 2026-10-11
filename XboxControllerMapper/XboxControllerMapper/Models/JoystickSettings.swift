@@ -266,7 +266,7 @@ struct JoystickSettings: Codable, Equatable {
 	var rightTriggerMIDI: TriggerMIDIConfiguration?
     static let defaultCustomSliceSize = 0.75
     static let defaultCustomDeadzone = 0.22
-    static let defaultTouchpadDeadzone = 0.005
+    static let defaultTouchpadDeadzone = TouchpadDefaults.deadzone
 
     /// Per-stick tuning for the left analog stick (defaults to mouse).
     var leftStick: StickTuning = .leftDefault
@@ -275,26 +275,26 @@ struct JoystickSettings: Codable, Equatable {
     var rightStick: StickTuning = .rightDefault
 
     /// Touchpad sensitivity (0.0 - 1.0)
-    var touchpadSensitivity: Double = 0.5
+    var touchpadSensitivity: Double = TouchpadDefaults.sensitivity
 
     /// Touchpad acceleration curve (0.0 = linear, 1.0 = max acceleration)
-    var touchpadAcceleration: Double = 0.5
+    var touchpadAcceleration: Double = TouchpadDefaults.acceleration
 
     /// Deadzone for touchpad movement (0.0 - 0.03)
-    var touchpadDeadzone: Double = Self.defaultTouchpadDeadzone
+    var touchpadDeadzone: Double = TouchpadDefaults.deadzone
 
     /// Smoothing amount for touchpad movement (0.0 - 1.0)
-    var touchpadSmoothing: Double = 0.4
+    var touchpadSmoothing: Double = TouchpadDefaults.smoothing
 
     /// When true, touchpad region clicks only fire if a finger is actively touching
     /// the pad at the moment of click. Prevents stale-position misfires (e.g. clicking
     /// after the finger has lifted off, where the last known position falls into a
     /// quadrant the user never intended). When false, the last known touch position
     /// is used regardless of whether a finger is currently down.
-    var requireActiveTouchForRegionClick: Bool = true
+    var requireActiveTouchForRegionClick: Bool = TouchpadDefaults.requireActiveTouchForRegionClick
 
     /// Two-finger pan sensitivity (0.0 - 1.0)
-    var touchpadPanSensitivity: Double = 0.5
+    var touchpadPanSensitivity: Double = TouchpadDefaults.panSensitivity
 
 	/// Enables one-finger circular scrolling around the Apple TV remote clickpad edge.
 	var appleTVRemoteCircularScrollEnabled: Bool = true
@@ -312,7 +312,7 @@ struct JoystickSettings: Codable, Equatable {
     var touchpadInvertScrollY: Bool = false
 
     /// Pan to zoom ratio threshold (low = easier to zoom, high = easier to pan)
-    var touchpadZoomToPanRatio: Double = 1.95
+    var touchpadZoomToPanRatio: Double = TouchpadDefaults.zoomToPanRatio
 
     /// Whether to use native magnify gestures (true) or Cmd+Plus/Minus (false) for zoom
     var touchpadUseNativeZoom: Bool = true
@@ -658,12 +658,12 @@ extension JoystickSettings {
 		rightTriggerMIDI = try container.decodeIfPresent(TriggerMIDIConfiguration.self, forKey: .rightTriggerMIDI)
         let unit = 0.0...1.0
 
-        touchpadSensitivity = try container.decode(.touchpadSensitivity, default: 0.5, clampedTo: unit)
-        touchpadAcceleration = try container.decode(.touchpadAcceleration, default: 0.5, clampedTo: unit)
-        touchpadDeadzone = try container.decode(.touchpadDeadzone, default: Self.defaultTouchpadDeadzone, clampedTo: 0.0...0.03)
-        touchpadSmoothing = try container.decode(.touchpadSmoothing, default: 0.4, clampedTo: unit)
-        requireActiveTouchForRegionClick = try container.decode(.requireActiveTouchForRegionClick, default: true)
-        touchpadPanSensitivity = try container.decode(.touchpadPanSensitivity, default: 0.5, clampedTo: unit)
+		touchpadSensitivity = try container.decode(.touchpadSensitivity, default: TouchpadDefaults.sensitivity, clampedTo: unit)
+		touchpadAcceleration = try container.decode(.touchpadAcceleration, default: TouchpadDefaults.acceleration, clampedTo: unit)
+		touchpadDeadzone = try container.decode(.touchpadDeadzone, default: TouchpadDefaults.deadzone, clampedTo: 0.0...0.03)
+		touchpadSmoothing = try container.decode(.touchpadSmoothing, default: TouchpadDefaults.smoothing, clampedTo: unit)
+		requireActiveTouchForRegionClick = try container.decode(.requireActiveTouchForRegionClick, default: TouchpadDefaults.requireActiveTouchForRegionClick)
+		touchpadPanSensitivity = try container.decode(.touchpadPanSensitivity, default: TouchpadDefaults.panSensitivity, clampedTo: unit)
 		appleTVRemoteCircularScrollEnabled = try container.decode(.appleTVRemoteCircularScrollEnabled, default: true)
 		appleTVRemoteCircularInputMode = try container.decodeLenient(
 			.appleTVRemoteCircularInputMode,
@@ -677,7 +677,7 @@ extension JoystickSettings {
         touchpadInvertScrollX = try container.decode(.touchpadInvertScrollX, default: false)
         let legacyInvertScrollY = try container.decode(.invertScrollY, default: false)
         touchpadInvertScrollY = try container.decode(.touchpadInvertScrollY, default: legacyInvertScrollY)
-        touchpadZoomToPanRatio = try container.decode(.touchpadZoomToPanRatio, default: 1.95, clampedTo: 0.5...5.0)
+		touchpadZoomToPanRatio = try container.decode(.touchpadZoomToPanRatio, default: TouchpadDefaults.zoomToPanRatio, clampedTo: 0.5...5.0)
         touchpadUseNativeZoom = try container.decode(.touchpadUseNativeZoom, default: true)
         disableTouchpadAsMouse = try container.decode(.disableTouchpadAsMouse, default: false)
         scrollBoostMultiplier = try container.decode(.scrollBoostMultiplier, default: 2.0, clampedTo: 1.0...4.0)

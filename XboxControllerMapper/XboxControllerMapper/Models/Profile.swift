@@ -606,11 +606,6 @@ struct Profile: Codable, Identifiable, Equatable {
         let joystick = JoystickSettings(
             leftStick: .leftDefault,
             rightStick: .rightDefault,
-            touchpadSensitivity: 0.5,
-            touchpadAcceleration: 0.5,
-            touchpadDeadzone: JoystickSettings.defaultTouchpadDeadzone,
-            touchpadSmoothing: 0.4,
-            touchpadPanSensitivity: 0.5,
             scrollBoostMultiplier: 4.0,
             focusModeSensitivity: 0.1,
             focusModeModifier: .command

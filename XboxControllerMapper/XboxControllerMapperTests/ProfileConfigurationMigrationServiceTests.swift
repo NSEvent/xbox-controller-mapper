@@ -16,7 +16,7 @@ final class ProfileConfigurationMigrationServiceTests: XCTestCase {
         XCTAssertTrue(didMigrate)
         XCTAssertEqual(profiles[0].joystickSettings.touchpadSensitivity, 0.5)
         XCTAssertEqual(profiles[0].joystickSettings.touchpadAcceleration, 0.5)
-        XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, JoystickSettings.defaultTouchpadDeadzone)
+		XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, 0.005)
     }
 
     func testMigrateTouchpadSettingsMigratesLegacyDeadzonePreset() {
@@ -31,7 +31,7 @@ final class ProfileConfigurationMigrationServiceTests: XCTestCase {
             .migrateTouchpadSettingsIfNeeded(in: [profile])
 
         XCTAssertTrue(didMigrate)
-        XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, JoystickSettings.defaultTouchpadDeadzone)
+		XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, 0.005)
     }
 
     func testMigrateTouchpadSettingsPromotesDefaultZeroDeadzone() {
@@ -46,7 +46,7 @@ final class ProfileConfigurationMigrationServiceTests: XCTestCase {
             .migrateTouchpadSettingsIfNeeded(in: [profile])
 
         XCTAssertTrue(didMigrate)
-        XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, JoystickSettings.defaultTouchpadDeadzone)
+		XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, 0.005)
     }
 
     func testMigrateTouchpadSettingsPromotesOldDefaultDeadzone() {
@@ -61,7 +61,7 @@ final class ProfileConfigurationMigrationServiceTests: XCTestCase {
             .migrateTouchpadSettingsIfNeeded(in: [profile])
 
         XCTAssertTrue(didMigrate)
-        XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, JoystickSettings.defaultTouchpadDeadzone)
+		XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, 0.005)
     }
 
     func testMigrateTouchpadSettingsPromotesPreviousRaisedDefaultDeadzone() {
@@ -76,7 +76,7 @@ final class ProfileConfigurationMigrationServiceTests: XCTestCase {
             .migrateTouchpadSettingsIfNeeded(in: [profile])
 
         XCTAssertTrue(didMigrate)
-        XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, JoystickSettings.defaultTouchpadDeadzone)
+		XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, 0.005)
     }
 
     func testMigrateTouchpadSettingsLeavesNonLegacySettingsUntouched() {

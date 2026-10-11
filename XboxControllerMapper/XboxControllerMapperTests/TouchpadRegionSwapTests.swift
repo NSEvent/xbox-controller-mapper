@@ -286,12 +286,11 @@ final class TouchpadRegionSwapTests: XCTestCase {
 
     // MARK: - JoystickSettings codable roundtrip for the new flag
 
-    func testRequireActiveTouchForRegionClick_DefaultsToTrueWhenAbsentFromJSON() throws {
-        // Older configs predate this field. They must still decode cleanly with
-        // the safer default (require active touch = on).
+    func testRequireActiveTouchForRegionClick_UsesBaselineWhenAbsentFromJSON() throws {
+		// Missing fields share the same baseline as newly created settings.
         let legacyJSON = "{}".data(using: .utf8)!
         let settings = try JSONDecoder().decode(JoystickSettings.self, from: legacyJSON)
-        XCTAssertTrue(settings.requireActiveTouchForRegionClick, "Missing field should default to true")
+		XCTAssertFalse(settings.requireActiveTouchForRegionClick, "Missing field should match the shipping baseline")
     }
 
     func testRequireActiveTouchForRegionClick_RoundtripsWhenSetToFalse() throws {
