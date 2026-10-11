@@ -88,8 +88,8 @@ public struct AutomationMacroLibraryView: View {
 					Image(systemName: "plus.square.on.square")
 				}
 				.disabled(selectedID == nil)
-				.help("Duplicate")
-				.accessibilityLabel("Duplicate")
+				.help("Duplicate Macro")
+				.accessibilityLabel("Duplicate Macro")
 
 				Button(role: .destructive) {
 					showDeleteConfirm = true
@@ -97,8 +97,8 @@ public struct AutomationMacroLibraryView: View {
 					Image(systemName: "trash")
 				}
 				.disabled(selectedID == nil)
-				.help("Delete")
-				.accessibilityLabel("Delete")
+				.help("Delete Macro")
+				.accessibilityLabel("Delete Macro")
 			}
 			.buttonStyle(.plain)
 			.padding(.horizontal, 12)

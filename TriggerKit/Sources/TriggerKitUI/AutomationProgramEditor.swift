@@ -191,8 +191,8 @@ public struct AutomationProgramEditor: View {
 						.frame(width: 16)
 				}
 				.disabled(!allowed)
-				.help(allowed ? (expanded ? "Collapse" : "Expand") : "Unavailable in this host")
-				.accessibilityLabel(allowed ? (expanded ? "Collapse" : "Expand") : "Unavailable in this host")
+				.help(allowed ? (expanded ? "Collapse \(step.displaySummary)" : "Expand \(step.displaySummary)") : "Unavailable in this host")
+				.accessibilityLabel(allowed ? (expanded ? "Collapse \(step.displaySummary)" : "Expand \(step.displaySummary)") : "Unavailable in this host")
 
 				Button {
 					if allowed {
@@ -219,8 +219,8 @@ public struct AutomationProgramEditor: View {
 					Image(systemName: "chevron.up")
 				}
 				.disabled(index == 0)
-				.help("Move up")
-				.accessibilityLabel("Move up")
+				.help("Move up \(step.displaySummary)")
+				.accessibilityLabel("Move up \(step.displaySummary)")
 
 				Button {
 					moveStep(from: index, by: 1)
@@ -228,16 +228,16 @@ public struct AutomationProgramEditor: View {
 					Image(systemName: "chevron.down")
 				}
 				.disabled(index == program.steps.count - 1)
-				.help("Move down")
-				.accessibilityLabel("Move down")
+				.help("Move down \(step.displaySummary)")
+				.accessibilityLabel("Move down \(step.displaySummary)")
 
 				Button(role: .destructive) {
 					deleteStep(at: index)
 				} label: {
 					Image(systemName: "trash")
 				}
-				.help("Delete")
-				.accessibilityLabel("Delete")
+				.help("Delete \(step.displaySummary)")
+				.accessibilityLabel("Delete \(step.displaySummary)")
 			}
 			.buttonStyle(.plain)
 

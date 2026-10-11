@@ -51,3 +51,7 @@
 **Rule:** Rows inside `.onMove` / `.onDrag` containers (chord & sequence lists, profile sidebar, macro steps, command wheel actions) intentionally use `.onTapGesture`. Wrapping them in a `Button` can swallow the mouse-down that starts a drag on macOS, and each row already has an explicit, labeled Edit button for keyboard/VoiceOver users. Never wrap a view that contains its own buttons in another `Button`. PRs doing either will be closed.
 ## 2026-09-26 - [Maintainer] Stay in scope; never touch debug logging
 **Rule:** Do not delete or comment out `#if DEBUG` `print` statements (MappingEngine, LED, ProfileManager, etc.) and do not commit helper scripts. Each PR must change only the files its title describes. Do not add labels/tooltips to buttons that already show the same visible text.
+
+## 2024-10-25 - [Dynamic Context in List Iteration Actions]
+**Learning:** Generic accessibility labels and tooltips (e.g., "Delete", "Move up") on icon buttons repeated inside list/ForEach loops offer no context. VoiceOver announces "Delete, Button" multiple times, forcing the user to deduce which item it targets based on focus order.
+**Action:** Always interpolate the looped item's specific context (e.g., `item.displaySummary` or `item.name`) into both `.help()` and `.accessibilityLabel()` modifiers for icon-only action buttons inside loops.
