@@ -1,5 +1,16 @@
 # Share your controller setup
 
+## Touchpad baseline
+
+General app profiles use the same calibrated touchpad tuning as the built-in
+Default profile. A single-finger tap or physical touchpad press sends a left click;
+holding a press supports dragging. Right-hand touchpads use the same bindings.
+AnKing's quadrant controls and the Codex Micro Apple TV remote keep their specialized
+behavior. Import an updated copy from the library to get these changes; existing
+local profiles are not automatically overwritten.
+
+## Contribute a profile
+
 You can contribute a profile without learning Git or creating a pull request.
 
 1. In ControllerKeys, right-click your profile and choose **Share to Community…**.

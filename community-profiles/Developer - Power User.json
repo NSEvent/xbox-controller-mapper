@@ -31,7 +31,7 @@
       "command" : true
     },
     "requireActiveTouchForRegionClick" : false,
-    "touchpadInvertScrollY" : true,
+    "touchpadInvertScrollY" : false,
     "mouseAcceleration" : 0.5,
     "gyroAimingSensitivity" : 1,
     "gestureSensitivity" : 0,
@@ -39,7 +39,7 @@
     "gestureCooldown" : 0,
     "leftStickCustomVerticalSliceSize" : 1,
     "scrollAcceleration" : 0.5,
-    "touchpadInvertScrollX" : true,
+    "touchpadInvertScrollX" : false,
     "mouseSensitivity" : 0.601123595505618,
     "touchpadSmoothing" : 0.40300649578651687,
     "invertMouseY" : false

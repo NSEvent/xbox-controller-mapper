@@ -1,0 +1,272 @@
+{
+  "id": "A8E1BA70-3DBA-410A-AA24-538192E24173",
+  "name": "Photo Mechanic Culling",
+  "icon": "photo.fill",
+  "isDefault": false,
+  "createdAt": "2026-10-11T23:15:18Z",
+  "modifiedAt": "2026-10-11T23:15:18Z",
+  "linkedApps": [
+    "com.camerabits.PhotoMechanic"
+  ],
+  "buttonMappings": {
+    "a": {
+      "macroId": "E42EAF44-6837-4348-A42A-EA0C7244126E",
+      "hint": "Keep: 5 stars + next photo",
+      "isHoldModifier": false,
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      }
+    },
+    "b": {
+      "keyCode": 124,
+      "hint": "Skip to next photo",
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      },
+      "isHoldModifier": false
+    },
+    "x": {
+      "keyCode": 6,
+      "hint": "Zoom / fit (Z)",
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      },
+      "isHoldModifier": false
+    },
+    "y": {
+      "keyCode": 17,
+      "hint": "Toggle keeper tag (T)",
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      },
+      "isHoldModifier": false
+    },
+    "leftBumper": {
+      "keyCode": 123,
+      "hint": "Previous photo",
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      },
+      "isHoldModifier": false
+    },
+    "rightBumper": {
+      "keyCode": 124,
+      "hint": "Next photo",
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      },
+      "isHoldModifier": false
+    },
+    "leftTrigger": {
+      "keyCode": 29,
+      "hint": "Reset rating (0 stars)",
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": true
+      },
+      "isHoldModifier": false
+    },
+    "rightTrigger": {
+      "keyCode": 23,
+      "hint": "5 stars (stay here)",
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": true
+      },
+      "isHoldModifier": false
+    },
+    "dpadLeft": {
+      "keyCode": 123,
+      "hint": "Previous photo",
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      },
+      "isHoldModifier": false
+    },
+    "dpadRight": {
+      "keyCode": 124,
+      "hint": "Next photo",
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      },
+      "isHoldModifier": false
+    },
+    "dpadDown": {
+      "keyCode": 20,
+      "hint": "3 stars",
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": true
+      },
+      "isHoldModifier": false
+    },
+    "dpadUp": {
+      "keyCode": 21,
+      "hint": "4 stars",
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": true
+      },
+      "isHoldModifier": false
+    },
+    "menu": {
+      "keyCode": 53,
+      "hint": "Back to contact sheet",
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      },
+      "isHoldModifier": false
+    },
+    "view": {
+      "keyCode": 49,
+      "hint": "Open selected photo preview",
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      },
+      "isHoldModifier": false
+    },
+    "touchpadButton": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": true,
+      "keyCode": 61440,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "touchpadTap": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": true,
+      "keyCode": 61440,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "rightTouchpadButton": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": true,
+      "keyCode": 61440,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "rightTouchpadTap": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": true,
+      "keyCode": 61440,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    }
+  },
+  "chordMappings": [],
+  "sequenceMappings": [],
+  "gestureMappings": [],
+  "macros": [
+    {
+      "id": "E42EAF44-6837-4348-A42A-EA0C7244126E",
+      "name": "Keep: 5 stars and next photo",
+      "steps": [
+        {
+          "type": "press",
+          "payload": {
+            "keyCode": 23,
+            "modifiers": {
+              "command": false,
+              "option": false,
+              "shift": false,
+              "control": true
+            },
+            "isHoldModifier": false
+          }
+        },
+        {
+          "type": "delay",
+          "payload": 0.15
+        },
+        {
+          "type": "press",
+          "payload": {
+            "keyCode": 124,
+            "modifiers": {
+              "command": false,
+              "option": false,
+              "shift": false,
+              "control": false
+            },
+            "isHoldModifier": false
+          }
+        }
+      ]
+    }
+  ],
+  "joystickSettings": {
+    "leftStickMode": "none",
+    "rightStickMode": "none",
+    "gyroAimingEnabled": false,
+    "disableTouchpadAsMouse": false,
+    "requireActiveTouchForRegionClick": false,
+    "touchpadAcceleration": 0.5011192064606742,
+    "touchpadDeadzone": 0.0013147384129213483,
+    "touchpadInvertScrollX": false,
+    "touchpadInvertScrollY": false,
+    "touchpadPanSensitivity": 0.4986064782303371,
+    "touchpadSensitivity": 0.49725684691011235,
+    "touchpadSmoothing": 0.40300649578651687,
+    "touchpadUseNativeZoom": true,
+    "touchpadZoomToPanRatio": 1.9511488325140447
+  }
+}

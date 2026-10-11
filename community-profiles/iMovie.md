@@ -23,6 +23,7 @@ controller. The profile switches automatically when iMovie is active.
 | L2 / LT, R2 / RT | Fast backward / forward; held-key repeat at 30 steps/sec |
 | Left stick | Move the pointer |
 | Left stick click | Left mouse click |
+| Touchpad tap / press | Left mouse click; hold a press to drag |
 | Right stick | Scroll |
 | Right stick click | Fullscreen playback (Shift+Command+F) |
 | Options / Menu | Undo; hold for redo |
@@ -32,6 +33,8 @@ controller. The profile switches automatically when iMovie is active.
 Triggers use held-key repeat to avoid queuing separate 50 ms key presses faster
 than they can finish. Release ends the hold; actual responsiveness also depends
 on iMovie's processing speed.
+
+Touchpad movement uses the calibrated Default-profile tuning.
 
 ## Delete at the playhead
 

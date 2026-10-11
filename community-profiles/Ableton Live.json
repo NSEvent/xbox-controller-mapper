@@ -263,6 +263,54 @@
         "control" : false
       },
       "isHoldModifier" : false
+    },
+    "touchpadButton" : {
+      "holdRepeatEnabled" : false,
+      "holdRepeatInterval" : 0.033,
+      "isHoldModifier" : true,
+      "keyCode" : 61440,
+      "modifiers" : {
+        "command" : false,
+        "control" : false,
+        "option" : false,
+        "shift" : false
+      }
+    },
+    "touchpadTap" : {
+      "holdRepeatEnabled" : false,
+      "holdRepeatInterval" : 0.033,
+      "isHoldModifier" : true,
+      "keyCode" : 61440,
+      "modifiers" : {
+        "command" : false,
+        "control" : false,
+        "option" : false,
+        "shift" : false
+      }
+    },
+    "rightTouchpadButton" : {
+      "holdRepeatEnabled" : false,
+      "holdRepeatInterval" : 0.033,
+      "isHoldModifier" : true,
+      "keyCode" : 61440,
+      "modifiers" : {
+        "command" : false,
+        "control" : false,
+        "option" : false,
+        "shift" : false
+      }
+    },
+    "rightTouchpadTap" : {
+      "holdRepeatEnabled" : false,
+      "holdRepeatInterval" : 0.033,
+      "isHoldModifier" : true,
+      "keyCode" : 61440,
+      "modifiers" : {
+        "command" : false,
+        "control" : false,
+        "option" : false,
+        "shift" : false
+      }
     }
   },
   "chordMappings" : [],
@@ -277,12 +325,12 @@
     "invertMouseY" : false,
     "invertScrollY" : false,
     "mouseAcceleration" : 0.4,
-    "touchpadSensitivity" : 0.5,
-    "touchpadAcceleration" : 0.5,
-    "touchpadDeadzone" : 0.001,
-    "touchpadSmoothing" : 0.4,
-    "touchpadPanSensitivity" : 0.5,
-    "touchpadZoomToPanRatio" : 1.8,
+    "touchpadSensitivity" : 0.49725684691011235,
+    "touchpadAcceleration" : 0.5011192064606742,
+    "touchpadDeadzone" : 0.0013147384129213483,
+    "touchpadSmoothing" : 0.40300649578651687,
+    "touchpadPanSensitivity" : 0.4986064782303371,
+    "touchpadZoomToPanRatio" : 1.9511488325140447,
     "touchpadUseNativeZoom" : true,
     "scrollAcceleration" : 0.4,
     "scrollBoostMultiplier" : 2.0,
@@ -294,7 +342,11 @@
       "control" : false
     },
     "gyroAimingEnabled" : false,
-    "gyroAimingSensitivity" : 0.3
+    "gyroAimingSensitivity" : 0.3,
+    "disableTouchpadAsMouse" : false,
+    "requireActiveTouchForRegionClick" : false,
+    "touchpadInvertScrollX" : false,
+    "touchpadInvertScrollY" : false
   },
   "dualSenseLEDSettings" : {
     "lightBarColor" : {
