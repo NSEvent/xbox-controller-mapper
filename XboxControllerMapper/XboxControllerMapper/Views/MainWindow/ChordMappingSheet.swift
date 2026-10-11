@@ -653,8 +653,8 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
                                         .foregroundColor(.red)
                                 }
                                 .buttonStyle(.plain)
-                                .help("Remove header")
-                                .accessibilityLabel("Remove header")
+                                .help("Remove \(key) header")
+                                .accessibilityLabel("Remove \(key) header")
                             }
                         }
 
