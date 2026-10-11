@@ -493,6 +493,9 @@ public final class AutomationExecutor {
 		let escaped = command
 			.replacingOccurrences(of: "\\", with: "\\\\")
 			.replacingOccurrences(of: "\"", with: "\\\"")
+			.replacingOccurrences(of: "\n", with: "\\n")
+			.replacingOccurrences(of: "\r", with: "\\r")
+			.replacingOccurrences(of: "\t", with: "\\t")
 		let script = """
 		tell application "Terminal"
 			activate
