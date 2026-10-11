@@ -20,8 +20,7 @@ final class KeychainServiceTests: XCTestCase {
         return key
     }
 
-    func testStoreAndRetrieve() throws {
-		try requireWritableKeychain()
+    func testStoreAndRetrieve() {
 		let key = makeTestKey()
 		let password = "my-secret-password"
 
@@ -37,8 +36,7 @@ final class KeychainServiceTests: XCTestCase {
         XCTAssertNil(retrieved)
     }
 
-    func testDeletePassword() throws {
-		try requireWritableKeychain()
+    func testDeletePassword() {
 		let key = makeTestKey()
 		XCTAssertNotNil(KeychainService.storePassword("to-delete", key: key))
 
@@ -48,8 +46,7 @@ final class KeychainServiceTests: XCTestCase {
         XCTAssertNil(retrieved, "Password should be nil after deletion")
     }
 
-    func testOverwrite() throws {
-		try requireWritableKeychain()
+    func testOverwrite() {
 		let key = makeTestKey()
 		XCTAssertNotNil(KeychainService.storePassword("original", key: key))
 		XCTAssertNotNil(KeychainService.storePassword("updated", key: key))
@@ -127,6 +124,15 @@ final class KeychainServiceTests: XCTestCase {
         XCTAssertEqual(updatedPassword, "updated")
     }
 
+    func testInMemoryBackendKeepsServicesApart() {
+        let store = KeychainService.Backend.inMemory()
+        XCTAssertEqual(store.store("a", "key", "service-a"), "key")
+        XCTAssertNil(store.retrieve("key", "service-b"))
+        XCTAssertEqual(store.retrieve("key", "service-a"), "a")
+        store.delete("key", "service-a")
+        XCTAssertNil(store.retrieve("key", "service-a"))
+    }
+
     func testIsKeychainReferenceWithUUID() {
         XCTAssertTrue(KeychainService.isKeychainReference("550e8400-e29b-41d4-a716-446655440000"))
         XCTAssertTrue(KeychainService.isKeychainReference(UUID().uuidString))
@@ -141,17 +147,5 @@ final class KeychainServiceTests: XCTestCase {
     private static func passwordString(from dictionary: CFDictionary) -> String? {
         let data = (dictionary as NSDictionary)[kSecValueData as String] as? Data
         return data.flatMap { String(data: $0, encoding: .utf8) }
-    }
-
-    private func requireWritableKeychain() throws {
-		let probeKey = makeTestKey()
-		let probePassword = "probe-\(UUID().uuidString)"
-		let storedKey = KeychainService.storePassword(probePassword, key: probeKey)
-		let retrieved = KeychainService.retrievePassword(key: probeKey)
-
-		guard storedKey == probeKey, retrieved == probePassword else {
-			KeychainService.deletePassword(key: probeKey)
-			throw XCTSkip("Writable keychain unavailable in this test session")
-		}
     }
 }

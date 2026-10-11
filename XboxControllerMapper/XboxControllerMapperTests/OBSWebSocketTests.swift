@@ -108,22 +108,8 @@ final class OBSWebSocketTests: XCTestCase {
     // MARK: - SystemCommand Codable / Display
 
     func testOBSWebSocketCommand_Encoding() throws {
-		// A fixed localhost URL shares a stable key with real OBS settings and
-		// previous signed test runners. Keep this integration fixture isolated
-		// and skip unavailable Keychain access instead of opening a modal prompt.
+		// Tests use KeychainService's in-memory backend, so this never touches the login keychain.
 		let testURL = "ws://controllerkeys-test-\(UUID().uuidString).invalid:4455"
-		let testKey = KeychainService.stableKey(for: "obs-websocket:\(testURL)")
-		var interactionAllowed: DarwinBoolean = false
-		XCTAssertEqual(SecKeychainGetUserInteractionAllowed(&interactionAllowed), errSecSuccess)
-		XCTAssertEqual(SecKeychainSetUserInteractionAllowed(false), errSecSuccess)
-		defer {
-			KeychainService.deletePassword(key: testKey)
-			SecKeychainSetUserInteractionAllowed(interactionAllowed.boolValue)
-		}
-		guard KeychainService.storePassword("probe", key: testKey) != nil,
-			KeychainService.retrievePassword(key: testKey) == "probe" else {
-			throw XCTSkip("Noninteractive keychain unavailable in this test session")
-		}
         let command = SystemCommand.obsWebSocket(
 			url: testURL,
             password: "secret",
@@ -136,15 +122,7 @@ final class OBSWebSocketTests: XCTestCase {
 
         XCTAssertEqual(json["type"] as? String, "obsWebSocket")
 		XCTAssertEqual(json["url"] as? String, testURL)
-        // Without a writable keychain the password is either passed through as-is or
-        // discarded entirely ("Keychain store failed, discarding OBS password") —
-        // both mean this session can't exercise the keychain-reference path.
-        guard let passwordReference = json["password"] as? String else {
-            throw XCTSkip("Writable keychain unavailable in this test session")
-        }
-		if passwordReference == "secret" {
-			throw XCTSkip("Writable keychain unavailable in this test session")
-		}
+        let passwordReference = try XCTUnwrap(json["password"] as? String)
         XCTAssertNotEqual(passwordReference, "secret")
         XCTAssertNotNil(UUID(uuidString: passwordReference))
         XCTAssertEqual(json["requestType"] as? String, "SetCurrentProgramScene")

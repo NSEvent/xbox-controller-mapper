@@ -6,6 +6,38 @@ import Security
 enum KeychainService {
     private static let serviceName = "com.controllerkeys.obs-passwords"
 
+    /// Where passwords are kept. Under tests this is an in-memory store, so no test
+    /// reads or writes the user's login keychain: a keychain read from the unsigned test
+    /// binary opens a password dialog in a GUI session and blocks the run until someone
+    /// clicks it, and real items (OBS, license, relay) would leak into the tests.
+    struct Backend {
+        var retrieve: (_ key: String, _ service: String) -> String?
+        var store: (_ password: String, _ key: String, _ service: String) -> String?
+        var delete: (_ key: String, _ service: String) -> Void
+
+        static let keychain = Backend(
+            retrieve: { liveRetrieve(key: $0, service: $1) },
+            store: { liveStore($0, key: $1, service: $2, client: .live) },
+            delete: { liveDelete(key: $0, service: $1) }
+        )
+
+        static func inMemory() -> Backend {
+            let lock = NSLock()
+            var items: [String: String] = [:]
+            func id(_ key: String, _ service: String) -> String { service + "\u{0}" + key }
+            return Backend(
+                retrieve: { key, service in lock.withLock { items[id(key, service)] } },
+                store: { password, key, service in
+                    lock.withLock { items[id(key, service)] = password }
+                    return key
+                },
+                delete: { key, service in _ = lock.withLock { items.removeValue(forKey: id(key, service)) } }
+            )
+        }
+    }
+
+    static var backend: Backend = AppRuntime.isRunningTests ? .inMemory() : .keychain
+
     struct SecItemClient {
         var add: (CFDictionary) -> OSStatus
         var update: (CFDictionary, CFDictionary) -> OSStatus
@@ -17,14 +49,20 @@ enum KeychainService {
     }
 
     /// Stores a password in the Keychain under the given key.
-    /// Returns the key on success, nil on failure.
+    /// Returns the key on success, nil on failure. Passing a `client` bypasses `backend`
+    /// and runs the SecItem update/add logic against that client.
     @discardableResult
     static func storePassword(
         _ password: String,
         key: String,
         service: String = serviceName,
-        client: SecItemClient = .live
+        client: SecItemClient? = nil
     ) -> String? {
+        guard let client else { return backend.store(password, key, service) }
+        return liveStore(password, key: key, service: service, client: client)
+    }
+
+    private static func liveStore(_ password: String, key: String, service: String, client: SecItemClient) -> String? {
         guard let data = password.data(using: .utf8) else { return nil }
 
         let query: [String: Any] = [
@@ -73,6 +111,10 @@ enum KeychainService {
     /// Retrieves a password from the Keychain for the given key.
     /// Returns nil if not found.
     static func retrievePassword(key: String, service: String = serviceName) -> String? {
+        backend.retrieve(key, service)
+    }
+
+    private static func liveRetrieve(key: String, service: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -93,6 +135,10 @@ enum KeychainService {
 
     /// Deletes a password from the Keychain.
     static func deletePassword(key: String, service: String = serviceName) {
+        backend.delete(key, service)
+    }
+
+    private static func liveDelete(key: String, service: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
