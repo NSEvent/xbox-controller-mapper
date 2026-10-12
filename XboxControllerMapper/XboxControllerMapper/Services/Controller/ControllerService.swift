@@ -293,6 +293,7 @@ class ControllerService: ObservableObject {
     var psHIDRegistrations: [PlayStationHIDRegistration] = []
     var bluetoothOutputSeq: UInt8 = 0  // Sequence number for Bluetooth output reports (0-15)
     var keepAliveTimer: DispatchSourceTimer?
+	let ds4LEDRecovery = DS4LEDRecovery()
 
     // Generic HID controller fallback (for controllers not recognized by GameController framework)
     var genericHIDManager: IOHIDManager?
@@ -962,6 +963,7 @@ class ControllerService: ObservableObject {
     }
 
 	func cleanup() {
+		ds4LEDRecovery.cancel()
 		guideMonitor.stop()
 		stopDiscovery()
 		for controller in GCController.controllers() {
@@ -977,15 +979,20 @@ class ControllerService: ObservableObject {
 	}
 
     private func setupNotifications() {
-        // macOS 27 reverts the light bar (to white) while the app is backgrounded
-        // when only the GCDeviceLight path landed — restore the user's color as
-        // soon as we're frontmost again. Harmless no-op re-apply elsewhere.
-        NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.reapplyCurrentLEDSettings()
-            }
-            .store(in: &cancellables)
+		NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+			.receive(on: DispatchQueue.main)
+			.sink { [weak self] _ in
+				self?.ds4LEDRecovery.cancel()
+				self?.reapplyCurrentLEDSettings()
+			}
+			.store(in: &cancellables)
+
+		NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)
+			.receive(on: DispatchQueue.main)
+			.sink { [weak self] _ in
+				self?.scheduleDS4LEDRecovery(reason: "background")
+			}
+			.store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: .GCControllerDidConnect)
             .receive(on: DispatchQueue.main)

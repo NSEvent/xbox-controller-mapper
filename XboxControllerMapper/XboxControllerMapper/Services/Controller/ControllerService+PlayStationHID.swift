@@ -135,6 +135,7 @@ extension ControllerService {
         for device in callbackDevices {
             setupHIDDeviceCallback(device)
         }
+		scheduleDS4LEDRecovery(reason: "HID ready")
     }
 
     func setupHIDDeviceCallback(_ device: IOHIDDevice) {
@@ -219,6 +220,7 @@ extension ControllerService {
     }
 
     func cleanupHIDMonitoring() {
+		ds4LEDRecovery.cancel()
         // ORDERING IS CRITICAL for memory safety:
         //   1. Unregister input report callbacks (register nil) — stops IOKit from invoking
         //      the callback, which references both the context pointer and the report buffer.

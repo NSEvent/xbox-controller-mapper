@@ -406,7 +406,8 @@ extension ControllerService {
     }
 
     /// Sends all 78 bytes, including the numbered report ID and CRC trailer.
-    func sendDualShock4BluetoothLEDReport(device: IOHIDDevice, settings: DualSenseLEDSettings) {
+	@discardableResult
+	func sendDualShock4BluetoothLEDReport(device: IOHIDDevice, settings: DualSenseLEDSettings) -> IOReturn {
         // Layout lives in the pure builder so tests can pin it.
         let report = PlayStationLEDReports.dualShock4Bluetooth(settings: settings)
 
@@ -421,6 +422,7 @@ extension ControllerService {
         if result != kIOReturnSuccess {
             NSLog("[LED] DS4 BT LED report failed: 0x%08X (length=%d)", result, report.count)
         }
+		return result
     }
 
     // MARK: - Party Mode
