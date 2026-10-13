@@ -153,3 +153,55 @@ final class SteamDeckMappingTests: MappingEngineTestCase {
 		XCTAssertFalse(mockInputSimulator.heldModifiers.contains(.maskCommand))
 	}
 }
+
+/// Opt-in measurements use mock output only. No real controller, pointer or key events.
+@MainActor
+final class SteamDeckPerformanceExperiments: MappingEngineTestCase {
+	func testOptInExtraJoystickTicksAgainstFixedRateProfile() async throws {
+		guard ProcessInfo.processInfo.environment["CONTROLLERKEYS_DECK_PERF"] == "1" else {
+			throw XCTSkip("Opt-in mock cadence experiment")
+		}
+		var settings = JoystickSettings()
+		settings.leftStick.mode = .mouse
+		settings.rightStick.mode = .scroll
+		profileManager.setActiveProfile(Profile(name: "Owned cadence experiment", joystickSettings: settings))
+		await waitForTasks(0.2)
+		controllerService.updateLeftStick(x: 0.8, y: 0)
+		controllerService.updateRightStick(x: 0, y: 0.8)
+		let engine = mappingEngine!
+		var rows: [[String: Double]] = []
+		for frequency in [120, 360, 120, 360] {
+			let row: [String: Double] = engine.pollingQueue.sync {
+				engine.state.lock.lock()
+				defer { engine.state.lock.unlock() }
+				engine.state.currentMultiplier = 0
+				engine.state.lastJoystickSampleTime = 0
+				mockInputSimulator.clearEvents()
+				// Exercise the actual output paths. The synthetic clock spans the
+				// same second; only the number of scheduling opportunities changes.
+				let base = CFAbsoluteTimeGetCurrent()
+				for index in 0..<frequency {
+					let now = base + Double(index) / Double(frequency)
+					engine.processMouseMovement(CGPoint(x: 0.8, y: 0), tuning: settings.leftStick,
+						settings: settings, analogPrecisionMultiplier: 1, now: now)
+					engine.processScrolling(CGPoint(x: 0, y: 0.8), rawStick: CGPoint(x: 0, y: 0.8),
+						tuning: settings.rightStick, settings: settings, now: now)
+				}
+				var mouse: Double = 0
+				var scroll: Double = 0
+				for event in mockInputSimulator.events {
+					switch event {
+					case .moveMouse(let x, _): mouse += Double(x)
+					case .scroll(_, let y): scroll += Double(y)
+					default: break
+					}
+				}
+				engine.state.lastJoystickSampleTime = 0
+				return ["ticks": Double(frequency), "mouseX": mouse, "scrollY": scroll]
+			}
+			rows.append(row)
+		}
+		let output = String(decoding: try JSONSerialization.data(withJSONObject: rows, options: [.sortedKeys]), as: UTF8.self)
+		NSLog("[DeckCadenceExperiment] %@", output)
+	}
+}
