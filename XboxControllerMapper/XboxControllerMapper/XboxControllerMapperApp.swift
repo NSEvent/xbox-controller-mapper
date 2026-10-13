@@ -97,6 +97,7 @@ final class ServiceContainer {
     let updateCheckService: UpdateCheckService
     let ouraRingInputService: OuraRingInputService
     let beamdeskInputService: BeamdeskInputService
+    let steamDeckInput: SteamDeckInput
     let s29RingInputService: S29RingInputService
 
     private var cancellables = Set<AnyCancellable>()
@@ -131,6 +132,7 @@ final class ServiceContainer {
             usageStatsService: usageStatsService
         )
         self.beamdeskInputService = BeamdeskInputService(controllerService: controllerService)
+		self.steamDeckInput = SteamDeckInput(controller: controllerService)
         // S29 ring: seized raw-HID input. Follows the mapping switch so turning
         // mapping off (or trial expiry) hands the ring back to macOS.
         let s29RingInputService = S29RingInputService(
@@ -627,6 +629,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		CodexMicroBridgeService.shared.stop()
 		services.ouraRingInputService.stop()
 		services.beamdeskInputService.stop()
+		services.steamDeckInput.stop()
 		services.s29RingInputService.stop()
 		services.mappingEngine.shutdown()
 		services.controllerService.cleanup()
