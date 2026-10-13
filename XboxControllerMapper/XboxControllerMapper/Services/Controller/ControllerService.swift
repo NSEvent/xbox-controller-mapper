@@ -53,6 +53,8 @@ final class ControllerStorage: @unchecked Sendable {
     var isNintendo: Bool = false   // Nintendo controller (Joy-Con, Pro Controller)
     var isXboxElite: Bool = false  // Xbox Elite Series 2 controller
     var isSteamController: Bool = false
+    /// ScreenShell has already filtered idle sensor noise on its mouse pad.
+    var hasFilteredSteamDeckPads: Bool = false
     var isAppleTVRemote: Bool = false
     /// Non-nil when the connected pad is one of the small 8BitDo models
     /// (drives the dedicated minimap preview).
@@ -398,6 +400,7 @@ class ControllerService: ObservableObject {
         /// True for any controller with gyroscope sensors (DualSense, DS4, Steam Controller).
         var hasMotion: Bool = false
 		var isSteamController: Bool = false
+		var hasFilteredSteamDeckPads: Bool = false
     }
 
     /// Captures a consistent snapshot of all joystick-polling-relevant state in a single lock acquisition.
@@ -414,7 +417,8 @@ class ControllerService: ObservableObject {
 			touchpadPosition: storage.touchpadPosition,
 			isTouchpadTouching: storage.isTouchpadTouching,
 			hasMotion: presentationState.hasMotion,
-			isSteamController: presentationState.isSteamController
+			isSteamController: presentationState.isSteamController,
+			hasFilteredSteamDeckPads: storage.hasFilteredSteamDeckPads
 		)
 	}
 
@@ -1441,6 +1445,7 @@ class ControllerService: ObservableObject {
 			let enabled = $0.motionInputEnabled
 			resetMotionStateLocked()
 			$0.motionInputEnabled = enabled
+			if !connected { $0.hasFilteredSteamDeckPads = false }
 		}
 		isSteamDeckConnected = connected
 		if connected { publishSteamDeckConnection() }
@@ -1459,6 +1464,7 @@ class ControllerService: ObservableObject {
 		withStorageLock {
 			if preSteamDeckType == nil { preSteamDeckType = $0.controllerTypeStateLocked }
 			$0.applyControllerTypeLocked(.steam)
+			$0.hasFilteredSteamDeckPads = true
 		}
 		controllerName = "Steam Deck (ScreenShell)"
 		controllerMappingSource = "ScreenShell"

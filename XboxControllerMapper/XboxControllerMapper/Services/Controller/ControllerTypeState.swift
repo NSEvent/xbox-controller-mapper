@@ -187,6 +187,7 @@ extension ControllerStorage {
 		isJoyConRight = false
 		isXboxElite = false
 		isSteamController = false
+		hasFilteredSteamDeckPads = false
 		isAppleTVRemote = false
 	}
 

@@ -100,7 +100,8 @@ extension MappingEngine {
         if settings.disableTouchpadAsMouse { return }
 
         let magnitude = Double(hypot(smoothedDelta.x, smoothedDelta.y))
-        let deadzone = controllerService.threadSafeIsSteamController
+        let inputSource = controllerService.snapshot()
+        let deadzone = inputSource.isSteamController && !inputSource.hasFilteredSteamDeckPads
             ? max(settings.touchpadDeadzone, Config.steamTouchpadDeadzoneFloor)
             : settings.touchpadDeadzone
         guard magnitude > deadzone else { return }

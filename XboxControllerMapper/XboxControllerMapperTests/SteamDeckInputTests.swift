@@ -67,6 +67,43 @@ final class SteamDeckInputTests: XCTestCase {
 
 @MainActor
 final class SteamDeckMappingTests: MappingEngineTestCase {
+	func testFilteredDeckFineMouseMotionUsesProfileDeadzoneButPhysicalSteamKeepsNoiseFloor() async throws {
+		var settings = JoystickSettings()
+		settings.touchpadDeadzone = 0.0013
+		settings.touchpadSmoothing = 0.403
+		profileManager.setActiveProfile(Profile(name: "Deck precision", joystickSettings: settings))
+		let input = SteamDeckInput(controller: controllerService, observe: false)
+		defer { input.stop() }
+		var frame = SteamDeckFrame.released
+		frame.active = true; frame.session = UUID(); frame.sequence = 1
+		input.receive(String(decoding: try JSONEncoder().encode(frame), as: UTF8.self))
+		await waitForTasks(0.2)
+		XCTAssertTrue(controllerService.snapshot().hasFilteredSteamDeckPads)
+		let engine = mappingEngine!
+		mockInputSimulator.clearEvents()
+		engine.pollingQueue.sync { engine.processTouchpadMovement(.init(x: 0.0025, y: 0)) }
+		XCTAssertTrue(mockInputSimulator.events.contains {
+			if case .moveMouse(let x, _) = $0 { return x > 0 }; return false
+		}, "Filtered Deck micro-movement must reach the mouse")
+		input.stop()
+		controllerService.withStorageLock { $0.applyControllerTypeLocked(.steam) }
+		XCTAssertFalse(controllerService.snapshot().hasFilteredSteamDeckPads)
+		mockInputSimulator.clearEvents()
+		engine.pollingQueue.sync { engine.processTouchpadMovement(.init(x: 0.0025, y: 0)) }
+		XCTAssertFalse(mockInputSimulator.events.contains {
+			if case .moveMouse = $0 { return true }; return false
+		}, "Unfiltered physical Steam pads retain their noise floor")
+	}
+
+	func testFilteredPadSourceFlagClearsOnHardwareTypeTakeover() {
+		controllerService.setSteamDeckConnected(true)
+		XCTAssertTrue(controllerService.snapshot().hasFilteredSteamDeckPads)
+		controllerService.withStorageLock { $0.applyControllerTypeLocked(.steam) }
+		XCTAssertFalse(controllerService.snapshot().hasFilteredSteamDeckPads)
+		controllerService.setSteamDeckConnected(false)
+		XCTAssertFalse(controllerService.snapshot().hasFilteredSteamDeckPads)
+	}
+
 	func testDestinationSavedProfileOwnsActionsAndReleasesHeldCommand() async throws {
 		profileManager.setActiveProfile(Profile(name: "Saved Deck profile", buttonMappings: [
 			.a: KeyMapping(keyCode: 1), .rightTrigger: .holdModifier(.command),
