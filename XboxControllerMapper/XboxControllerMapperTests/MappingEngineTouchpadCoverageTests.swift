@@ -40,16 +40,8 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         }
         try? await Task.sleep(nanoseconds: 80_000_000)
 
-        // Reset zoom level to prevent tests from leaving the system in a zoomed state.
-        // Posts Cmd+0 (View > Actual Size) which resets zoom in most apps.
-        if let source = CGEventSource(stateID: .hidSystemState) {
-            let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x1D, keyDown: true)  // 0x1D = '0'
-            keyDown?.flags = .maskCommand
-            keyDown?.post(tap: .cghidEventTap)
-            let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x1D, keyDown: false)
-            keyUp?.flags = .maskCommand
-            keyUp?.post(tap: .cghidEventTap)
-        }
+        // This fixture uses MockInputSimulator. It never changes system zoom;
+        // teardown must not inject a real Cmd+0 into the user's foreground app.
 
         await MainActor.run {
             controllerService?.onInputEvent = nil
