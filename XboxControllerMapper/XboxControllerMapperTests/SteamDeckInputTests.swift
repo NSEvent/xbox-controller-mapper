@@ -67,6 +67,29 @@ final class SteamDeckInputTests: XCTestCase {
 
 @MainActor
 final class SteamDeckMappingTests: MappingEngineTestCase {
+	func testDeckSystemAndRearButtonsUseTheirExactSavedEdgeMappings() async throws {
+		let buttons: [ControllerButton] = [.leftFunction, .rightFunction, .leftPaddle, .rightPaddle, .xbox, .micMute]
+		profileManager.setActiveProfile(Profile(name: "Deck buttons", buttonMappings:
+			Dictionary(uniqueKeysWithValues: buttons.enumerated().map { ($0.element, KeyMapping(keyCode: UInt16($0.offset))) })))
+		let input = SteamDeckInput(controller: controllerService, observe: false)
+		defer { input.stop() }
+		var frame = SteamDeckFrame.released
+		frame.active = true; frame.session = UUID(); frame.sequence = 1
+		input.receive(String(decoding: try JSONEncoder().encode(frame), as: UTF8.self))
+		await waitForTasks()
+		for (index, button) in buttons.enumerated() {
+			mockInputSimulator.clearEvents()
+			frame.sequence! += 1; frame.buttons = [button.rawValue]
+			input.receive(String(decoding: try JSONEncoder().encode(frame), as: UTF8.self))
+			frame.sequence! += 1; frame.buttons = []
+			input.receive(String(decoding: try JSONEncoder().encode(frame), as: UTF8.self))
+			await waitForTasks(0.2)
+			let pressed = mockInputSimulator.events.compactMap { event -> UInt16? in
+				if case .pressKey(let code, _) = event { return code }; return nil
+			}
+			XCTAssertEqual(pressed, [UInt16(index)], "Unexpected mapping for \(button)")
+		}
+	}
 	func testFilteredDeckFineMouseMotionUsesProfileDeadzoneButPhysicalSteamKeepsNoiseFloor() async throws {
 		var settings = JoystickSettings()
 		settings.touchpadDeadzone = 0.0013

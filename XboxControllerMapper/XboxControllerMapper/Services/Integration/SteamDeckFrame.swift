@@ -25,6 +25,7 @@ struct SteamDeckFrame: Codable, Equatable {
 		"a", "b", "x", "y", "leftBumper", "rightBumper", "menu", "view", "xbox",
 		"leftThumbstick", "rightThumbstick", "dpadUp", "dpadDown", "dpadLeft", "dpadRight",
 		"xboxPaddle1", "xboxPaddle2", "xboxPaddle3", "xboxPaddle4",
+		"leftFunction", "rightFunction", "leftPaddle", "rightPaddle", "micMute",
 	]
 	var isNeutral: Bool {
 		buttons.isEmpty && axes.allSatisfy { abs($0) < 0.15 } &&
