@@ -104,41 +104,6 @@ private struct CompactActionBadge: Identifiable {
     var id: String { label }
 }
 
-struct ConnectorEndpoint {
-    let button: ControllerButton
-    let role: ConnectorRole
-    let anchor: Anchor<CGRect>
-}
-
-struct ControllerButtonAnchorPreferenceKey: PreferenceKey {
-    static var defaultValue: [ConnectorEndpoint] = []
-    static func reduce(value: inout [ConnectorEndpoint], nextValue: () -> [ConnectorEndpoint]) {
-        value.append(contentsOf: nextValue())
-    }
-}
-
-extension View {
-    /// Reports this view's bounds as a connector endpoint for the given button.
-    /// Used to draw connector lines between controller-side mini buttons and their action labels.
-    func controllerAnchor(_ button: ControllerButton, role: ConnectorRole) -> some View {
-        controllerAnchor([button], role: role)
-    }
-
-    /// Reports this view's bounds as a connector endpoint for each of the given buttons.
-    /// Used when multiple actions visually share a single controller element (e.g. all
-    /// touchpad gestures originate from the same touchpad rect). Stacking individual
-    /// `.controllerAnchor(...)` modifiers does NOT reliably propagate every endpoint
-    /// — emitting them all from one `anchorPreference` call does.
-    func controllerAnchor(_ buttons: [ControllerButton], role: ConnectorRole) -> some View {
-        anchorPreference(
-            key: ControllerButtonAnchorPreferenceKey.self,
-            value: .bounds
-        ) { anchor in
-            buttons.map { ConnectorEndpoint(button: $0, role: role, anchor: anchor) }
-        }
-    }
-}
-
 /// Interactive visual representation of a controller with a professional Reference Page layout
 /// Automatically adapts to show Xbox or DualSense layouts based on connected controller
 struct ControllerVisualView: View, ControllerTypeProviding {
@@ -1247,7 +1212,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         )
         .opacity(isBaseFallthrough(for: button) ? 0.4 : 1.0)
         .contentShape(Rectangle())
-        .controllerAnchor(button, role: .label)
+		.controllerAnchor(button, role: .label, attachment: isXiaomiRemote ? .horizontalEdge : .bounds)
 		.opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)
 		.accessibilityElement(children: .combine)
 			.accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forEightBitDo: eightBitDoModel != nil))
@@ -1568,7 +1533,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
             // Anchor only the glass container so connectors terminate at the box edge,
             // independent of which side of the controller the row sits on. Anchoring
             // the parent HStack would have right-column rows resolve to the icon edge.
-            .controllerAnchor(button, role: .label)
+			.controllerAnchor(button, role: .label, attachment: isXiaomiRemote ? .horizontalEdge : .bounds)
         }
         .contentShape(Rectangle())
         .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)  // Dim all layer activators when viewing any layer
@@ -1747,8 +1712,8 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 /// and its corresponding action label. The connector for the hovered button is drawn
 /// brighter and slightly thicker; all others remain faint.
 ///
-/// The layer is placed via `.backgroundPreferenceValue` so connector strokes are masked
-/// behind the controller body and the label glass containers — visible only in the gap.
+/// The preference overlay connects visible controller edges to label edges.
+/// Explicit ports let round buttons and curved sectors avoid bounding-box gaps.
 struct ConnectorLayer: View {
     let endpoints: [ConnectorEndpoint]
     let proxy: GeometryProxy
@@ -1758,23 +1723,23 @@ struct ConnectorLayer: View {
 
     private struct Pair {
         let button: ControllerButton
-        let controllerAnchor: Anchor<CGRect>
-        let labelAnchor: Anchor<CGRect>
+		let controller: ConnectorEndpoint
+		let label: ConnectorEndpoint
     }
 
     private var pairs: [Pair] {
-        var byButton: [ControllerButton: (controller: Anchor<CGRect>?, label: Anchor<CGRect>?)] = [:]
+		var byButton: [ControllerButton: (controller: ConnectorEndpoint?, label: ConnectorEndpoint?)] = [:]
         for endpoint in endpoints {
             var entry = byButton[endpoint.button] ?? (controller: nil, label: nil)
             switch endpoint.role {
-            case .controller: entry.controller = endpoint.anchor
-            case .label: entry.label = endpoint.anchor
+			case .controller: entry.controller = endpoint
+			case .label: entry.label = endpoint
             }
             byButton[endpoint.button] = entry
         }
         return byButton.compactMap { (button, entry) in
             guard let c = entry.controller, let l = entry.label else { return nil }
-            return Pair(button: button, controllerAnchor: c, labelAnchor: l)
+			return Pair(button: button, controller: c, label: l)
         }
     }
 
@@ -1783,16 +1748,18 @@ struct ConnectorLayer: View {
             ForEach(pairs, id: \.button) { pair in
                 let isHovered = pair.button == hoveredButton
                 let isEmphasized = emphasizedButtons.contains(pair.button)
-                let rawControllerRect = proxy[pair.controllerAnchor]
-                let labelRect = proxy[pair.labelAnchor]
+				let rawControllerRect = proxy[pair.controller.anchor]
+				let labelRect = proxy[pair.label.anchor]
                 // For touchpad quadrant buttons, slice the whole-pad anchor
                 // rect down to the corresponding quarter so the connector
                 // terminates at the quadrant edge, not the pad center.
                 let controllerRect = Self.quadrantRect(of: rawControllerRect, for: pair.button)
                 let labelCenter = CGPoint(x: labelRect.midX, y: labelRect.midY)
                 let controllerCenter = CGPoint(x: controllerRect.midX, y: controllerRect.midY)
-				let start = controllerEdgePoint(of: controllerRect, button: pair.button, towards: labelCenter)
-                let end = rectEdgePoint(of: labelRect, towards: controllerCenter)
+				let start = pair.controller.attachment.point(in: controllerRect, towards: labelCenter)
+					?? controllerEdgePoint(of: controllerRect, button: pair.button, towards: labelCenter)
+				let end = pair.label.attachment.point(in: labelRect, towards: controllerCenter)
+					?? rectEdgePoint(of: labelRect, towards: controllerCenter)
 
                 ConnectorPath(start: start, end: end)
                     .stroke(

@@ -20,5 +20,12 @@ of the measured 145/570 photo aspect. The final vector cleans the trace's
 over-smoothed top-left segment into straight sides with circular 2 px corners
 measured at the reference width; corner height does not stretch with body height.
 
+Connector ports follow the visible controls: four cardinal points on the ring's
+outer rim, and the facing horizontal midpoint of each circular key. Using sector
+or circle bounding-box edges leaves gaps or points at the wrong part of the ring.
+Label ports meet the facing glass edge at its midpoint. Regression checks cover
+all four directions at multiple canvas scales; other layouts retain their
+existing connector projection.
+
 The photo is retained as a geometry/reference source; the product imagery
 and Xiaomi marks belong to their respective owners.

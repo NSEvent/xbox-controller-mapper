@@ -14,6 +14,24 @@ enum XiaomiRemoteMinimapLayout {
 	static let centerRadius: CGFloat = bodyWidth * 31 / 145
 	static let keyDiameter: CGFloat = bodyWidth * 47 / 145
 	static let topKeyDiameter: CGFloat = bodyWidth * 32 / 145
+
+	static func arrowGeometry(for button: ControllerButton) -> S29ArcKeyGeometry {
+		let angle: Double
+		switch button {
+		case .dpadUp: angle = -90
+		case .dpadDown: angle = 90
+		case .dpadLeft: angle = 180
+		default: angle = 0
+		}
+		return S29ArcKeyGeometry(innerRadius: centerRadius + 2,
+			outerRadius: ringRadius - 1, centerAngle: angle, span: 86)
+	}
+
+	static func arrowAttachment(for button: ControllerButton) -> ConnectorAttachment {
+		let geometry = arrowGeometry(for: button)
+		let point = geometry.localPoint(radius: ringRadius)
+		return .point(UnitPoint(x: point.x / geometry.bounds.width, y: point.y / geometry.bounds.height))
+	}
 	static let keyCenters: [ControllerButton: CGPoint] = [
 		.xiaomiPower: CGPoint(x: 0.241, y: 0.067),
 		.xiaomiMicrophone: CGPoint(x: 0.759, y: 0.067),
@@ -56,10 +74,10 @@ struct XiaomiRemoteMinimapView: View {
 					.overlay(Circle().stroke(Color.black.opacity(0.8), lineWidth: 1))
 					.frame(width: Layout.ringRadius * 2, height: Layout.ringRadius * 2)
 					.position(point(Layout.ringCenter))
-				arrow(.dpadUp, angle: -90)
-				arrow(.dpadRight, angle: 0)
-				arrow(.dpadDown, angle: 90)
-				arrow(.dpadLeft, angle: 180)
+				arrow(.dpadUp)
+				arrow(.dpadRight)
+				arrow(.dpadDown)
+				arrow(.dpadLeft)
 
 				// Physical center has no printed Play/Pause or OK glyph.
 				key(.xiaomiOK, diameter: Layout.centerRadius * 2, showGlyph: false)
@@ -123,9 +141,8 @@ struct XiaomiRemoteMinimapView: View {
 		.animation(.spring(response: 0.20, dampingFraction: 0.72), value: pressed)
 	}
 
-	private func arrow(_ button: ControllerButton, angle: Double) -> some View {
-		let geometry = S29ArcKeyGeometry(innerRadius: Layout.centerRadius + 2,
-			outerRadius: Layout.ringRadius - 1, centerAngle: angle, span: 86)
+	private func arrow(_ button: ControllerButton) -> some View {
+		let geometry = Layout.arrowGeometry(for: button)
 		let shape = S29ArcKeyShape(geometry: geometry, cornerInset: 1)
 		let center = point(Layout.ringCenter)
 		return ZStack {
@@ -136,7 +153,7 @@ struct XiaomiRemoteMinimapView: View {
 				.position(geometry.localPoint(radius: Layout.ringRadius - 5))
 		}
 		.frame(width: geometry.bounds.width, height: geometry.bounds.height)
-		.modifier(XiaomiRemoteTarget(button: button, shape: shape, swapSource: swapSourceButton,
+		.modifier(XiaomiRemoteTarget(button: button, shape: shape, attachment: Layout.arrowAttachment(for: button), swapSource: swapSourceButton,
 			onTap: onButtonTap, onHover: onButtonHover, onSwap: onSwapRequest))
 		.position(x: center.x + geometry.bounds.midX, y: center.y + geometry.bounds.midY)
 	}
@@ -145,13 +162,14 @@ struct XiaomiRemoteMinimapView: View {
 private struct XiaomiRemoteTarget<KeyShape: Shape>: ViewModifier {
 	let button: ControllerButton
 	let shape: KeyShape
+	var attachment: ConnectorAttachment = .circle
 	let swapSource: ControllerButton?
 	let onTap: (ControllerButton) -> Void
 	let onHover: (ControllerButton, Bool) -> Void
 	let onSwap: ((ControllerButton, ControllerButton) -> Void)?
 	func body(content: Content) -> some View {
 		content.overlay(shape.stroke(Color.orange, lineWidth: 2).opacity(swapSource == button ? 1 : 0))
-			.contentShape(shape).controllerAnchor(button, role: .controller)
+			.contentShape(shape).controllerAnchor(button, role: .controller, attachment: attachment)
 			.onTapGesture { onTap(button) }.onHover { onHover(button, $0) }
 			.swappable(button, onSwap: onSwap).help(button.displayName)
 	}
