@@ -634,7 +634,7 @@ struct ButtonMappingsTab: View {
 		}
 
 		selectedButton = physicalButton
-		configuringButton = button
+		configuringButton = physicalButton
 	}
 
 	private func remoteBindingButton(for button: ControllerButton) -> ControllerButton {

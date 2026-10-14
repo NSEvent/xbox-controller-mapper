@@ -108,9 +108,17 @@ The temporary exclusion was restored byte-for-byte after both sessions.
 
 `XiaomiRemoteInputService` matches only this BLE identity, attempts exclusive
 ownership then shared access, and follows mapping enablement and Input Monitoring.
-Shared mode correlates native keyboard/media events to captured report timestamps
-so mapped output can replace native actions without swallowing unrelated keyboards.
-Disconnect/stop releases held buttons and tears down callbacks and the event tap.
+Shared mode leases the exact RC003 keyboard service's `UserKeyMapping`, mapping
+all 13 keyboard usages to Keyboard Undefined before native translation. Raw
+reports still feed ControllerKeys. Disconnect/stop releases held buttons, tears
+down callbacks and restores the prior key map. A local recovery journal handles
+app crashes; restoration preserves changes another remapper made meanwhile.
+Other keyboards are never matched or changed. This uses Apple's public HID key
+mapping API documented in [TN2450](https://developer.apple.com/library/archive/technotes/tn2450/_index.html).
+
+The initial timestamp-correlated CGEvent suppression failed the live test:
+Kevin observed native arrow and Return actions on 2026-10-14. Device-service
+suppression replaces that implementation; no global keycode filtering remains.
 The decoder reads all three slots, ignores vendor reports, rejects malformed and
 rollover snapshots, and emits only changed press/release edges.
 
@@ -155,8 +163,8 @@ configuration itself. Kevin's local setup now retains that device-specific
 exclusion, separate from the earlier temporary probe exclusions.
 
 Automated coverage includes raw fixtures, all 13 saved mappings, held-state
-cleanup, native-event correlation (including queued press/release and keyboard
-repeat ownership), identity restoration, capability availability and geometry.
+cleanup, native key-map restoration (including crash recovery and another
+remapper's edits), identity restoration, capability availability and geometry.
 Tests run on kmacstudio; the signed Release build is installed on the MacBook
 and recognizes the connected remote. Live suppression of native actions still
 needs a physical check. Voice audio, reports 6–8 and additional combinations

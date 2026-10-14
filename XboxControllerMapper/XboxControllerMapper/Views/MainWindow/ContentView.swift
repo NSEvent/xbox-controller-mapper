@@ -261,7 +261,7 @@ struct ContentView: View {
         // trigger binding stuck "set" (e.g. the Settings button stops opening
         // Settings until something resets the flag). See `isolatedSheet`.
         .isolatedSheet(item: $configuringButton) { button in
-			let isRemote = controllerVisualDescriptor.isXiaomiRemote || controllerVisualDescriptor.isAppleTVRemote
+			let isRemote = button.isXiaomiRemoteOnly || controllerVisualDescriptor.isXiaomiRemote || controllerVisualDescriptor.isAppleTVRemote
 			let bindingButton = isRemote ? RemoteButtonEquivalence.bindingButton(for: button,
 				profile: profileManager.activeProfile, layerId: selectedLayerId) : button
 			let physicalButton = selectedButton.flatMap {

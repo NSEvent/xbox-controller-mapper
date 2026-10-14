@@ -13,7 +13,7 @@ The app supports controller families through different input backends, all norma
 | Xbox (One/Series/360) | GameController framework | Automatic via `GCController` |
 | DualSense (PS5) | GameController framework + IOKit HID (for mic/LEDs/touchpad) | Automatic via `GCController` |
 | Third-party (8BitDo, Logitech, etc.) | IOKit HID + SDL gamecontrollerdb | 1-second fallback if GameController doesn't claim |
-| Xiaomi Remote 2 Pro (RC003) | Exact-device IOKit keyboard snapshots; exclusive open with timestamp-scoped native-event suppression for shared mode | BLE VID/PID `0x2717:0x32B8`; 13 verified buttons |
+| Xiaomi Remote 2 Pro (RC003) | Exact-device IOKit keyboard snapshots; exclusive open with a per-device native key translation block for shared mode | BLE VID/PID `0x2717:0x32B8`; 13 verified buttons |
 
 All controller types feed into the same `MappingEngine` which handles button→action mapping, chords, long hold, double tap, macros, and system commands.
 
@@ -250,7 +250,8 @@ Invariants the store integration maintains:
 | `HIDControllerDriverDescriptor` | Services/Controller/HIDControllerDriverDescriptor.swift | Testable raw-HID matching criteria for specialized controller backends |
 | `S29RingInputService` | Services/S29Ring/S29RingInputService.swift | S29 button ring: identity-checked exclusive (seized) HID session on a dedicated run-loop thread; follows the mapping on/off switch |
 | `S29RingReportDecoder` | Services/S29Ring/S29RingReportDecoder.swift | Pure S29 report decoder (reports + timestamps in, logical press/release out): swipes, hold pulses, volume-down disambiguation, stroke bursts |
-| `XiaomiRemoteInputService` | Services/XiaomiRemote/XiaomiRemoteInputService.swift | RC003 lifecycle, mapping/TCC gating, native-event correlation, disconnect release; feeds the normal mapping engine |
+| `XiaomiRemoteInputService` | Services/XiaomiRemote/XiaomiRemoteInputService.swift | RC003 lifecycle, mapping/TCC gating and disconnect release; feeds the normal mapping engine |
+| `XiaomiRemoteNativeKeyMap` | Services/XiaomiRemote/XiaomiRemoteNativeKeyMap.swift | RC003-only native translation suppression; prior-map restoration, third-party-change preservation and crash recovery |
 | `XiaomiRemoteReportDecoder` | Services/XiaomiRemote/XiaomiRemoteReportDecoder.swift | Pure report-1 snapshot decoder; fixture-verified 13 buttons, no invented Play/Pause |
 | `OnScreenKeyboardManager` | Services/OnScreenKeyboardManager.swift | Floating keyboard overlay window |
 | `CommandWheelManager` | Services/CommandWheelManager.swift | Radial menu for app/website switching |

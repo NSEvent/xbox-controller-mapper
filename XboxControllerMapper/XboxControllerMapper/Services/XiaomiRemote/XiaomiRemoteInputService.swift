@@ -4,7 +4,7 @@ import Foundation
 import IOKit.hid
 
 /// Exact-device HID lifecycle on the main run loop, following mapping and TCC.
-/// Uses exclusive ownership where permitted, timestamp-scoped native-event
+/// Uses exclusive ownership where permitted, device-scoped native key
 /// suppression otherwise. Never modifies another app's configuration.
 @MainActor
 final class XiaomiRemoteInputService {
@@ -20,18 +20,11 @@ final class XiaomiRemoteInputService {
 	private var context: UnsafeMutableRawPointer?
 	private var retryTimer: Timer?
 	private var decoder = XiaomiRemoteReportDecoder()
-	private var suppression = XiaomiRemoteNativeEventPolicy()
-	private var tap: CFMachPort?
-	private var tapSource: CFRunLoopSource?
-	private var timestampScale: Double = 1e-9
+	private var nativeKeyMap: XiaomiRemoteNativeKeyMap?
 
 	init(controller: ControllerService, hardwareEnabled: Bool = true) {
 		self.controller = controller
 		self.hardwareEnabled = hardwareEnabled && !AppRuntime.isRunningTests
-		var timebase = mach_timebase_info_data_t()
-		if mach_timebase_info(&timebase) == KERN_SUCCESS, timebase.denom != 0 {
-			timestampScale *= Double(timebase.numer) / Double(timebase.denom)
-		}
 	}
 
 	func bindMappingEnabled<P: Publisher>(_ publisher: P) where P.Output == Bool, P.Failure == Never {
@@ -107,9 +100,17 @@ final class XiaomiRemoteInputService {
 		IOHIDDeviceRegisterInputReportWithTimeStampCallback(candidate, buffer!, bufferSize, xiaomiRemoteReport, context)
 		IOHIDDeviceScheduleWithRunLoop(candidate, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
 		decoder = XiaomiRemoteReportDecoder()
-		suppression = XiaomiRemoteNativeEventPolicy()
+
 		controller.xiaomiRemoteInputIssue = nil
-		if openOptions != exclusive { startSuppression() }
+		if openOptions != exclusive {
+			let map = XiaomiRemoteNativeKeyMap()
+			guard map.acquire() else {
+				closeDevice()
+				controller.xiaomiRemoteInputIssue = "Could not disable the Xiaomi remote’s native keys. Reconnect the remote to retry."
+				return
+			}
+			nativeKeyMap = map
+		}
 		controller.setXiaomiRemoteConnected(true, identity: ControllerIdentityResolver.identity(for: candidate, fallbackName: XiaomiRemoteIdentity.displayName))
 		NSLog("[ControllerKeys] Xiaomi RC003 connected (%@)", openOptions == exclusive ? "exclusive" : "shared")
 	}
@@ -121,7 +122,8 @@ final class XiaomiRemoteInputService {
 	}
 
 	private func closeDevice() {
-		stopSuppression()
+		nativeKeyMap?.release()
+		nativeKeyMap = nil
 		if let device, let buffer {
 			IOHIDDeviceRegisterInputReportWithTimeStampCallback(device, buffer, bufferSize, nil, nil)
 			IOHIDDeviceUnscheduleFromRunLoop(device, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
@@ -132,15 +134,13 @@ final class XiaomiRemoteInputService {
 		let wasConnected = device != nil
 		device = nil
 		deliver(decoder.reset())
-		suppression = XiaomiRemoteNativeEventPolicy()
+
 		if wasConnected { controller.setXiaomiRemoteConnected(false) }
 	}
 
 	fileprivate func report(_ bytes: [UInt8], reportID: UInt32, timestamp: UInt64) {
 		guard device != nil else { return }
 		let events = decoder.process(report: bytes, reportID: reportID)
-		let held = Set(decoder.heldUsages.compactMap { XiaomiRemoteReportDecoder.buttonsByUsage[$0] })
-		suppression.record(events, heldButtons: held, at: Double(timestamp) * timestampScale)
 		deliver(events)
 	}
 
@@ -152,52 +152,6 @@ final class XiaomiRemoteInputService {
 		}
 	}
 
-	private func startSuppression() {
-		guard tap == nil, let context else { return }
-		let mask = CGEventMask((1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue) | (1 << 14))
-		guard let tap = CGEvent.tapCreate(tap: .cghidEventTap, place: .headInsertEventTap,
-			options: .defaultTap, eventsOfInterest: mask, callback: xiaomiRemoteNativeEvent, userInfo: context) else {
-			controller.xiaomiRemoteInputIssue = "Allow ControllerKeys in Accessibility to prevent duplicate native remote actions."
-			return
-		}
-		self.tap = tap
-		tapSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-		if let tapSource { CFRunLoopAddSource(CFRunLoopGetMain(), tapSource, .commonModes) }
-		CGEvent.tapEnable(tap: tap, enable: true)
-	}
-
-	private func stopSuppression() {
-		if let tap { CGEvent.tapEnable(tap: tap, enable: false); CFMachPortInvalidate(tap) }
-		if let tapSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), tapSource, .commonModes) }
-		tap = nil
-		tapSource = nil
-	}
-
-	fileprivate func nativeEvent(_ event: CGEvent, type: CGEventType) -> Bool {
-		if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-			if let tap, device != nil, enabled { CGEvent.tapEnable(tap: tap, enable: true) }
-			return false
-		}
-		let control: XiaomiRemoteNativeEventPolicy.Control
-		let pressed: Bool
-		let repeated: Bool
-		if type == .keyDown || type == .keyUp {
-			control = .key(event.getIntegerValueField(.keyboardEventKeycode))
-			pressed = type == .keyDown
-			repeated = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
-		} else if type.rawValue == 14, let ns = NSEvent(cgEvent: event) {
-			if ns.subtype.rawValue == 1 { control = .media(6); pressed = true; repeated = false }
-			else if ns.subtype.rawValue == 8 {
-				control = .media((ns.data1 >> 16) & 0xFFFF)
-				pressed = ((ns.data1 >> 8) & 0xFF) == 0x0A
-				repeated = (ns.data1 & 1) != 0
-			} else { return false }
-		} else { return false }
-		return suppression.shouldSuppress(control, pressed: pressed, at: Double(event.timestamp) * 1e-9,
-			keyboardType: event.getIntegerValueField(.keyboardEventKeyboardType), isRepeat: repeated,
-			sourcePID: event.getIntegerValueField(.eventSourceUnixProcessID),
-			synthetic: event.getIntegerValueField(.eventSourceUserData) == Config.controllerKeysSyntheticMediaEventUserData)
-	}
 }
 
 nonisolated private final class XiaomiRemoteCallbackBox {
@@ -219,8 +173,4 @@ private nonisolated func xiaomiRemoteReport(_ context: UnsafeMutableRawPointer?,
 	guard result == kIOReturnSuccess else { return }
 	let bytes = Array(UnsafeBufferPointer(start: report, count: count))
 	MainActor.assumeIsolated { xiaomiService(context)?.report(bytes, reportID: id, timestamp: timestamp) }
-}
-private nonisolated func xiaomiRemoteNativeEvent(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event: CGEvent, _ context: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
-	let suppress = MainActor.assumeIsolated { xiaomiService(context)?.nativeEvent(event, type: type) ?? false }
-	return suppress ? nil : Unmanaged.passUnretained(event)
 }

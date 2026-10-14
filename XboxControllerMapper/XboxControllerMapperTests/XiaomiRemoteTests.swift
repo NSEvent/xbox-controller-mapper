@@ -73,48 +73,6 @@ final class XiaomiRemoteDecoderTests: XCTestCase {
 	}
 }
 
-final class XiaomiRemoteSuppressionTests: XCTestCase {
-	func testQueuedReleaseDoesNotOverwriteThePendingNativePress() {
-		var policy = XiaomiRemoteNativeEventPolicy()
-		policy.record([.init(button: .xiaomiOK, pressed: true)], heldButtons: [.xiaomiOK], at: 1)
-		policy.record([.init(button: .xiaomiOK, pressed: false)], heldButtons: [], at: 1.2)
-		XCTAssertTrue(policy.shouldSuppress(.key(36), pressed: true, at: 1))
-		XCTAssertTrue(policy.shouldSuppress(.key(36), pressed: false, at: 1.2))
-		XCTAssertFalse(policy.shouldSuppress(.key(36), pressed: true, at: 1.3, isRepeat: true))
-	}
-	func testOnlyTimestampCorrelatedNativeEdgesAreConsumed() {
-		var policy = XiaomiRemoteNativeEventPolicy()
-		policy.record([.init(button: .xiaomiOK, pressed: true)], heldButtons: [.xiaomiOK], at: 10)
-		XCTAssertFalse(policy.shouldSuppress(.key(36), pressed: true, at: 10, sourcePID: 42))
-		XCTAssertFalse(policy.shouldSuppress(.key(36), pressed: true, at: 10, synthetic: true))
-		XCTAssertFalse(policy.shouldSuppress(.key(37), pressed: true, at: 10))
-		XCTAssertFalse(policy.shouldSuppress(.key(36), pressed: false, at: 10))
-		XCTAssertTrue(policy.shouldSuppress(.key(36), pressed: true, at: 10.001, keyboardType: 7))
-		XCTAssertFalse(policy.shouldSuppress(.key(36), pressed: true, at: 10.001, keyboardType: 7), "one remote edge cannot swallow two physical presses")
-	}
-
-	func testHeldRepeatsReleaseAndAnotherKeyboardCannotRetainOwnership() {
-		var policy = XiaomiRemoteNativeEventPolicy()
-		policy.record([.init(button: .dpadUp, pressed: true)], heldButtons: [.dpadUp], at: 20)
-		XCTAssertTrue(policy.shouldSuppress(.key(126), pressed: true, at: 20, keyboardType: 7))
-		XCTAssertTrue(policy.shouldSuppress(.key(126), pressed: true, at: 21, keyboardType: 7, isRepeat: true))
-		XCTAssertFalse(policy.shouldSuppress(.key(126), pressed: true, at: 21, keyboardType: 44, isRepeat: true))
-		XCTAssertFalse(policy.shouldSuppress(.key(126), pressed: true, at: 21.1, keyboardType: 44))
-		XCTAssertFalse(policy.shouldSuppress(.key(126), pressed: true, at: 21.2, keyboardType: 7, isRepeat: true))
-		policy.record([.init(button: .dpadUp, pressed: false)], heldButtons: [], at: 22)
-		XCTAssertTrue(policy.shouldSuppress(.key(126), pressed: false, at: 22))
-		XCTAssertFalse(policy.shouldSuppress(.key(126), pressed: true, at: 22.1, isRepeat: true))
-	}
-
-	func testUnrelatedVolumeAndStaleEventsPassThrough() {
-		var policy = XiaomiRemoteNativeEventPolicy()
-		policy.record([.init(button: .xiaomiVolumeUp, pressed: true)], heldButtons: [.xiaomiVolumeUp], at: 30)
-		XCTAssertFalse(policy.shouldSuppress(.media(1), pressed: true, at: 30))
-		XCTAssertFalse(policy.shouldSuppress(.media(0), pressed: true, at: 30.01))
-		XCTAssertTrue(policy.shouldSuppress(.media(0), pressed: true, at: 30.002))
-	}
-}
-
 @MainActor
 final class XiaomiRemotePresentationTests: XCTestCase {
 	func testDedicatedCanvasHasExactlyHardwareButtonsAndNoGamepadCapabilities() {
