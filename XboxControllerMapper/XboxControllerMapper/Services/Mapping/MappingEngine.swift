@@ -1158,6 +1158,10 @@ class MappingEngine: ObservableObject {
                     return
                 }
 
+				if consumePendingDoubleTapOnPress(button, mapping: context.mapping, profile: profile) {
+					return
+				}
+
                 if let longHold = context.mapping.longHoldMapping, !longHold.isEmpty {
                     setupLongHoldTimer(for: button, mapping: longHold)
                 }
@@ -1658,9 +1662,10 @@ class MappingEngine: ObservableObject {
         lastTap: CFAbsoluteTime?,
         doubleTapMapping: DoubleTapMapping,
         skipSingleTap: Bool = false,
-        profile: Profile? = nil
+		profile: Profile? = nil,
+		tapTime: CFAbsoluteTime? = nil
     ) -> Bool {
-        let now = CFAbsoluteTimeGetCurrent()
+		let now = tapTime ?? CFAbsoluteTimeGetCurrent()
 
         if let lastTap = lastTap,
            now - lastTap <= doubleTapMapping.threshold {
@@ -1687,6 +1692,9 @@ class MappingEngine: ObservableObject {
 
             let workItem = DispatchWorkItem { [weak self] in
                 guard let self = self else { return }
+				// A cancelled fallback must never clear a later tap's state or
+				// emit its action if it was already queued when cancelled.
+				guard self.state.lock.withLock({ self.state.lastTapTime[button] == now }) else { return }
                 self.clearTapState(for: button)
 
                 let profile = self.state.lock.withLock { self.state.activeProfile }
