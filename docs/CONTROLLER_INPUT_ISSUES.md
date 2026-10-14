@@ -18,7 +18,8 @@ and preserving keyboard navigation when no remote session was active.
 Apple's native Universal Control can run alongside ControllerKeys' independent
 relay. In the M5 investigation, its system log retained the remote keyboard
 target while returning only pointing input; a later local trackpad click returned
-keyboard focus. ControllerKeys does not intercept physical keyboard key events.
+keyboard focus. ControllerKeys adds held controller modifiers to local keyboard
+events, but does not route physical keyboard input between Macs.
 This can make the physical keyboard appear disabled locally even when the
 ControllerKeys pointer is back. The exact reported typing failure was not
 independently reproduced.

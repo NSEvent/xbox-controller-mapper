@@ -1049,10 +1049,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         let warpSource = CGEventSource(stateID: .combinedSessionState)
         warpSource?.localEventsSuppressionInterval = 0.0
         warpEventSource = warpSource
-		heldModifierPointerEventBridge = HeldModifierPointerEventBridge { [weak self] in
+		heldModifierPointerEventBridge = HeldModifierPointerEventBridge(heldModifiers: { [weak self] in
 			guard let self, !self.shouldRelayUniversalControlAction() else { return [] }
 			return self.getHeldModifiers()
-		}
+		})
 
         // Check accessibility once on init
         isAccessibilityTrusted = AXIsProcessTrusted()
