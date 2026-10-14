@@ -16,6 +16,10 @@ extension ControllerService {
     /// half-pulled, the left stick deflected, a finger resting on the
     /// touch surfaces.
     func applyScreenshotDemoPose() {
+		if isXiaomiRemoteActiveInputSource {
+			activeButtons = [.xiaomiOK]
+			return
+		}
         activeButtons = [.a]
         displayLeftStick = CGPoint(x: 0.55, y: 0.35)
         displayRightTrigger = 0.65

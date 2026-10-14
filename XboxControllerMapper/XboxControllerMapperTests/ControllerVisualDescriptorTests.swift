@@ -17,6 +17,7 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 			.eightBitDoLiteSE: .eightBitDo(.liteSE),
 			.eightBitDoUltimate2: .eightBitDoUltimate2,
 			.appleTVRemote: .appleTVRemote,
+			.xiaomiRemote: .xiaomiRemote,
 			.ouraRing: .ouraRing,
 			.s29Ring: .s29Ring,
 			.beamdeskHands: .beamdeskHands,

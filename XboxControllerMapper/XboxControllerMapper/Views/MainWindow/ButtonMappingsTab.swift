@@ -182,6 +182,13 @@ struct ButtonMappingsTab: View {
 					}
 
 					if let physicalCapture { PhysicalInputCaptureBar(session: physicalCapture) }
+					if let issue = controllerService.xiaomiRemoteInputIssue {
+						HStack(spacing: 8) {
+							Image(systemName: "exclamationmark.circle").foregroundStyle(.orange)
+							Text(issue).font(.callout).fixedSize(horizontal: false, vertical: true)
+						}
+						.padding(.horizontal, 16).padding(.vertical, 6)
+					}
 
 					if let runtimeLayerId = mappingEngine.activeRuntimeLayerId,
 					   let runtimeLayer = profileManager.activeProfile?.layers.first(where: { $0.id == runtimeLayerId }) {
@@ -544,6 +551,7 @@ struct ButtonMappingsTab: View {
 		if controllerService.isS29RingConnected {
 			layouts.insert(.s29Ring)
 		}
+		if controllerService.isXiaomiRemoteConnected { layouts.insert(.xiaomiRemote) }
 
 		return layouts
 	}
@@ -611,6 +619,8 @@ struct ButtonMappingsTab: View {
     // MARK: - Swap Mode
 
 	private func handleButtonTap(_ button: ControllerButton) {
+		let physicalButton = button
+		let button = remoteBindingButton(for: button)
 		if isSwapMode {
 			handleSwapButtonTap(button)
 			return
@@ -623,8 +633,14 @@ struct ButtonMappingsTab: View {
 			return
 		}
 
-		selectedButton = button
+		selectedButton = physicalButton
 		configuringButton = button
+	}
+
+	private func remoteBindingButton(for button: ControllerButton) -> ControllerButton {
+		let descriptor = ControllerVisualDescriptor.resolved(previewLayout: controllerPreviewLayout, using: controllerService)
+		guard descriptor.isXiaomiRemote || descriptor.isAppleTVRemote else { return button }
+		return RemoteButtonEquivalence.bindingButton(for: button, profile: profileManager.activeProfile, layerId: selectedLayerId)
 	}
 
 	private func layerToOpen(for button: ControllerButton) -> Layer? {

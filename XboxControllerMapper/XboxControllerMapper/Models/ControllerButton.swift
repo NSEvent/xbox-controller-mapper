@@ -147,6 +147,11 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     case s29Camera                // Camera button (tap, double-tap, or hold)
     case s29Home                  // Home button (tap or hold)
 
+    // Xiaomi RC003 remote. Directions share the d-pad; other keys retain
+    // distinct identities so existing gamepad/Siri profiles are unchanged.
+    case xiaomiOK, xiaomiBack, xiaomiHome, xiaomiMenu
+    case xiaomiVolumeUp, xiaomiVolumeDown, xiaomiTV, xiaomiMicrophone, xiaomiPower
+
     var id: String { rawValue }
 
 }

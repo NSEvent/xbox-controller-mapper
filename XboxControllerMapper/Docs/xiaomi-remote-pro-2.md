@@ -104,17 +104,60 @@ interface and allowed capture. Restore this probe-only exclusion afterward.
 Both manager-level and direct-device exclusive opens returned NotPrivileged.
 The temporary exclusion was restored byte-for-byte after both sessions.
 
-## Driver work remaining
+## ControllerKeys implementation (2026-10-14)
 
-1. Use the 13 captured mappings; give this remote its own button availability
-   (especially TV and microphone, with no invented Play/Pause or touch surface).
-2. Release held buttons on stop/disconnect; do not promise hardware chords
-   from the descriptor alone. Additional combinations remain untested.
-3. Determine vendor-report semantics without treating vendor bytes as keys.
-4. Implement a pure snapshot decoder, scoped HID service, controller identity,
-   availability/presentation, and regression fixtures using captured reports.
-5. Resolve native-input suppression and Karabiner coexistence before claiming
-   remapping support. Reuse the S29 service lifecycle patterns (mapping toggle,
-   permission gating, callback teardown, held-button release).
-6. Run ControllerKeys tests on kmacstudio; build/install on the MacBook for
-   final hardware verification. No production support has been added yet.
+`XiaomiRemoteInputService` matches only this BLE identity, attempts exclusive
+ownership then shared access, and follows mapping enablement and Input Monitoring.
+Shared mode correlates native keyboard/media events to captured report timestamps
+so mapped output can replace native actions without swallowing unrelated keyboards.
+Disconnect/stop releases held buttons and tears down callbacks and the event tap.
+The decoder reads all three slots, ignores vendor reports, rejects malformed and
+rollover snapshots, and emits only changed press/release edges.
+
+The family exposes all 13 controls through the regular mapping pipeline, with
+dedicated OK, Back, Home, Menu, Volume, TV, Microphone and Power identities. The
+photo-measured SwiftUI minimap and button badges reproduce the physical layout;
+see `docs/internal/controller-references/README.md` for photo provenance. Its
+cleaned silhouette uses straight sides and tiny circular corners, avoiding the
+initial trace's stretched top-left curve.
+
+### Sharing Apple TV Remote profiles
+
+Missing bindings inherit their paired remote's existing binding in either
+direction. Explicit per-remote bindings (including cleared mappings) win.
+Layers, alternate actions, sequences and logical chords use the same resolution;
+the physical press's resolved identity is latched through its release. No profile
+copy or schema migration is needed. Xiaomi rows display inherited actions, and
+their editor identifies the shared source binding. Non-remote gamepads retain
+their own behavior for shared identities such as Back, Start and Guide.
+
+| Xiaomi physical control | Apple TV physical control |
+| --- | --- |
+| D-pad directions | Clickpad directions (same identities) |
+| OK | Clickpad Click |
+| Back | Back |
+| Home | Play/Pause |
+| Menu | Mute |
+| TV | TV/Home |
+| Microphone | Siri |
+| Power | Power |
+| Volume Up / Down | Volume Up / Down |
+
+Home/Play-Pause and Menu/Mute follow the respective left-column positions;
+these are action equivalents, not labels printed on the Xiaomi. Apple clickpad
+touch is an extra gesture with no physical Xiaomi counterpart. Hardware chord
+limitations documented above still apply. The Xiaomi reference rows follow its
+physical sides: Back, Home, Menu left; Power/Mic, Volume, then TV right.
+
+For normal use with Karabiner, disable **Modify events** for this device only.
+The app reports a device-ownership problem and retries; it does not edit Karabiner
+configuration itself. Kevin's local setup now retains that device-specific
+exclusion, separate from the earlier temporary probe exclusions.
+
+Automated coverage includes raw fixtures, all 13 saved mappings, held-state
+cleanup, native-event correlation (including queued press/release and keyboard
+repeat ownership), identity restoration, capability availability and geometry.
+Tests run on kmacstudio; the signed Release build is installed on the MacBook
+and recognizes the connected remote. Live suppression of native actions still
+needs a physical check. Voice audio, reports 6–8 and additional combinations
+remain unverified.

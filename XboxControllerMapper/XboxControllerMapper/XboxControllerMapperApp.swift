@@ -99,6 +99,7 @@ final class ServiceContainer {
     let beamdeskInputService: BeamdeskInputService
     let steamDeckInput: SteamDeckInput
     let s29RingInputService: S29RingInputService
+	let xiaomiRemoteInputService: XiaomiRemoteInputService
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -142,6 +143,13 @@ final class ServiceContainer {
         self.s29RingInputService = s29RingInputService
         s29RingInputService.bindMappingEnabled(self.mappingEngine.$isEnabled)
         s29RingInputService.startIfPermitted()
+		let xiaomiRemoteInputService = XiaomiRemoteInputService(
+			controller: controllerService,
+			hardwareEnabled: AppRuntime.screenshotVariant == nil
+		)
+		self.xiaomiRemoteInputService = xiaomiRemoteInputService
+		xiaomiRemoteInputService.bindMappingEnabled(self.mappingEngine.$isEnabled)
+		xiaomiRemoteInputService.startIfPermitted()
         // The cross-Mac relay listener publishes a Bonjour service, which
         // triggers the Local Network prompt. Only start it at launch if the user
         // has actually set up the relay — otherwise the prompt is deferred to
@@ -631,6 +639,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		services.beamdeskInputService.stop()
 		services.steamDeckInput.stop()
 		services.s29RingInputService.stop()
+		services.xiaomiRemoteInputService.stop()
 		services.mappingEngine.shutdown()
 		services.controllerService.cleanup()
 		services.usageStatsService.endSession()
@@ -676,6 +685,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         permissions.onInputMonitoringGranted = {
             ServiceContainer.shared.controllerService.startInputMonitoringHID()
             ServiceContainer.shared.s29RingInputService.startIfPermitted()
+			ServiceContainer.shared.xiaomiRemoteInputService.startIfPermitted()
         }
         permissions.requestBluetoothAction = {
             ServiceContainer.shared.controllerService.startBluetoothBattery()

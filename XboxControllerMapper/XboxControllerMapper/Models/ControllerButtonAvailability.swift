@@ -389,7 +389,7 @@ extension ControllerButton {
         allCases.filter {
             !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
                 && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
-                && !$0.isS29RingOnly
+				&& !$0.isS29RingOnly && !$0.isXiaomiRemoteOnly
         }
     }
 
@@ -404,7 +404,7 @@ extension ControllerButton {
         allCases.filter {
             !$0.isDualSenseOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
                 && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
-                && !$0.isS29RingOnly && $0 != .share
+				&& !$0.isS29RingOnly && !$0.isXiaomiRemoteOnly && $0 != .share
         }
     }
 
@@ -414,7 +414,7 @@ extension ControllerButton {
             $0 != .share && !$0.isDualSenseEdgeOnly && !$0.isGestureButton
                 && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
                 && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
-                && !$0.isS29RingOnly
+				&& !$0.isS29RingOnly && !$0.isXiaomiRemoteOnly
         }
     }
 
@@ -424,7 +424,7 @@ extension ControllerButton {
         allCases.filter {
             !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
                 && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
-                && !$0.isS29RingOnly
+				&& !$0.isS29RingOnly && !$0.isXiaomiRemoteOnly
         }
     }
 

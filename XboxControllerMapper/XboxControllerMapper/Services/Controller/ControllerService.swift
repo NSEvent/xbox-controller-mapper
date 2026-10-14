@@ -237,6 +237,9 @@ class ControllerService: ObservableObject {
     @Published private(set) var isSteamDeckConnected = false
     private var preSteamDeckType: ControllerTypeState?
     @Published private(set) var isS29RingConnected = false
+	@Published private(set) var isXiaomiRemoteConnected = false
+	@Published var xiaomiRemoteInputIssue: String?
+	var xiaomiRemoteIdentity: ControllerIdentity?
 
     /// Currently pressed buttons (UI use only, updated asynchronously)
     @Published var activeButtons: Set<ControllerButton> = []
@@ -766,6 +769,7 @@ class ControllerService: ObservableObject {
         case "8bitdo-lite-se": return "8BitDo Lite SE"
         case "8bitdo-ultimate2": return "8BitDo Ultimate 2 Wireless"
         case "s29-ring": return S29RingIdentity.displayName
+		case "xiaomi-remote": return XiaomiRemoteIdentity.displayName
         default: return "Xbox Wireless Controller"
         }
     }
@@ -917,6 +921,10 @@ class ControllerService: ObservableObject {
                 isS29RingConnected = true
                 controllerMappingSource = S29RingIdentity.displayName
             }
+			if variant == "xiaomi-remote" {
+				isXiaomiRemoteConnected = true
+				controllerMappingSource = XiaomiRemoteIdentity.displayName
+			}
             // A believable battery reading instead of the "?" unknown pill
             batteryLevel = 0.85
             batteryState = .discharging
@@ -1346,8 +1354,10 @@ class ControllerService: ObservableObject {
 	/// When no physical controller is active, show the highest-precedence
 	/// connected virtual/auxiliary input: Beamdesk gamepad, Oura Ring,
 	/// S29 Ring, then Beamdesk hands.
-	private func publishVirtualInputSourceIfNeeded() {
-		if isSteamDeckConnected && canAcceptSteamDeckInput {
+	func publishVirtualInputSourceIfNeeded() {
+		if isXiaomiRemoteConnected {
+			publishXiaomiRemoteConnection()
+		} else if isSteamDeckConnected && canAcceptSteamDeckInput {
 			publishSteamDeckConnection()
 		} else if isBeamdeskGamepadConnected {
 			publishBeamdeskGamepadConnection()
@@ -1367,7 +1377,7 @@ class ControllerService: ObservableObject {
 		if connected {
 			publishOuraRingConnection()
 		} else {
-			if !hasActiveHardwareInputSource && !isSteamDeckConnected {
+			if !hasActiveHardwareInputSource && !isXiaomiRemoteConnected && !isSteamDeckConnected {
 				releaseOuraRingInputs()
 				isConnected = false
 				currentControllerIdentity = nil
@@ -1394,7 +1404,7 @@ class ControllerService: ObservableObject {
 			publishBeamdeskHandsConnection()
 		} else {
 			releaseBeamdeskHandsButtons()
-			if !hasActiveHardwareInputSource && !isOuraRingConnected && !isS29RingConnected && !isBeamdeskGamepadConnected && !isSteamDeckConnected {
+			if !hasActiveHardwareInputSource && !isXiaomiRemoteConnected && !isOuraRingConnected && !isS29RingConnected && !isBeamdeskGamepadConnected && !isSteamDeckConnected {
 				isConnected = false
 				currentControllerIdentity = nil
 				controllerName = ""
@@ -1416,7 +1426,7 @@ class ControllerService: ObservableObject {
 
 		if connected {
 			publishS29RingConnection()
-		} else if !hasActiveHardwareInputSource {
+		} else if !hasActiveHardwareInputSource && !isXiaomiRemoteConnected {
 			isConnected = false
 			currentControllerIdentity = nil
 			controllerName = ""
@@ -1427,7 +1437,23 @@ class ControllerService: ObservableObject {
 		}
 	}
 
-	private var hasActiveHardwareInputSource: Bool {
+	func setXiaomiRemoteConnected(_ connected: Bool, identity: ControllerIdentity? = nil) {
+		guard isXiaomiRemoteConnected != connected else { return }
+		isXiaomiRemoteConnected = connected
+		xiaomiRemoteIdentity = connected ? identity : nil
+		if connected { publishXiaomiRemoteConnection() }
+		else if !hasActiveHardwareInputSource {
+			isConnected = false
+			currentControllerIdentity = nil
+			controllerName = ""
+			controllerMappingSource = nil
+			activeButtons.removeAll()
+			stopDisplayUpdateTimer()
+			publishVirtualInputSourceIfNeeded()
+		}
+	}
+
+	var hasActiveHardwareInputSource: Bool {
 		connectedController != nil ||
 		isGenericController ||
 		steamHIDActiveDevice != nil ||
@@ -1435,7 +1461,7 @@ class ControllerService: ObservableObject {
 		appleTVRemoteHIDTouchDevice != nil
     }
 
-	var canAcceptSteamDeckInput: Bool { !hasActiveHardwareInputSource && !isBeamdeskGamepadConnected }
+	var canAcceptSteamDeckInput: Bool { !hasActiveHardwareInputSource && !isBeamdeskGamepadConnected && !isXiaomiRemoteConnected }
 	var isSteamDeckActiveInputSource: Bool {
 		isSteamDeckConnected && canAcceptSteamDeckInput && controllerName == "Steam Deck (ScreenShell)"
 	}
@@ -1500,7 +1526,7 @@ class ControllerService: ObservableObject {
 	}
 
 	private func publishBeamdeskGamepadConnection() {
-		guard !hasActiveHardwareInputSource else { return }
+		guard !hasActiveHardwareInputSource, !isXiaomiRemoteConnected else { return }
 		controllerName = "Beamdesk Gamepad"
 		controllerMappingSource = "Beamdesk Gamepad"
 		currentControllerIdentity = nil
@@ -1522,7 +1548,7 @@ class ControllerService: ObservableObject {
 	}
 
     private func publishOuraRingConnection() {
-		guard !hasActiveHardwareInputSource, !isBeamdeskGamepadConnected, !isSteamDeckConnected else { return }
+		guard !hasActiveHardwareInputSource, !isXiaomiRemoteConnected, !isBeamdeskGamepadConnected, !isSteamDeckConnected else { return }
 		isConnected = true
 		currentControllerIdentity = nil
 		controllerName = "Oura Ring"
@@ -1534,7 +1560,7 @@ class ControllerService: ObservableObject {
     }
 
 	private func publishS29RingConnection() {
-		guard !hasActiveHardwareInputSource, !isOuraRingConnected, !isBeamdeskGamepadConnected, !isSteamDeckConnected else { return }
+		guard !hasActiveHardwareInputSource, !isXiaomiRemoteConnected, !isOuraRingConnected, !isBeamdeskGamepadConnected, !isSteamDeckConnected else { return }
 		isConnected = true
 		currentControllerIdentity = nil
 		controllerName = S29RingIdentity.displayName
@@ -1546,7 +1572,7 @@ class ControllerService: ObservableObject {
 	}
 
 	private func publishBeamdeskHandsConnection() {
-		guard !hasActiveHardwareInputSource, !isOuraRingConnected, !isS29RingConnected, !isBeamdeskGamepadConnected, !isSteamDeckConnected else { return }
+		guard !hasActiveHardwareInputSource, !isXiaomiRemoteConnected, !isOuraRingConnected, !isS29RingConnected, !isBeamdeskGamepadConnected, !isSteamDeckConnected else { return }
 		isConnected = true
 		currentControllerIdentity = nil
 		controllerName = "Beamdesk Hands"

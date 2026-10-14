@@ -10,6 +10,7 @@ struct ButtonIconView: View {
     let isSteamController: Bool
     let isAppleTVRemote: Bool
     let isEightBitDo: Bool
+	let isXiaomiRemote: Bool
     let showDirectionalArrows: Bool
 
     init(
@@ -20,6 +21,7 @@ struct ButtonIconView: View {
         isSteamController: Bool = false,
 		isAppleTVRemote: Bool = false,
         isEightBitDo: Bool = false,
+		isXiaomiRemote: Bool = false,
         showDirectionalArrows: Bool = false
     ) {
         self.button = button
@@ -29,10 +31,19 @@ struct ButtonIconView: View {
         self.isSteamController = isSteamController
 		self.isAppleTVRemote = isAppleTVRemote
         self.isEightBitDo = isEightBitDo
+		self.isXiaomiRemote = isXiaomiRemote
         self.showDirectionalArrows = showDirectionalArrows
     }
     
-    var body: some View {
+    @ViewBuilder var body: some View {
+		if button.isXiaomiRemoteOnly || (isXiaomiRemote && button.category == .dpad) {
+			XiaomiRemoteButtonBadge(button: button, pressed: isPressed)
+		} else {
+			standardBody
+		}
+	}
+
+	private var standardBody: some View {
         ZStack {
             // 1. Base Jewel Color with shadow
             baseShape

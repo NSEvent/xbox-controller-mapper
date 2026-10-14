@@ -54,6 +54,9 @@ extension ControllerButton {
 			return .special
 		case .s29Camera, .s29Home:
 			return .special
+		case .xiaomiOK, .xiaomiBack, .xiaomiHome, .xiaomiMenu,
+			.xiaomiVolumeUp, .xiaomiVolumeDown, .xiaomiTV, .xiaomiMicrophone, .xiaomiPower:
+			return .special
 		}
 	}
 }

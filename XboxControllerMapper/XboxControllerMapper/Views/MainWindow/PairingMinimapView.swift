@@ -33,7 +33,9 @@ struct PairingMinimapView: View {
 
     var body: some View {
         Group {
-			if visualDescriptor.isBeamdeskHands {
+			if visualDescriptor.isXiaomiRemote {
+				xiaomiRemoteMinimap
+			} else if visualDescriptor.isBeamdeskHands {
 				beamdeskHandsMinimap
 			} else if visualDescriptor.isS29Ring {
 				s29RingMinimap
@@ -88,6 +90,13 @@ struct PairingMinimapView: View {
     }
 
     // MARK: - Apple TV Remote
+
+	private var xiaomiRemoteMinimap: some View {
+		let size = XiaomiRemoteMinimapView.previewSize
+		let scale = remoteTargetHeight / size.height
+		return XiaomiRemoteMinimapView(pressedButtons: pressedButtons)
+			.scaleEffect(scale).frame(width: (size.width * scale).rounded(), height: remoteTargetHeight)
+	}
 
     private var appleTVRemoteMinimap: some View {
         let size = AppleTVRemoteMinimapView.previewSize

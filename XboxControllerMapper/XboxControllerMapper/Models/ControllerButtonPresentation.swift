@@ -109,6 +109,15 @@ extension ControllerButton {
         case .beamdeskRightThumbTap: return "Right Hand Thumb Tap"
         case .s29Camera: return "Camera"
         case .s29Home: return "Home"
+		case .xiaomiOK: return "OK"
+		case .xiaomiBack: return "Back"
+		case .xiaomiHome: return "Home"
+		case .xiaomiMenu: return "Menu"
+		case .xiaomiVolumeUp: return "Volume Up"
+		case .xiaomiVolumeDown: return "Volume Down"
+		case .xiaomiTV: return "TV"
+		case .xiaomiMicrophone: return "Microphone"
+		case .xiaomiPower: return "Power"
         }
     }
 
@@ -318,6 +327,15 @@ extension ControllerButton {
         case .beamdeskRightThumbTap: return "R Tap"
         case .s29Camera: return "Cam"
         case .s29Home: return "Home"
+		case .xiaomiOK: return "OK"
+		case .xiaomiBack: return "Back"
+		case .xiaomiHome: return "Home"
+		case .xiaomiMenu: return "≡"
+		case .xiaomiVolumeUp: return "+"
+		case .xiaomiVolumeDown: return "−"
+		case .xiaomiTV: return "TV"
+		case .xiaomiMicrophone: return "Mic"
+		case .xiaomiPower: return "PWR"
         }
     }
 

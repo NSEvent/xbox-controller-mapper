@@ -5,6 +5,7 @@ import AppKit
 struct ButtonMappingSheet: View {
     let button: ControllerButton
     @Binding var mapping: KeyMapping?
+	var presentationButton: ControllerButton? = nil
 	    var isDualSense: Bool = false
 	    var isNintendo: Bool = false
 	    var isSteamController: Bool = false
@@ -298,13 +299,18 @@ struct ButtonMappingSheet: View {
     // MARK: - Header
 
     private var header: some View {
-        HStack {
-				ButtonIconView(button: button, isPressed: false, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
+		let physicalButton = presentationButton ?? button
+		return HStack {
+				ButtonIconView(button: physicalButton, isPressed: false, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
 					.padding(.trailing, 8)
 
 				VStack(alignment: .leading, spacing: 4) {
-					Text("Configure \(button.displayName(forDualSense: isDualSense, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote))")
+					Text("Configure \(physicalButton.displayName(forDualSense: isDualSense, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote))")
 						.font(.headline)
+					if physicalButton != button {
+						Text("Shared with \(button.isXiaomiRemoteOnly ? "Xiaomi" : "Apple TV") \(button.displayName(forAppleTVRemote: true))")
+							.font(.caption).foregroundStyle(.secondary)
+					}
 
                 if let currentMapping = mapping {
                     HStack(spacing: 4) {

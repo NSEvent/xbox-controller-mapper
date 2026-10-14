@@ -274,6 +274,19 @@ extension ControllerPreviewLayout {
                 // Volume Up (+) + Back button.
                 pairingButtons: [.appleTVRemoteVolumeUp, .view]
             )
+		case .xiaomiRemote:
+			return ControllerPairingGuide(
+				title: loc("Connect Your Xiaomi Remote"),
+				tagline: loc("Xiaomi Bluetooth Remote 2 Pro (RC003)"),
+				systemImage: systemImage,
+				bluetoothSteps: [
+					loc("Put the remote in **Bluetooth pairing mode** using the instructions supplied with it."),
+					loc("On your Mac, open **System Settings → Bluetooth**."),
+					loc("Connect **小米蓝牙语音遥控器** from Nearby Devices."),
+					loc("Allow **Input Monitoring** and **Accessibility** for ControllerKeys, then enable mapping.")
+				],
+				tip: loc("If you use Karabiner, turn off **Modify events** for this remote in Karabiner → Devices. The USB-C port charges the remote.")
+			)
 		case .ouraRing:
 			return ControllerPairingGuide(
 				title: loc("Connect Your Oura Ring"),

@@ -43,7 +43,9 @@ struct StreamOverlayView: View {
     var body: some View {
         VStack(spacing: 4) {
             Group {
-				if isOuraRing {
+				if visualDescriptor.isXiaomiRemote {
+					xiaomiRemoteGraphic
+				} else if isOuraRing {
 					ouraRingGraphic
 				} else if isS29Ring {
 					s29RingGraphic
@@ -137,6 +139,13 @@ struct StreamOverlayView: View {
     // MARK: - Apple TV Remote Graphic
 
     /// The exact same Siri Remote minimap as the Buttons tab, scaled down.
+	private var xiaomiRemoteGraphic: some View {
+		let size = XiaomiRemoteMinimapView.previewSize
+		let scale: CGFloat = 200 / size.height
+		return XiaomiRemoteMinimapView(pressedButtons: controllerService.activeButtons)
+			.scaleEffect(scale).frame(width: size.width * scale, height: size.height * scale)
+	}
+
     private var appleTVRemoteGraphic: some View {
         let size = AppleTVRemoteMinimapView.previewSize
         let height: CGFloat = 165

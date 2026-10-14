@@ -8,7 +8,8 @@ extension ControllerButton {
 
 	/// SF Symbol name appropriate for the controller type
 	func systemImageName(forDualSense isDualSense: Bool) -> String? {
-		isDualSense ? dualSenseSystemImageName : xboxSystemImageName
+		if isXiaomiRemoteOnly { return xiaomiRemoteSystemImage }
+		return isDualSense ? dualSenseSystemImageName : xboxSystemImageName
 	}
 
 	/// SF Symbol name for Nintendo controllers

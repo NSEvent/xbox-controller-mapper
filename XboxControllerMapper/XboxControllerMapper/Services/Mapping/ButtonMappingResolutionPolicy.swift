@@ -6,13 +6,15 @@ enum ButtonMappingResolutionPolicy {
 		button: ControllerButton,
 		profile: Profile,
 		activeLayerIds: [UUID],
-		layerActivatorMap: [ControllerButton: UUID]
+		layerActivatorMap: [ControllerButton: UUID],
+		remoteContext: Bool = false
 	) -> ControllerButton {
 		resolvedButton(
 			button: button,
 			profile: profile,
 			activeLayer: activeLayer(in: profile, activeLayerIds: activeLayerIds),
-			layerActivatorMap: layerActivatorMap
+			layerActivatorMap: layerActivatorMap,
+			remoteContext: remoteContext
 		)
 	}
 
@@ -20,9 +22,12 @@ enum ButtonMappingResolutionPolicy {
 		button: ControllerButton,
 		profile: Profile,
 		activeLayer: Layer?,
-		layerActivatorMap: [ControllerButton: UUID]
+		layerActivatorMap: [ControllerButton: UUID],
+		remoteContext: Bool
 	) -> ControllerButton {
-		guard let logicalButton = button.logicalEquivalent else { return button }
+		let remoteEquivalent = (remoteContext || button.isXiaomiRemoteOnly)
+			? RemoteButtonEquivalence.counterpart(of: button) : nil
+		guard let logicalButton = remoteEquivalent ?? button.logicalEquivalent else { return button }
 		if activeLayer?.buttonMappings[button] != nil {
 			return button
 		}
@@ -38,6 +43,9 @@ enum ButtonMappingResolutionPolicy {
 		if shouldPreservePhysicalButton(button, profile: profile) {
 			return button
 		}
+		if remoteEquivalent != nil && !hasExplicitBinding(for: logicalButton, profile: profile) {
+			return button
+		}
 		return logicalButton
 	}
 
@@ -45,14 +53,16 @@ enum ButtonMappingResolutionPolicy {
         button: ControllerButton,
         profile: Profile,
         activeLayerIds: [UUID],
-        layerActivatorMap: [ControllerButton: UUID]
+		layerActivatorMap: [ControllerButton: UUID],
+		remoteContext: Bool = false
     ) -> KeyMapping? {
 		let activeLayer = activeLayer(in: profile, activeLayerIds: activeLayerIds)
 		let button = resolvedButton(
 			button: button,
 			profile: profile,
 			activeLayer: activeLayer,
-			layerActivatorMap: layerActivatorMap
+			layerActivatorMap: layerActivatorMap,
+			remoteContext: remoteContext
 		)
 
         // Layer activator handling: context-aware.

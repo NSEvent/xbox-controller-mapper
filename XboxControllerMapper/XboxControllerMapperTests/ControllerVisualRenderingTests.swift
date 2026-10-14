@@ -277,7 +277,7 @@ final class ControllerVisualRenderingTests: XCTestCase {
 	}
 
 	private func minimapExpectations(for layout: ControllerPreviewLayout) -> RenderExpectations {
-		if layout == .appleTVRemote {
+		if layout == .appleTVRemote || layout == .xiaomiRemote {
 			return RenderExpectations(
 				minForegroundSamples: 80,
 				minForegroundWidth: 45,
@@ -332,7 +332,9 @@ private struct StaticControllerMinimapPreview: View {
 
 	var body: some View {
 		Group {
-			if descriptor.isBeamdeskHands {
+			if descriptor.isXiaomiRemote {
+				xiaomiRemoteMinimap
+			} else if descriptor.isBeamdeskHands {
 				beamdeskHandsMinimap
 			} else if descriptor.isS29Ring {
 				s29RingMinimap
@@ -368,6 +370,13 @@ private struct StaticControllerMinimapPreview: View {
 		.frame(width: size.width, height: size.height)
 		.scaleEffect(scale)
 		.frame(width: targetWidth, height: (size.height * scale).rounded())
+	}
+
+	private var xiaomiRemoteMinimap: some View {
+		let size = XiaomiRemoteMinimapView.previewSize
+		let scale = remoteTargetHeight / size.height
+		return XiaomiRemoteMinimapView(pressedButtons: pressedButtons)
+			.scaleEffect(scale).frame(width: (size.width * scale).rounded(), height: remoteTargetHeight)
 	}
 
 	private var s29RingMinimap: some View {

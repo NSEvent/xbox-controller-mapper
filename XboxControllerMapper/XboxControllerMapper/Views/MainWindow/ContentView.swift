@@ -261,20 +261,28 @@ struct ContentView: View {
         // trigger binding stuck "set" (e.g. the Settings button stops opening
         // Settings until something resets the flag). See `isolatedSheet`.
         .isolatedSheet(item: $configuringButton) { button in
+			let isRemote = controllerVisualDescriptor.isXiaomiRemote || controllerVisualDescriptor.isAppleTVRemote
+			let bindingButton = isRemote ? RemoteButtonEquivalence.bindingButton(for: button,
+				profile: profileManager.activeProfile, layerId: selectedLayerId) : button
+			let physicalButton = selectedButton.flatMap {
+				RemoteButtonEquivalence.bindingButton(for: $0, profile: profileManager.activeProfile,
+					layerId: selectedLayerId) == bindingButton ? $0 : nil
+			} ?? button
             ButtonMappingSheet(
-                button: button,
+				button: bindingButton,
                 mapping: Binding(
                     get: {
                         // Get mapping from layer if editing a layer, otherwise from base
                         if let layerId = selectedLayerId,
                            let layer = profileManager.activeProfile?.layers.first(where: { $0.id == layerId }) {
-							return layer.buttonMappings[button]
-								?? profileManager.activeProfile?.buttonMappings[button]
+							return layer.buttonMappings[bindingButton]
+								?? profileManager.activeProfile?.buttonMappings[bindingButton]
                         }
-                        return profileManager.activeProfile?.buttonMappings[button]
+						return profileManager.activeProfile?.buttonMappings[bindingButton]
                     },
                     set: { _ in } // Read-only: ButtonMappingSheet saves directly via ProfileManager (see saveMapping())
                 ),
+					presentationButton: isRemote ? physicalButton : nil,
 					isDualSense: controllerVisualDescriptor.isPlayStation,
 					isNintendo: controllerVisualDescriptor.isNintendo,
 					isSteamController: controllerVisualDescriptor.isSteamController,

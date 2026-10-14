@@ -603,13 +603,15 @@ class MappingEngine: ObservableObject {
     }
 
 	nonisolated private func resolvedInputButton(for button: ControllerButton) -> ControllerButton {
-		state.lock.withLock {
+		let remoteContext = controllerService.threadSafeControllerPresentationState.isAppleTVRemote
+		return state.lock.withLock {
 			guard let profile = state.activeProfile else { return button }
 			return ButtonMappingResolutionPolicy.resolvedButton(
 				button: button,
 				profile: profile,
 				activeLayerIds: state.effectiveActiveLayerIds,
-				layerActivatorMap: state.layerActivatorMap
+				layerActivatorMap: state.layerActivatorMap,
+				remoteContext: remoteContext
 			)
 		}
 	}

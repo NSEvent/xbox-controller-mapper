@@ -168,6 +168,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 	var isOuraRing: Bool { visualDescriptor.isOuraRing }
 	var isBeamdeskHands: Bool { visualDescriptor.isBeamdeskHands }
 	var isS29Ring: Bool { visualDescriptor.isS29Ring }
+	var isXiaomiRemote: Bool { visualDescriptor.isXiaomiRemote }
 	var eightBitDoModel: EightBitDoMinimapModel? { visualDescriptor.eightBitDoModel }
 	var isStickless: Bool { visualDescriptor.isStickless }
 	var hasSticks: Bool { visualDescriptor.hasSticks }
@@ -194,12 +195,14 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
     /// Checks if a button is a layer activator
     private func isLayerActivator(_ button: ControllerButton) -> Bool {
+		let button = remoteReferenceButton(for: button)
         guard let profile = profileManager.activeProfile else { return false }
         return profile.layers.contains { $0.activatorButton == button }
     }
 
     /// Returns the layer that a button activates, if any
     private func layerForButton(_ button: ControllerButton) -> Layer? {
+		let button = remoteReferenceButton(for: button)
         guard let profile = profileManager.activeProfile else { return nil }
         return profile.layers.first { $0.activatorButton == button }
     }
@@ -207,6 +210,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
     /// Returns true if this button is the activator for the currently selected layer
     /// (meaning it shouldn't be clickable when viewing that layer)
     private func isActivatorForSelectedLayer(_ button: ControllerButton) -> Bool {
+		let button = remoteReferenceButton(for: button)
         guard let layer = selectedLayer else { return false }
         return layer.activatorButton == button
     }
@@ -236,7 +240,9 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
 	    var body: some View {
 			Group {
-				if isBeamdeskHands {
+				if isXiaomiRemote {
+					xiaomiRemoteLayout
+				} else if isBeamdeskHands {
 					beamdeskHandsLayout
 				} else if isS29Ring {
 					s29RingLayout
@@ -627,6 +633,8 @@ struct ControllerVisualView: View, ControllerTypeProviding {
     /// Swaps two buttons' mappings, dispatching to the layer-specific or base-layer
     /// swap method to match the existing tap-select-tap swap mode in `ButtonMappingsTab`.
     func performSwap(from source: ControllerButton, to target: ControllerButton) {
+		let source = remoteReferenceButton(for: source)
+		let target = remoteReferenceButton(for: target)
         guard source != target else { return }
         if let layerId = selectedLayerId {
             profileManager.swapLayerMappings(button1: source, button2: target, in: layerId)
@@ -1286,9 +1294,9 @@ struct ControllerVisualView: View, ControllerTypeProviding {
             if mapping(for: button) != nil {
                 Button {
                     if let layer = selectedLayer {
-                        profileManager.removeLayerMapping(for: button, from: layer)
+						profileManager.removeLayerMapping(for: remoteReferenceButton(for: button), from: layer)
                     } else {
-                        profileManager.removeMapping(for: button)
+						profileManager.removeMapping(for: remoteReferenceButton(for: button))
                     }
                 } label: {
                     Label("Clear Mapping", systemImage: "xmark.circle")
@@ -1310,7 +1318,8 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 				isNintendo: isNintendo,
 				isSteamController: isSteamController,
 				isAppleTVRemote: isAppleTVRemote,
-				isEightBitDo: eightBitDoModel != nil
+				isEightBitDo: eightBitDoModel != nil,
+				isXiaomiRemote: isXiaomiRemote
 			)
         .scaleEffect(0.72)
         .frame(width: 22, height: 22)
@@ -1479,7 +1488,8 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 						isNintendo: isNintendo,
 						isSteamController: isSteamController,
 						isAppleTVRemote: isAppleTVRemote,
-						isEightBitDo: eightBitDoModel != nil
+						isEightBitDo: eightBitDoModel != nil,
+						isXiaomiRemote: isXiaomiRemote
 					)
 
 				// Layer activator badge — hidden when viewing a different layer
@@ -1606,9 +1616,9 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 			if currentMapping != nil {
                 Button {
                     if let layer = selectedLayer {
-                        profileManager.removeLayerMapping(for: button, from: layer)
+						profileManager.removeLayerMapping(for: remoteReferenceButton(for: button), from: layer)
                     } else {
-                        profileManager.removeMapping(for: button)
+						profileManager.removeMapping(for: remoteReferenceButton(for: button))
                     }
                 } label: {
                     Label("Clear Mapping", systemImage: "xmark.circle")
@@ -1624,7 +1634,10 @@ struct ControllerVisualView: View, ControllerTypeProviding {
     // MARK: - Helpers
 
     func isPressed(_ button: ControllerButton) -> Bool {
-		controllerService.activeButtons.contains(button) ||
+		return controllerService.activeButtons.contains(button) ||
+			((isXiaomiRemote || isAppleTVRemote) && RemoteButtonEquivalence.counterpart(of: button).map {
+				controllerService.activeButtons.contains($0)
+			} == true) ||
 			button.physicalEquivalentButtons.contains { controllerService.activeButtons.contains($0) }
     }
 
@@ -1645,6 +1658,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 	}
 
     private func mapping(for button: ControllerButton) -> KeyMapping? {
+		let button = remoteReferenceButton(for: button)
         guard let profile = profileManager.activeProfile else { return nil }
 
         // If viewing a layer, check layer mapping first
@@ -1683,6 +1697,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 	}
 
 	private func pasteMapping(to button: ControllerButton) {
+		let button = remoteReferenceButton(for: button)
 		guard let mapping = ControllerMappingPasteboard.read() else { return }
 		if let layer = selectedLayer {
 			profileManager.setLayerMapping(mapping, for: button, in: layer)
@@ -1692,6 +1707,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 	}
 
     private func layerOverrideColor(for button: ControllerButton) -> Color? {
+		let button = remoteReferenceButton(for: button)
 		guard let layer = selectedLayer,
 			  layer.activatorButton != button,
 			  let mapping = layer.buttonMappings[button],
@@ -1710,6 +1726,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
     /// Returns true if the mapping shown is from the base layer (fallthrough)
     private func isBaseFallthrough(for button: ControllerButton) -> Bool {
+		let button = remoteReferenceButton(for: button)
         guard let layer = selectedLayer,
               let profile = profileManager.activeProfile else { return false }
 

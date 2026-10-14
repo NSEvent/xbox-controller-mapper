@@ -51,6 +51,7 @@ zoom_for() {
         xbox-elite)              echo "0.83" ;;
         steam)                   echo "0.83" ;;
         appletv)                 echo "0.88" ;;
+		xiaomi-remote)            echo "0.88" ;;
         8bitdo-zero2|8bitdo-micro|8bitdo-lite2|8bitdo-lite-se)
                                  echo "0.92" ;;
         *)                       echo "0.83" ;;

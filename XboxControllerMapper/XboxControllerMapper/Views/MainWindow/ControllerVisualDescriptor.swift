@@ -17,6 +17,7 @@ enum ControllerVisualFamily: Equatable {
 	/// and Nintendo-style labels, which don't fit this layout.
 	case eightBitDoUltimate2
 	case appleTVRemote
+	case xiaomiRemote
 	case ouraRing
 	case s29Ring
 	case beamdeskHands
@@ -41,10 +42,12 @@ struct ControllerVisualDescriptor: Equatable {
 		family == .s29Ring
 	}
 
+	var isXiaomiRemote: Bool { family == .xiaomiRemote }
+
 	/// Non-gamepad devices with their own canvas: no sticks, triggers,
 	/// shoulders, or system-button rows.
 	private var isAuxiliaryInputDevice: Bool {
-		isOuraRing || isBeamdeskHands || isS29Ring
+		isOuraRing || isBeamdeskHands || isS29Ring || isXiaomiRemote
 	}
 
 	var isPlayStation: Bool {
@@ -134,6 +137,8 @@ struct ControllerVisualDescriptor: Equatable {
 			return Set(ControllerButton.s29RingButtons)
 		case .appleTVRemote:
 			return Set(ControllerButton.appleTVRemoteButtons)
+		case .xiaomiRemote:
+			return Set(ControllerButton.xiaomiRemoteButtons)
 		case .dualShock:
 			buttons = Set(ControllerButton.dualShockButtons)
 		case .dualSense:
@@ -190,6 +195,7 @@ struct ControllerVisualDescriptor: Equatable {
 		case .eightBitDo(.liteSE): return "8BitDo Lite SE"
 		case .eightBitDoUltimate2: return "8BitDo Ultimate 2"
 		case .appleTVRemote: return "Apple TV Remote"
+		case .xiaomiRemote: return XiaomiRemoteIdentity.displayName
 		case .ouraRing: return "Oura Ring"
 		case .s29Ring: return S29RingIdentity.displayName
 		case .beamdeskHands: return "Beamdesk Hands"
@@ -239,7 +245,7 @@ struct ControllerVisualDescriptor: Equatable {
 			return .eightBitDoUltimate2
 		case .appleTVRemote:
 			return nil
-		case .ouraRing, .s29Ring:
+		case .ouraRing, .s29Ring, .xiaomiRemote:
 			return nil
 		case .beamdeskHands:
 			return nil
@@ -319,6 +325,8 @@ extension ControllerVisualDescriptor {
 			return ControllerVisualDescriptor(family: .eightBitDoUltimate2)
 		case .appleTVRemote:
 			return ControllerVisualDescriptor(family: .appleTVRemote)
+		case .xiaomiRemote:
+			return ControllerVisualDescriptor(family: .xiaomiRemote)
 		case .ouraRing:
 			return ControllerVisualDescriptor(family: .ouraRing)
 		case .s29Ring:
@@ -363,7 +371,8 @@ extension ControllerVisualDescriptor {
 			from: service.threadSafeControllerPresentationState,
 			ouraRingIsActive: service.isOuraRingActiveInputSource,
 			beamdeskHandsAreActive: service.isBeamdeskHandsActiveInputSource,
-			s29RingIsActive: service.isS29RingActiveInputSource
+			s29RingIsActive: service.isS29RingActiveInputSource,
+			xiaomiRemoteIsActive: service.isXiaomiRemoteActiveInputSource
 		)
 	}
 
@@ -371,8 +380,10 @@ extension ControllerVisualDescriptor {
 		from state: ControllerPresentationState,
 		ouraRingIsActive: Bool,
 		beamdeskHandsAreActive: Bool,
-		s29RingIsActive: Bool = false
+		s29RingIsActive: Bool = false,
+		xiaomiRemoteIsActive: Bool = false
 	) -> ControllerVisualDescriptor {
+		if xiaomiRemoteIsActive { return ControllerVisualDescriptor(family: .xiaomiRemote) }
 		if ouraRingIsActive {
 			return ControllerVisualDescriptor(family: .ouraRing)
 		}
