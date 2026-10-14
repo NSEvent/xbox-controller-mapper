@@ -1,0 +1,159 @@
+{
+  "date": "2026-10-13",
+  "vendorID": 10007,
+  "productID": 12984,
+  "model": "RC003",
+  "provenance": "Kevin tapped Up, Down, Left, Right, center OK in that order and replied done.",
+  "cases": [
+    {
+      "button": "up",
+      "usage": 82,
+      "press": {
+        "event": "report",
+        "hex": "01 00 00 52 00 00 00",
+        "keys": [
+          0,
+          82,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 20.850013971328735,
+        "type": 0
+      },
+      "release": {
+        "event": "report",
+        "hex": "01 00 00 00 00 00 00",
+        "keys": [
+          0,
+          0,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 20.970070004463196,
+        "type": 0
+      }
+    },
+    {
+      "button": "down",
+      "usage": 81,
+      "press": {
+        "event": "report",
+        "hex": "01 00 00 51 00 00 00",
+        "keys": [
+          0,
+          81,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 22.09502899646759,
+        "type": 0
+      },
+      "release": {
+        "event": "report",
+        "hex": "01 00 00 00 00 00 00",
+        "keys": [
+          0,
+          0,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 22.20012092590332,
+        "type": 0
+      }
+    },
+    {
+      "button": "left",
+      "usage": 80,
+      "press": {
+        "event": "report",
+        "hex": "01 00 00 50 00 00 00",
+        "keys": [
+          0,
+          80,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 23.115177989006042,
+        "type": 0
+      },
+      "release": {
+        "event": "report",
+        "hex": "01 00 00 00 00 00 00",
+        "keys": [
+          0,
+          0,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 23.235352993011475,
+        "type": 0
+      }
+    },
+    {
+      "button": "right",
+      "usage": 79,
+      "press": {
+        "event": "report",
+        "hex": "01 00 00 4f 00 00 00",
+        "keys": [
+          0,
+          79,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 24.105116963386536,
+        "type": 0
+      },
+      "release": {
+        "event": "report",
+        "hex": "01 00 00 00 00 00 00",
+        "keys": [
+          0,
+          0,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 24.225018978118896,
+        "type": 0
+      }
+    },
+    {
+      "button": "ok",
+      "usage": 40,
+      "press": {
+        "event": "report",
+        "hex": "01 00 00 28 00 00 00",
+        "keys": [
+          0,
+          40,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 25.950079917907715,
+        "type": 0
+      },
+      "release": {
+        "event": "report",
+        "hex": "01 00 00 00 00 00 00",
+        "keys": [
+          0,
+          0,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 26.085343956947327,
+        "type": 0
+      }
+    }
+  ]
+}

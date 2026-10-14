@@ -1,7 +1,7 @@
 # Xiaomi Remote Pro 2 — RC003 probe
 
-Observed on Kevin's paired remote, 2026-10-13. Button mappings are pending
-labelled physical presses; none inferred from a different Xiaomi model.
+Observed on Kevin's paired remote, 2026-10-13. Navigation buttons verified
+with labelled physical presses; function buttons remain pending.
 
 ## Identity
 
@@ -31,6 +31,23 @@ Report 1 is a complete key snapshot, not a gamepad button bitmask. Decode
 little-endian pairs and diff the active key set for presses/releases. Repeated
 identical snapshots should not generate extra presses. The descriptor allows
 three slots; simultaneous physical-button behavior still needs measurement.
+
+## Verified physical buttons
+
+Kevin pressed Up → Down → Left → Right → center OK on 2026-10-13.
+Each press produced the following report, followed by `01 00 00 00 00 00 00`
+on release. These are standard Keyboard-page usages. The key appeared in
+the second slot, so a decoder must inspect all three slots.
+
+| Button | Usage | Full input report |
+| --- | --- | --- |
+| Up | `0x52` (82) | `01 00 00 52 00 00 00` |
+| Down | `0x51` (81) | `01 00 00 51 00 00 00` |
+| Left | `0x50` (80) | `01 00 00 50 00 00 00` |
+| Right | `0x4F` (79) | `01 00 00 4f 00 00 00` |
+| Center OK | `0x28` (40) | `01 00 00 28 00 00 00` |
+
+Replay evidence: `xiaomi-remote-navigation-fixture.json` beside this document.
 
 ## Capture
 
