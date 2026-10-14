@@ -1,0 +1,63 @@
+# Xiaomi Remote Pro 2 — RC003 probe
+
+Observed on Kevin's paired remote, 2026-10-13. Button mappings are pending
+labelled physical presses; none inferred from a different Xiaomi model.
+
+## Identity
+
+- Bluetooth name: `小米蓝牙语音遥控器` (Xiaomi Bluetooth voice remote).
+- Vendor/product: `0x2717:0x32B8` (10007:12984).
+- Manufacturer: `MIOM`; model `RC003`; hardware `V2.0`; firmware `2671`.
+- Transport: `Bluetooth Low Energy`.
+- Primary HID usage: Generic Desktop / Keyboard (`0x01:0x06`).
+- Product name was initially empty in IORegistry; later present through IOKit.
+  Match VID/PID and transport rather than requiring the advertised name.
+- Maximum input report length: 121 bytes, including report ID.
+
+## Descriptor
+
+```text
+05010906a10105070906a101850195037510150025fe190029fe8100c00600ff0900a101850675089578150025ff190029ff8100850775089578150025ff190029ff8100850875089578150025ff190029ff8100c0c0
+```
+
+| Report | Payload | Meaning from descriptor |
+| --- | --- | --- |
+| 1 | 6 bytes | Three 16-bit array entries, Keyboard page, usage/logical range 0–254 |
+| 6 | 120 bytes | Vendor page `0xFF00`, byte array; semantics unverified |
+| 7 | 120 bytes | Vendor page `0xFF00`, byte array; semantics unverified |
+| 8 | 120 bytes | Vendor page `0xFF00`, byte array; semantics unverified |
+
+Report 1 is a complete key snapshot, not a gamepad button bitmask. Decode
+little-endian pairs and diff the active key set for presses/releases. Repeated
+identical snapshots should not generate extra presses. The descriptor allows
+three slots; simultaneous physical-button behavior still needs measurement.
+
+## Capture
+
+```sh
+swift Scripts/probe-xiaomi-remote.swift 900 --shared > /tmp/xiaomi-remote-capture.jsonl
+```
+
+The script matches only this VID/PID and logs raw reports plus decoded report-1
+slots as JSONL. It exits after the requested duration (maximum 30 minutes).
+Default exclusive mode fails on this Mac with `kIOReturnNotPrivileged`
+(`0xE00002C1`); shared mode is supported. Shared capture leaves native input
+active, so keep a harmless target foreground and defer Power testing.
+
+Karabiner initially exclusively opened this keyboard interface. Shared capture
+then failed with `kIOReturnExclusiveAccess` (`0xE00002C5`). Temporarily setting
+`ignore: true` for only VID/PID 10007:12984, `is_keyboard: true`, released the
+interface and allowed capture. Restore this probe-only exclusion afterward.
+
+## Driver work remaining
+
+1. Label each physical button with tap, hold, release, and repeat evidence.
+2. Test two/three-button combinations and disconnect while held.
+3. Determine vendor-report semantics without treating vendor bytes as keys.
+4. Implement a pure snapshot decoder, scoped HID service, controller identity,
+   availability/presentation, and regression fixtures using captured reports.
+5. Resolve native-input suppression and Karabiner coexistence before claiming
+   remapping support. Reuse the S29 service lifecycle patterns (mapping toggle,
+   permission gating, callback teardown, held-button release).
+6. Run ControllerKeys tests on kmacstudio; build/install on the MacBook for
+   final hardware verification. No production support has been added yet.
