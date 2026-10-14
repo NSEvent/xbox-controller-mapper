@@ -1,0 +1,5 @@
+{"event":"open","exclusive":false,"inputMonitoringAccess":0,"result":0,"seconds":0.0074670314788818359}
+{"descriptor":"05010906a10105070906a101850195037510150025fe190029fe8100c00600ff0900a101850675089578150025ff190029ff8100850775089578150025ff190029ff8100850875089578150025ff190029ff8100c0c0","event":"connected","Manufacturer":"MIOM","MaxInputReportSize":121,"Product":"小米蓝牙语音遥控器","ProductID":12984,"result":0,"seconds":0.0083290338516235352,"Transport":"Bluetooth Low Energy","VendorID":10007}
+{"event":"report","hex":"01 00 00 52 00 00 00","keys":[0,82,0],"reportID":1,"result":0,"seconds":35.973821997642517,"type":0}
+{"event":"report","hex":"01 00 00 00 00 00 00","keys":[0,0,0],"reportID":1,"result":0,"seconds":37.398679971694946,"type":0}
+{"event":"report","hex":"01 00 00 00 00 00 00","keys":[0,0,0],"reportID":1,"result":0,"seconds":43.023626923561096,"type":0}

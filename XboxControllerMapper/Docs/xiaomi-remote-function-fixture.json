@@ -1,0 +1,279 @@
+{
+  "date": "2026-10-13",
+  "vendorID": 10007,
+  "productID": 12984,
+  "model": "RC003",
+  "provenance": "Kevin reported Back/Home/Menu/Volume Up/Volume Down/microphone pass (four initial responses), then explicitly Volume Down twice, TV, microphone, Power in order.",
+  "cases": [
+    {
+      "button": "back",
+      "usage": 241,
+      "press": {
+        "event": "report",
+        "hex": "01 00 00 f1 00 00 00",
+        "keys": [
+          0,
+          241,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 363.3525799512863,
+        "type": 0
+      },
+      "release": {
+        "event": "report",
+        "hex": "01 00 00 00 00 00 00",
+        "keys": [
+          0,
+          0,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 363.5324339866638,
+        "type": 0
+      }
+    },
+    {
+      "button": "home",
+      "usage": 74,
+      "press": {
+        "event": "report",
+        "hex": "01 00 00 4a 00 00 00",
+        "keys": [
+          0,
+          74,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 364.80757892131805,
+        "type": 0
+      },
+      "release": {
+        "event": "report",
+        "hex": "01 00 00 00 00 00 00",
+        "keys": [
+          0,
+          0,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 364.9723140001297,
+        "type": 0
+      }
+    },
+    {
+      "button": "menu",
+      "usage": 101,
+      "press": {
+        "event": "report",
+        "hex": "01 00 00 65 00 00 00",
+        "keys": [
+          0,
+          101,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 368.1824849843979,
+        "type": 0
+      },
+      "release": {
+        "event": "report",
+        "hex": "01 00 00 00 00 00 00",
+        "keys": [
+          0,
+          0,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 368.3027780056,
+        "type": 0
+      }
+    },
+    {
+      "button": "volumeUp",
+      "usage": 128,
+      "press": {
+        "event": "report",
+        "hex": "01 00 00 80 00 00 00",
+        "keys": [
+          0,
+          128,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 371.1823740005493,
+        "type": 0
+      },
+      "release": {
+        "event": "report",
+        "hex": "01 00 00 00 00 00 00",
+        "keys": [
+          0,
+          0,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 371.3173990249634,
+        "type": 0
+      }
+    },
+    {
+      "button": "volumeDown",
+      "usage": 129,
+      "press": {
+        "event": "report",
+        "hex": "01 00 00 81 00 00 00",
+        "keys": [
+          0,
+          129,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 503.1985869407654,
+        "type": 0
+      },
+      "release": {
+        "event": "report",
+        "hex": "01 00 00 00 00 00 00",
+        "keys": [
+          0,
+          0,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 503.36339199543,
+        "type": 0
+      }
+    },
+    {
+      "button": "volumeDown",
+      "usage": 129,
+      "press": {
+        "event": "report",
+        "hex": "01 00 00 81 00 00 00",
+        "keys": [
+          0,
+          129,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 504.923357963562,
+        "type": 0
+      },
+      "release": {
+        "event": "report",
+        "hex": "01 00 00 00 00 00 00",
+        "keys": [
+          0,
+          0,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 505.10348296165466,
+        "type": 0
+      }
+    },
+    {
+      "button": "tv",
+      "usage": 53,
+      "press": {
+        "event": "report",
+        "hex": "01 00 00 35 00 00 00",
+        "keys": [
+          0,
+          53,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 509.8885660171509,
+        "type": 0
+      },
+      "release": {
+        "event": "report",
+        "hex": "01 00 00 00 00 00 00",
+        "keys": [
+          0,
+          0,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 510.0833899974823,
+        "type": 0
+      }
+    },
+    {
+      "button": "microphone",
+      "usage": 62,
+      "press": {
+        "event": "report",
+        "hex": "01 00 00 3e 00 00 00",
+        "keys": [
+          0,
+          62,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 538.8091229200363,
+        "type": 0
+      },
+      "release": {
+        "event": "report",
+        "hex": "01 00 00 00 00 00 00",
+        "keys": [
+          0,
+          0,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 539.0367509126663,
+        "type": 0
+      }
+    },
+    {
+      "button": "power",
+      "usage": 102,
+      "press": {
+        "event": "report",
+        "hex": "01 00 00 66 00 00 00",
+        "keys": [
+          0,
+          102,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 543.4888399839401,
+        "type": 0
+      },
+      "release": {
+        "event": "report",
+        "hex": "01 00 00 00 00 00 00",
+        "keys": [
+          0,
+          0,
+          0
+        ],
+        "reportID": 1,
+        "result": 0,
+        "seconds": 543.6991999149323,
+        "type": 0
+      }
+    }
+  ]
+}
