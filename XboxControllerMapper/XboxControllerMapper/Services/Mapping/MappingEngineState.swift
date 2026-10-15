@@ -32,6 +32,10 @@ extension MappingEngine {
         var activeChordButtons: Set<ControllerButton> = []
         var lastTapTime: [ControllerButton: CFAbsoluteTime] = [:]
         var pendingSingleTap: [ControllerButton: DispatchWorkItem] = [:]
+		var pendingDoubleTapPressTime: [ControllerButton: CFAbsoluteTime] = [:]
+		var unresolvedPhysicalTapPresses: [ControllerButton: CFAbsoluteTime] = [:]
+		var physicalTapPressOwners: [ControllerButton: PhysicalTapPress] = [:]
+		var cancelledPhysicalTapPressCutoffs: [ControllerButton: CFAbsoluteTime] = [:]
         var pendingReleaseActions: [ControllerButton: DispatchWorkItem] = [:]
         var longHoldTimers: [ControllerButton: DispatchWorkItem] = [:]
         var longHoldTriggered: Set<ControllerButton> = []
@@ -282,6 +286,9 @@ extension MappingEngine {
 				: []
 			var cancelledButtons: Set<ControllerButton> = []
 			if consumingPendingButtonReleases {
+				for (button, press) in physicalTapPressOwners {
+					cancelledPhysicalTapPressCutoffs[button] = max(cancelledPhysicalTapPressCutoffs[button] ?? press.time, press.time)
+				}
 				cancelledButtons.formUnion(pressConsumedByAction)
 				cancelledButtons.formUnion(heldButtons.keys)
 				cancelledButtons.formUnion(activeChordButtons)
@@ -325,6 +332,9 @@ extension MappingEngine {
 			heldButtons.removeAll()
             activeChordButtons.removeAll()
             lastTapTime.removeAll()
+			pendingDoubleTapPressTime.removeAll()
+			unresolvedPhysicalTapPresses.removeAll()
+			physicalTapPressOwners.removeAll()
 
             pendingSingleTap.values.forEach { $0.cancel() }
             pendingSingleTap.removeAll()

@@ -152,13 +152,15 @@ final class ControllerStorage: @unchecked Sendable {
     var pendingButtons: Set<ControllerButton> = []
     var capturedButtonsInWindow: Set<ControllerButton> = []
     var pendingReleases: [ControllerButton: TimeInterval] = [:]
+	var capturedPressTimes: [ControllerButton: CFAbsoluteTime] = [:]
+	var pendingReleaseTimes: [ControllerButton: CFAbsoluteTime] = [:]
     var chordWorkItem: DispatchWorkItem?
     var chordWindow: TimeInterval = 0.15
     var chordParticipantButtons: Set<ControllerButton> = []
     var lowLatencyInputEnabled: Bool = false
 
     // Typed event boundary consumed by MappingEngine.
-    var onInputEvent: ((ControllerInputEvent) -> Void)?
+    var onInputEvent: TimedControllerInputHandler?
 	var physicalButtonObservers: [UUID: @MainActor (Set<ControllerButton>) -> Void] = [:]
     /// When true, region-click events only fire while a finger is currently touching
     /// the pad. Default true. Mirrors `JoystickSettings.requireActiveTouchForRegionClick`
@@ -698,9 +700,22 @@ class ControllerService: ObservableObject {
 
     // Typed input event sink (Thread-safe storage backing)
     var onInputEvent: ((ControllerInputEvent) -> Void)? {
-        get { readStorage(\.onInputEvent) }
-        set { writeStorage(\.onInputEvent, newValue) }
+		get {
+			guard let callback = readStorage(\.onInputEvent) else { return nil }
+			return { callback($0, nil) }
+		}
+		set {
+			writeStorage(\.onInputEvent, newValue.map { callback in
+				{ event, timing in
+					if case .physicalPressBegan = timing { return }
+					callback(event)
+				}
+			})
+		}
     }
+	func setTimedInputHandler(_ handler: TimedControllerInputHandler?) {
+		writeStorage(\.onInputEvent, handler)
+	}
     var requireActiveTouchForRegionClick: Bool {
         get { readStorage(\.requireActiveTouchForRegionClick) }
         set { writeStorage(\.requireActiveTouchForRegionClick, newValue) }
@@ -713,9 +728,9 @@ class ControllerService: ObservableObject {
         get { readStorage(\.touchpadInputMode) }
         set { writeStorage(\.touchpadInputMode, newValue) }
     }
-    nonisolated func emitInputEvent(_ event: ControllerInputEvent) {
+    nonisolated func emitInputEvent(_ event: ControllerInputEvent, timing: ControllerInputTiming? = nil) {
         let callback = readStorage(\.onInputEvent)
-        callback?(event)
+		callback?(event, timing)
     }
 
     private var cancellables = Set<AnyCancellable>()
@@ -1252,6 +1267,8 @@ class ControllerService: ObservableObject {
 		storage.pendingButtons.removeAll()
 		storage.capturedButtonsInWindow.removeAll()
 		storage.pendingReleases.removeAll()
+		storage.capturedPressTimes.removeAll()
+		storage.pendingReleaseTimes.removeAll()
 		storage.chordWorkItem?.cancel()
 		storage.leftStick = .zero
 		storage.rightStick = .zero
@@ -1324,6 +1341,8 @@ class ControllerService: ObservableObject {
         storage.pendingButtons.removeAll()
         storage.capturedButtonsInWindow.removeAll()
         storage.pendingReleases.removeAll()
+		storage.capturedPressTimes.removeAll()
+		storage.pendingReleaseTimes.removeAll()
         storage.chordWorkItem?.cancel()
         storage.leftStick = .zero
         storage.rightStick = .zero
@@ -2708,13 +2727,18 @@ class ControllerService: ObservableObject {
     }
 
     nonisolated internal func buttonPressed(_ button: ControllerButton) {
+		let pressedAt = CFAbsoluteTimeGetCurrent()
+		var announcedBeforeFlush = false
         storage.lock.lock()
 
         // Fast Double Tap Check
         if storage.capturedButtonsInWindow.contains(button) {
+			// A fast second press can flush the first tap before its chord timer.
+			// Announce it first so an overdue first-release callback can reserve it.
+			announcedBeforeFlush = !storage.activeButtons.contains(button)
             storage.chordWorkItem?.cancel()
             storage.lock.unlock()
-            processChordOrSinglePress()
+			processChordOrSinglePress(announcingNextPress: announcedBeforeFlush ? (button, pressedAt) : nil)
             storage.lock.lock()
         }
 
@@ -2738,12 +2762,16 @@ class ControllerService: ObservableObject {
             }
 
             LatencyDiagnostics.mark("controller.lowLatencyPress \(button.rawValue)")
-            emitInputEvent(.buttonPressed(button))
+			if !announcedBeforeFlush {
+				emitInputEvent(.buttonPressed(button), timing: .physicalPressBegan(pressedAt))
+			}
+			emitInputEvent(.buttonPressed(button), timing: .resolved(pressedAt))
             return
         }
 
         storage.pendingButtons.insert(button)
         storage.capturedButtonsInWindow.insert(button)
+		storage.capturedPressTimes[button] = pressedAt
 
         let uiButtons = storage.activeButtons
 
@@ -2755,6 +2783,9 @@ class ControllerService: ObservableObject {
         storage.chordWorkItem = workItem
         let window = storage.chordWindow
         storage.lock.unlock()
+		if !announcedBeforeFlush {
+			emitInputEvent(.buttonPressed(button), timing: .physicalPressBegan(pressedAt))
+		}
 
         Task { @MainActor in
             self.activeButtons = uiButtons
@@ -2764,6 +2795,7 @@ class ControllerService: ObservableObject {
     }
 
     nonisolated internal func buttonReleased(_ button: ControllerButton) {
+		let releasedAt = CFAbsoluteTimeGetCurrent()
         storage.lock.lock()
         guard storage.activeButtons.contains(button) else {
             storage.lock.unlock()
@@ -2790,16 +2822,21 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         if storage.pendingButtons.contains(button) {
             storage.pendingReleases[button] = holdDuration
+			storage.pendingReleaseTimes[button] = releasedAt
             storage.lock.unlock()
         } else {
             storage.lock.unlock()
-            emitInputEvent(.buttonReleased(button, holdDuration: holdDuration))
+			emitInputEvent(.buttonReleased(button, holdDuration: holdDuration), timing: .resolved(releasedAt))
         }
     }
 
-    nonisolated private func processChordOrSinglePress() {
+    nonisolated private func processChordOrSinglePress(
+		announcingNextPress: (ControllerButton, CFAbsoluteTime)? = nil
+	) {
         storage.lock.lock()
         let captured = storage.capturedButtonsInWindow
+		let pressTimes = storage.capturedPressTimes
+		let releaseTimes = storage.pendingReleaseTimes
 
         // Clear state
         storage.capturedButtonsInWindow.removeAll()
@@ -2808,8 +2845,13 @@ class ControllerService: ObservableObject {
         // Copy releases to process
         let releases = storage.pendingReleases
         storage.pendingReleases.removeAll()
+		storage.capturedPressTimes.removeAll()
+		storage.pendingReleaseTimes.removeAll()
 
         storage.lock.unlock()
+		if let (button, pressedAt) = announcingNextPress {
+			emitInputEvent(.buttonPressed(button), timing: .physicalPressBegan(pressedAt))
+		}
 
         // Deliver chord/press callbacks FIRST, then pending releases.
         // The press callback may start a hold mapping (e.g. mouseDown for
@@ -2820,15 +2862,16 @@ class ControllerService: ObservableObject {
         // hold-path buttons (mouse clicks) permanently stuck down.
         if captured.count >= 2 {
             LatencyDiagnostics.mark("controller.chord \(captured.map(\.rawValue).sorted().joined(separator: "+"))")
-            emitInputEvent(.chordDetected(captured))
+			emitInputEvent(.chordDetected(captured), timing: .chordResolved(pressTimes))
         } else if let button = captured.first {
             LatencyDiagnostics.mark("controller.delayedPress \(button.rawValue)")
-            emitInputEvent(.buttonPressed(button))
+			emitInputEvent(.buttonPressed(button), timing: pressTimes[button].map(ControllerInputTiming.resolved))
         }
 
         for button in captured {
             if let duration = releases[button] {
-                emitInputEvent(.buttonReleased(button, holdDuration: duration))
+				emitInputEvent(.buttonReleased(button, holdDuration: duration),
+					timing: releaseTimes[button].map(ControllerInputTiming.resolved))
             }
         }
     }

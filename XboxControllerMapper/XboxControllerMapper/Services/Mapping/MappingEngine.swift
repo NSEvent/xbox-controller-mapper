@@ -403,9 +403,9 @@ class MappingEngine: ObservableObject {
 
         // Controller input events — ControllerService owns event emission;
         // MappingEngine owns queue routing and mapping behavior.
-        controllerService.onInputEvent = { [weak self] event in
-            self?.enqueueControllerInputEvent(event)
-        }
+		controllerService.setTimedInputHandler { [weak self] event, timing in
+			self?.enqueueControllerInputEvent(event, timing: timing)
+		}
 
         // Joystick polling. Deliberately NOT deduplicated: isConnected
         // republishes `true` on every active-controller switch, and that
@@ -602,7 +602,7 @@ class MappingEngine: ObservableObject {
         return state.lock.withLock { state.chordParticipantButtons.contains(button) }
     }
 
-	nonisolated private func resolvedInputButton(for button: ControllerButton) -> ControllerButton {
+	nonisolated func resolvedInputButton(for button: ControllerButton) -> ControllerButton {
 		let remoteContext = controllerService.threadSafeControllerPresentationState.isAppleTVRemote
 		return state.lock.withLock {
 			guard let profile = state.activeProfile else { return button }
@@ -882,7 +882,7 @@ class MappingEngine: ObservableObject {
     }
 
     /// - Precondition: Must be called on inputQueue
-    nonisolated private func handleButtonPressed(_ button: ControllerButton) {
+	nonisolated private func handleButtonPressed(_ button: ControllerButton, pressedAt: CFAbsoluteTime? = nil) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
         LatencyDiagnostics.mark("engine.press \(button.rawValue)")
 		if UniversalControlMouseRelay.shared.shouldRouteControllerInputToRemote {
@@ -958,6 +958,11 @@ class MappingEngine: ObservableObject {
             }
 
             let outcome = resolveButtonPressOutcome(button, profile: profile, lastTap: lastTap)
+			if case .mapping = outcome {} else {
+				if state.lock.withLock({ state.pendingDoubleTapPressTime[button] != nil }) {
+					clearTapState(for: button)
+				}
+			}
 
             if state.lock.withLock({ state.isLocked }) {
                 if case .interceptControllerLock = outcome {
@@ -1158,7 +1163,7 @@ class MappingEngine: ObservableObject {
                     return
                 }
 
-				if consumePendingDoubleTapOnPress(button, mapping: context.mapping, profile: profile) {
+				if consumePendingDoubleTapOnPress(button, mapping: context.mapping, profile: profile, pressedAt: pressedAt) {
 					return
 				}
 
@@ -1201,6 +1206,7 @@ class MappingEngine: ObservableObject {
                 state.pendingSingleTap[chordButton]?.cancel()
                 state.pendingSingleTap.removeValue(forKey: chordButton)
                 state.lastTapTime.removeValue(forKey: chordButton)
+				state.pendingDoubleTapPressTime.removeValue(forKey: chordButton)
             }
 
             state.activeChordButtons = chordButtons
@@ -1272,6 +1278,12 @@ class MappingEngine: ObservableObject {
 
             state.pendingSingleTap.values.forEach { $0.cancel() }
             state.pendingSingleTap.removeAll()
+			state.pendingDoubleTapPressTime.removeAll()
+			state.unresolvedPhysicalTapPresses.removeAll()
+			for (button, press) in state.physicalTapPressOwners {
+				state.cancelledPhysicalTapPressCutoffs[button] = max(state.cancelledPhysicalTapPressCutoffs[button] ?? press.time, press.time)
+			}
+			state.physicalTapPressOwners.removeAll()
             state.pendingReleaseActions.values.forEach { $0.cancel() }
             state.pendingReleaseActions.removeAll()
             state.longHoldTimers.values.forEach { $0.cancel() }
@@ -1417,7 +1429,8 @@ class MappingEngine: ObservableObject {
     }
 
     /// - Precondition: Must be called on inputQueue
-    nonisolated private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
+	nonisolated private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval,
+		releasedAt: CFAbsoluteTime? = nil) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
         LatencyDiagnostics.mark("engine.release \(button.rawValue)")
 		let resolvedButtonForState = peekResolvedReleaseButton(for: button)
@@ -1586,7 +1599,8 @@ class MappingEngine: ObservableObject {
                 lastTap: lastTap,
                 doubleTapMapping: doubleTapMapping,
                 skipSingleTap: skipSingleTapFallback,
-                profile: profile
+				profile: profile,
+				tapTime: Self.usesPhysicalDoubleTapTiming(mapping) ? releasedAt : nil
             )
 
         case .executeSingleTap:
@@ -1651,6 +1665,7 @@ class MappingEngine: ObservableObject {
             state.pendingSingleTap[button]?.cancel()
             state.pendingSingleTap.removeValue(forKey: button)
             state.lastTapTime.removeValue(forKey: button)
+			state.pendingDoubleTapPressTime.removeValue(forKey: button)
         }
     }
 
@@ -1694,19 +1709,32 @@ class MappingEngine: ObservableObject {
                 guard let self = self else { return }
 				// A cancelled fallback must never clear a later tap's state or
 				// emit its action if it was already queued when cancelled.
-				guard self.state.lock.withLock({ self.state.lastTapTime[button] == now }) else { return }
-                self.clearTapState(for: button)
+				let canFire = self.state.lock.withLock { () -> Bool in
+					guard self.state.lastTapTime[button] == now,
+						self.state.pendingDoubleTapPressTime[button] == nil else { return false }
+					self.state.pendingSingleTap.removeValue(forKey: button)
+					self.state.lastTapTime.removeValue(forKey: button)
+					return true
+				}
+				guard canFire else { return }
 
                 let profile = self.state.lock.withLock { self.state.activeProfile }
                 self.mappingExecutor.executeAction(mapping, for: button, profile: profile)
                 self.playActionHaptic(style: mapping.hapticStyle)
             }
             state.pendingSingleTap[button] = workItem
+			if Self.usesPhysicalDoubleTapTiming(mapping),
+				let pressedAt = state.unresolvedPhysicalTapPresses[button],
+				pressedAt > now, pressedAt - now <= doubleTapMapping.threshold {
+				state.pendingDoubleTapPressTime[button] = pressedAt
+				workItem.cancel()
+			}
             return workItem
         }
 
         if let workItem {
-            inputQueue.asyncAfter(deadline: .now() + doubleTapMapping.threshold, execute: workItem)
+			let remaining = max(0, now + doubleTapMapping.threshold - CFAbsoluteTimeGetCurrent())
+			inputQueue.asyncAfter(deadline: .now() + remaining, execute: workItem)
         }
         return false
     }
@@ -1821,6 +1849,7 @@ class MappingEngine: ObservableObject {
                 state.pendingSingleTap[button]?.cancel()
                 state.pendingSingleTap.removeValue(forKey: button)
                 state.lastTapTime.removeValue(forKey: button)
+				state.pendingDoubleTapPressTime.removeValue(forKey: button)
 
 				if let timer = state.smoothScrollTimers.removeValue(forKey: button) {
 					timer.cancel()
@@ -1914,7 +1943,7 @@ class MappingEngine: ObservableObject {
         }
     }
 
-	nonisolated private func enqueueControllerInputEvent(_ event: ControllerInputEvent) {
+	nonisolated private func enqueueControllerInputEvent(_ event: ControllerInputEvent, timing: ControllerInputTiming? = nil) {
 		// Coalesce high-rate touchpad movement so a bursty transport can't backlog
 		// the serial pollingQueue and replay the swipe path. All other events keep
 		// their 1:1 routing.
@@ -1935,7 +1964,18 @@ class MappingEngine: ObservableObject {
 					return decision
 				}
 				guard decision != .ignore else { return }
-				self.handleControllerInputEvent(event)
+				guard !self.discardCancelledTimedPress(event, timing: timing) else { return }
+				if case .physicalPressBegan(let time) = timing, case .buttonPressed(let button) = event {
+					self.reservePhysicalDoubleTapPress(button, at: time)
+					return
+				}
+				self.handleControllerInputEvent(event, eventTime: timing?.resolvedTime)
+				if case .buttonPressed(let button) = event, let time = timing?.resolvedTime {
+					self.finishPhysicalTapPress(button, at: time)
+				}
+				if case .chordResolved(let times) = timing {
+					for (button, time) in times { self.finishPhysicalTapPress(button, at: time) }
+				}
 			}
 		case .polling:
 			pollingQueue.async { [weak self] in
@@ -1976,14 +2016,14 @@ class MappingEngine: ObservableObject {
 		}
 	}
 
-	nonisolated private func handleControllerInputEvent(_ event: ControllerInputEvent) {
+	nonisolated private func handleControllerInputEvent(_ event: ControllerInputEvent, eventTime: CFAbsoluteTime? = nil) {
 		switch event {
 		case .controllerDisconnected:
 			resetControllerInputState()
 		case .buttonPressed(let button):
-			handleButtonPressed(button)
+			handleButtonPressed(button, pressedAt: eventTime)
 		case .buttonReleased(let button, let holdDuration):
-			handleButtonReleased(button, holdDuration: holdDuration)
+			handleButtonReleased(button, holdDuration: holdDuration, releasedAt: eventTime)
 		case .chordDetected(let buttons):
 			handleChord(buttons)
 		case .touchpadMoved(let delta):
