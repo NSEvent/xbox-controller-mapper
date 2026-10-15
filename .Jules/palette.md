@@ -55,3 +55,6 @@
 ## 2024-11-20 - [SwiftUI Button Accessibility for Add Example Scripts]
 **Learning:** Icon-only buttons used for adding featured examples in `ScriptListView` and `ScriptExamplesGalleryView` often lack `.help()` and `.accessibilityLabel()` modifiers, making them inaccessible to screen readers and lacking tooltip context for mouse users.
 **Action:** Always add `.help("Add \\(example.name) example script")` and `.accessibilityLabel("Add \\(example.name) example script")` to the `Button` in example gallery and list views.
+## 2024-07-13 - [Dynamic Accessibility Labels for Simple List Actions]
+**Learning:** Found static "Remove" and "Remove Linked App" labels on trash buttons in linked apps/controllers lists. This makes identifying the target difficult for VoiceOver users when multiple rows exist.
+**Action:** Always interpolate the item's context (e.g. `\(binding.displayName)` or `\(appInfo.name)`) into `.help()` and `.accessibilityLabel()` when used within a loop (`ForEach`).
