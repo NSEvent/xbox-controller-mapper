@@ -24,6 +24,9 @@ nonisolated final class HeldModifierPointerEventBridge: @unchecked Sendable {
 	private let isSecureInputEnabled: @Sendable () -> Bool
 	private let makeTap: @Sendable (CGEventMask, UnsafeMutableRawPointer) -> (any HeldModifierEventTap)?
 	private let lock = NSLock()
+	// Serialize tap operations without holding the state lock across framework
+	// calls. Recursive acquisition permits stop from a same-thread tap callback.
+	private let tapOperationLock = NSRecursiveLock()
 	private var state: StartState = .idle
 	private var eventTap: (any HeldModifierEventTap)?
 	private var runLoop: CFRunLoop?
@@ -70,7 +73,7 @@ nonisolated final class HeldModifierPointerEventBridge: @unchecked Sendable {
 		tapToStop = eventTap
 		lock.unlock()
 
-		tapToStop?.setEnabled(false)
+		tapOperationLock.withLock { tapToStop?.setEnabled(false) }
 		if let runLoopToStop {
 			// CFRunLoopStop before CFRunLoopRun does not stop that future run.
 			// Queue the stop on the owner so startup/shutdown cannot lose it.
@@ -99,7 +102,7 @@ nonisolated final class HeldModifierPointerEventBridge: @unchecked Sendable {
 		}
 
 		// Cover both normal shutdown and a stop requested during tap creation.
-		defer { tap.invalidate() }
+		defer { tapOperationLock.withLock { tap.invalidate() } }
 
 		let currentRunLoop = CFRunLoopGetCurrent()
 		let source = tap.runLoopSource
@@ -108,7 +111,7 @@ nonisolated final class HeldModifierPointerEventBridge: @unchecked Sendable {
 		guard state != .stopped else {
 			lock.unlock()
 			ready.signal()
-			tap.setEnabled(false)
+			tapOperationLock.withLock { tap.setEnabled(false) }
 			return
 		}
 		eventTap = tap
@@ -117,11 +120,11 @@ nonisolated final class HeldModifierPointerEventBridge: @unchecked Sendable {
 		lock.unlock()
 
 		CFRunLoopAddSource(currentRunLoop, source, .commonModes)
-		tap.setEnabled(true)
+		reenableAfterDisable()
 		ready.signal()
 		CFRunLoopRun()
 
-		tap.setEnabled(false)
+		tapOperationLock.withLock { tap.setEnabled(false) }
 		CFRunLoopRemoveSource(currentRunLoop, source, .commonModes)
 
 		lock.lock()
@@ -155,10 +158,10 @@ nonisolated final class HeldModifierPointerEventBridge: @unchecked Sendable {
 	}
 
 	func reenableAfterDisable() {
-		lock.lock()
-		defer { lock.unlock() }
-		guard state == .running else { return }
-		eventTap?.setEnabled(true)
+		tapOperationLock.withLock {
+			let tap = lock.withLock { state == .running ? eventTap : nil }
+			tap?.setEnabled(true)
+		}
 	}
 }
 

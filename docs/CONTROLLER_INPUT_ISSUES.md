@@ -13,6 +13,8 @@ ControllerKeys-generated keyboard events, modifier transitions and secure-input
 keyboard events are excluded. Physical modifiers remain when the controller
 releases its own hold. Tap creation can retry on the next hold after a transient
 failure; shutdown also handles a worker that has not entered its run loop yet.
+Tap activation, recovery and teardown are serialized so stopping cannot be
+followed by a late enable from the startup path.
 
 Regression tests use in-memory keyboard events and an owned run-loop source;
 they never post test keystrokes or create a system input tap. MoKo hardware

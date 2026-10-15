@@ -84,6 +84,18 @@ final class HeldModifierBridgeLifecycleTests: XCTestCase {
 		XCTAssertEqual(factory.tap.enableCount, 1)
 	}
 
+	func testStopBetweenPublicationAndActivationDoesNotEnableTheTap() {
+		let factory = BridgeTestTapFactory()
+		let bridge = bridge(factory)
+		defer { bridge.stop(); XCTAssertTrue(factory.tap.waitForInvalidation()) }
+		// CFRunLoopAddSource schedules the source after the bridge publishes the
+		// tap/run loop, but before the worker attempts its initial enable.
+		factory.tap.onSchedule = { [weak bridge] in bridge?.stop() }
+		bridge.startIfNeeded()
+		XCTAssertTrue(factory.tap.waitForInvalidation())
+		XCTAssertEqual(factory.tap.enableCount, 0)
+	}
+
 	func testDisabledTapRecoversWhileRunningButNotAfterStop() {
 		let factory = BridgeTestTapFactory()
 		let bridge = bridge(factory)
@@ -109,12 +121,22 @@ nonisolated private final class BridgeTestTap: HeldModifierEventTap, @unchecked 
 	private let enabled = DispatchSemaphore(value: 0)
 	private var enableCalls = 0
 	private var invalidationCalls = 0
+	private let scheduleHook = BridgeTestScheduleHook()
 	var onFirstEnable: (@Sendable () -> Void)?
+	var onSchedule: (@Sendable () -> Void)? {
+		get { scheduleHook.callback }
+		set { scheduleHook.callback = newValue }
+	}
 	var enableCount: Int { lock.withLock { enableCalls } }
 
 	init() {
 		var context = CFRunLoopSourceContext()
 		context.perform = { _ in }
+		context.info = Unmanaged.passUnretained(scheduleHook).toOpaque()
+		context.schedule = { info, _, _ in
+			guard let info else { return }
+			Unmanaged<BridgeTestScheduleHook>.fromOpaque(info).takeUnretainedValue().callback?()
+		}
 		runLoopSource = CFRunLoopSourceCreate(kCFAllocatorDefault, 0, &context)!
 	}
 
@@ -142,6 +164,10 @@ nonisolated private final class BridgeTestTap: HeldModifierEventTap, @unchecked 
 		if enableCount > 0 { return true }
 		return enabled.wait(timeout: .now() + 2) == .success
 	}
+}
+
+nonisolated private final class BridgeTestScheduleHook: @unchecked Sendable {
+	var callback: (@Sendable () -> Void)?
 }
 
 nonisolated private final class BridgeTestTapFactory: @unchecked Sendable {
