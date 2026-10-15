@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Held controller modifiers reach physical keyboards**: Command, Option, Control and Shift held on a controller now apply to concurrent keyboard input, including Bluetooth chatpads such as the MoKo/P5 Plus. ControllerKeys-generated keys and modifier releases retain their original flags.
+- **Held controller modifiers reach physical keyboards**: Command, Option, Control and Shift held on a controller now apply to concurrent keyboard input, including Bluetooth chatpads such as the MoKo/P5 Plus. ControllerKeys-generated keys and modifier releases retain their original flags. Transient tap-creation failures retry on the next hold, and stopping during startup reliably releases the tap.
 - **DS4 background/reconnect light-bar recovery (candidate)**: on macOS 27, reapply the current Bluetooth color after backgrounding and HID setup, using three delayed raw-only writes. Retries use the latest layer/brightness/light-off settings and cancel on foregrounding or disconnect. Physical confirmation pending.
 - **Bluetooth light-bar report framing**: corrected the truncated raw DS4/DualSense packets used by the macOS 27 fallback and keep-alive. DS4 writes also clear flashing to match ds4color. Background color retention still needs verification on the affected hardware.
 - **DualSense touchpad recovery after connecting**: an unused second-finger position could remain stuck after connection and suppress mouse movement until restart. ControllerKeys now uses fresh USB/Bluetooth contact reports to clear that phantom touch and end its gesture state, while preserving real stationary fingers and held-click releases.

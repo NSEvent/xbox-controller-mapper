@@ -1,6 +1,22 @@
 # Controller Input Issues
 
-Last updated: 2026-09-30
+Last updated: 2026-10-14
+
+## Held controller modifiers with a Bluetooth keyboard
+
+A controller button mapped to **Hold Command** can combine with W/V/etc. on a
+separate keyboard, including a MoKo/P5 Plus chatpad. Some incoming keyboard
+events omit the synthesized modifier even while macOS reports it held. The
+held-modifier bridge now adds ControllerKeys' currently held modifiers to those
+key-down/up events, preserving the keyboard's existing flags and key data.
+ControllerKeys-generated keyboard events, modifier transitions and secure-input
+keyboard events are excluded. Physical modifiers remain when the controller
+releases its own hold. Tap creation can retry on the next hold after a transient
+failure; shutdown also handles a worker that has not entered its run loop yet.
+
+Regression tests use in-memory keyboard events and an owned run-loop source;
+they never post test keystrokes or create a system input tap. MoKo hardware
+verification remains a separate check on the affected setup.
 
 ## Remote handoff return leaves the local cursor invisible
 

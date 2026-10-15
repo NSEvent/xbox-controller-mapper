@@ -160,13 +160,111 @@ final class HeldModifierPointerEventBridgePolicyTests: XCTestCase {
 		bridge.process(type: .keyDown, event: next)
 		XCTAssertEqual(next.flags, .maskShift)
 	}
+
+	func testActualCoreGraphicsSourcesAreRecognizedAsOwnGeneratedInput() throws {
+		let bridge = HeldModifierPointerEventBridge(
+			heldModifiers: { [.maskCommand] }, isSecureInputEnabled: { false }
+		)
+		for sourceState in [CGEventSourceStateID.hidSystemState, .combinedSessionState, .privateState] {
+			let source = try XCTUnwrap(CGEventSource(stateID: sourceState))
+			let event = try XCTUnwrap(CGEvent(keyboardEventSource: source, virtualKey: 13, keyDown: true))
+			XCTAssertEqual(event.getIntegerValueField(.eventSourceUnixProcessID),
+				Int64(ProcessInfo.processInfo.processIdentifier))
+			event.flags = .maskAlternate
+			bridge.process(type: .keyDown, event: event)
+			XCTAssertEqual(event.flags, .maskAlternate)
+		}
+	}
+
+	func testKeyboardRemapperEventsFromAnotherProcessStillReceiveHeldModifiers() throws {
+		let bridge = HeldModifierPointerEventBridge(
+			heldModifiers: { [.maskCommand] }, isSecureInputEnabled: { false }
+		)
+		let event = try keyboardEvent(type: .keyDown,
+			sourceProcessID: Int64(ProcessInfo.processInfo.processIdentifier) + 1)
+		bridge.process(type: .keyDown, event: event)
+		XCTAssertTrue(event.flags.contains(.maskCommand))
+	}
+
+	func testSecureInputCanToggleDuringTheSameControllerHold() throws {
+		let state = BridgeTestModifierState()
+		let bridge = HeldModifierPointerEventBridge(
+			heldModifiers: { [.maskCommand] }, isSecureInputEnabled: { state.secureInput }
+		)
+		for secure in [false, true, false] {
+			state.secureInput = secure
+			let event = try keyboardEvent(type: .keyDown, flags: .maskShift)
+			bridge.process(type: .keyDown, event: event)
+			XCTAssertEqual(event.flags, secure ? [.maskShift] : [.maskShift, .maskCommand])
+		}
+	}
+
+	func testPhysicalModifiersRemainAfterControllerReleasesTheSameModifier() throws {
+		let state = BridgeTestModifierState()
+		let bridge = HeldModifierPointerEventBridge(
+			heldModifiers: { state.flags }, isSecureInputEnabled: { false }
+		)
+		for held in [CGEventFlags.maskCommand, []] {
+			state.flags = held
+			let event = try keyboardEvent(type: .keyUp, flags: [.maskCommand, .maskAlternate])
+			bridge.process(type: .keyUp, event: event)
+			XCTAssertEqual(event.flags, [.maskCommand, .maskAlternate])
+		}
+	}
+
+	func testKeyboardUnicodeAndMetadataSurviveFlagAugmentation() throws {
+		let bridge = HeldModifierPointerEventBridge(
+			heldModifiers: { [.maskCommand] }, isSecureInputEnabled: { false }
+		)
+		let event = try keyboardEvent(type: .keyDown, flags: [.maskAlphaShift, .maskSecondaryFn, .maskNumericPad])
+		let text = Array("é🤖".utf16)
+		text.withUnsafeBufferPointer {
+			event.keyboardSetUnicodeString(stringLength: $0.count, unicodeString: $0.baseAddress!)
+		}
+		event.setIntegerValueField(.eventSourceUserData, value: 123456)
+		event.setIntegerValueField(.keyboardEventKeyboardType, value: 40)
+		event.timestamp = 123456789
+		bridge.process(type: .keyDown, event: event)
+		var actual = [UniChar](repeating: 0, count: 16)
+		var count = 0
+		actual.withUnsafeMutableBufferPointer {
+			event.keyboardGetUnicodeString(maxStringLength: $0.count, actualStringLength: &count,
+				unicodeString: $0.baseAddress!)
+		}
+		XCTAssertEqual(Array(actual.prefix(count)), text)
+		XCTAssertEqual(event.flags, [.maskCommand, .maskAlphaShift, .maskSecondaryFn, .maskNumericPad])
+		XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData), 123456)
+		XCTAssertEqual(event.getIntegerValueField(.keyboardEventKeyboardType), 40)
+		XCTAssertEqual(event.timestamp, 123456789)
+	}
+
+	func testPointerHandlerStillPreservesDragGeometryAndExistingFlags() throws {
+		let bridge = HeldModifierPointerEventBridge(
+			heldModifiers: { [.maskShift] }, isSecureInputEnabled: { true }
+		)
+		let point = CGPoint(x: 123, y: 456)
+		let event = try XCTUnwrap(CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged,
+			mouseCursorPosition: point, mouseButton: .left))
+		event.flags = .maskAlternate
+		event.setIntegerValueField(.mouseEventDeltaX, value: 7)
+		bridge.process(type: .leftMouseDragged, event: event)
+		XCTAssertEqual(event.flags, [.maskShift, .maskAlternate])
+		XCTAssertEqual(event.type, .leftMouseDragged)
+		XCTAssertEqual(event.location, point)
+		XCTAssertEqual(event.getIntegerValueField(.mouseEventDeltaX), 7)
+	}
 }
 
 nonisolated private final class BridgeTestModifierState: @unchecked Sendable {
 	private let lock = NSLock()
 	private var storedFlags: CGEventFlags = []
+	private var storedSecureInput = false
 	var flags: CGEventFlags {
 		get { lock.withLock { storedFlags } }
 		set { lock.withLock { storedFlags = newValue } }
+	}
+	var secureInput: Bool {
+		get { lock.withLock { storedSecureInput } }
+		set { lock.withLock { storedSecureInput = newValue } }
 	}
 }

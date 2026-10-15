@@ -22,22 +22,27 @@ nonisolated final class HeldModifierPointerEventBridge: @unchecked Sendable {
 
 	private let heldModifiers: @Sendable () -> CGEventFlags
 	private let isSecureInputEnabled: @Sendable () -> Bool
+	private let makeTap: @Sendable (CGEventMask, UnsafeMutableRawPointer) -> (any HeldModifierEventTap)?
 	private let lock = NSLock()
 	private var state: StartState = .idle
-	private var eventTap: CFMachPort?
+	private var eventTap: (any HeldModifierEventTap)?
 	private var runLoop: CFRunLoop?
 
 	init(
 		heldModifiers: @escaping @Sendable () -> CGEventFlags,
-		isSecureInputEnabled: @escaping @Sendable () -> Bool = { IsSecureEventInputEnabled() }
+		isSecureInputEnabled: @escaping @Sendable () -> Bool = { IsSecureEventInputEnabled() },
+		makeTap: @escaping @Sendable (CGEventMask, UnsafeMutableRawPointer) -> (any HeldModifierEventTap)? = {
+			QuartzHeldModifierEventTap(mask: $0, context: $1)
+		}
 	) {
 		self.heldModifiers = heldModifiers
 		self.isSecureInputEnabled = isSecureInputEnabled
+		self.makeTap = makeTap
 	}
 
 	func startIfNeeded() {
 		lock.lock()
-		guard state == .idle else {
+		guard state == .idle || state == .failed else {
 			lock.unlock()
 			return
 		}
@@ -57,14 +62,22 @@ nonisolated final class HeldModifierPointerEventBridge: @unchecked Sendable {
 
 	func stop() {
 		let runLoopToStop: CFRunLoop?
+		let tapToStop: (any HeldModifierEventTap)?
 
 		lock.lock()
 		state = .stopped
 		runLoopToStop = runLoop
+		tapToStop = eventTap
 		lock.unlock()
 
+		tapToStop?.setEnabled(false)
 		if let runLoopToStop {
-			CFRunLoopStop(runLoopToStop)
+			// CFRunLoopStop before CFRunLoopRun does not stop that future run.
+			// Queue the stop on the owner so startup/shutdown cannot lose it.
+			CFRunLoopPerformBlock(runLoopToStop, CFRunLoopMode.commonModes.rawValue) {
+				CFRunLoopStop(CFRunLoopGetCurrent())
+			}
+			CFRunLoopWakeUp(runLoopToStop)
 		}
 	}
 
@@ -74,14 +87,7 @@ nonisolated final class HeldModifierPointerEventBridge: @unchecked Sendable {
 		}
 		let context = Unmanaged.passUnretained(self).toOpaque()
 
-		guard let tap = CGEvent.tapCreate(
-			tap: .cgSessionEventTap,
-			place: .headInsertEventTap,
-			options: .defaultTap,
-			eventsOfInterest: eventMask,
-			callback: heldModifierPointerEventTapCallback,
-			userInfo: context
-		) else {
+		guard let tap = makeTap(eventMask, context) else {
 			lock.lock()
 			if state != .stopped {
 				state = .failed
@@ -93,16 +99,16 @@ nonisolated final class HeldModifierPointerEventBridge: @unchecked Sendable {
 		}
 
 		// Cover both normal shutdown and a stop requested during tap creation.
-		defer { CFMachPortInvalidate(tap) }
+		defer { tap.invalidate() }
 
 		let currentRunLoop = CFRunLoopGetCurrent()
-		let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+		let source = tap.runLoopSource
 
 		lock.lock()
 		guard state != .stopped else {
 			lock.unlock()
 			ready.signal()
-			CGEvent.tapEnable(tap: tap, enable: false)
+			tap.setEnabled(false)
 			return
 		}
 		eventTap = tap
@@ -111,11 +117,11 @@ nonisolated final class HeldModifierPointerEventBridge: @unchecked Sendable {
 		lock.unlock()
 
 		CFRunLoopAddSource(currentRunLoop, source, .commonModes)
-		CGEvent.tapEnable(tap: tap, enable: true)
+		tap.setEnabled(true)
 		ready.signal()
 		CFRunLoopRun()
 
-		CGEvent.tapEnable(tap: tap, enable: false)
+		tap.setEnabled(false)
 		CFRunLoopRemoveSource(currentRunLoop, source, .commonModes)
 
 		lock.lock()
@@ -139,20 +145,20 @@ nonisolated final class HeldModifierPointerEventBridge: @unchecked Sendable {
 				isSecureInputEnabled: isSecureInputEnabled()
 			) else { return }
 		}
-		event.flags = HeldModifierPointerEventPolicy.augmentedFlags(
-			eventFlags: event.flags,
-			heldModifiers: controllerModifiers
-		)
+		lock.withLock {
+			guard state != .stopped else { return }
+			event.flags = HeldModifierPointerEventPolicy.augmentedFlags(
+				eventFlags: event.flags,
+				heldModifiers: controllerModifiers
+			)
+		}
 	}
 
-	fileprivate func reenableAfterDisable() {
+	func reenableAfterDisable() {
 		lock.lock()
-		let tap = eventTap
-		lock.unlock()
-
-		if let tap {
-			CGEvent.tapEnable(tap: tap, enable: true)
-		}
+		defer { lock.unlock() }
+		guard state == .running else { return }
+		eventTap?.setEnabled(true)
 	}
 }
 
@@ -205,7 +211,7 @@ nonisolated enum HeldModifierPointerEventPolicy {
 	}
 }
 
-nonisolated private func heldModifierPointerEventTapCallback(
+nonisolated func heldModifierPointerEventTapCallback(
 	proxy: CGEventTapProxy,
 	type: CGEventType,
 	event: CGEvent,
