@@ -253,6 +253,18 @@ final class HeldModifierPointerEventBridgePolicyTests: XCTestCase {
 		XCTAssertEqual(event.location, point)
 		XCTAssertEqual(event.getIntegerValueField(.mouseEventDeltaX), 7)
 	}
+
+	func testTapCallbackPreservesInputWhenContextIsMissing() throws {
+		let event = try keyboardEvent(type: .keyDown, flags: .maskShift)
+		// The callback does not use its proxy; no system tap is needed.
+		let proxy = try XCTUnwrap(OpaquePointer(bitPattern: 1))
+		for type in [CGEventType.keyDown, .tapDisabledByTimeout, .tapDisabledByUserInput] {
+			let returned = heldModifierPointerEventTapCallback(
+				proxy: proxy, type: type, event: event, userInfo: nil)
+			XCTAssertTrue(returned?.takeUnretainedValue() === event)
+			XCTAssertEqual(event.flags, .maskShift)
+		}
+	}
 }
 
 nonisolated private final class BridgeTestModifierState: @unchecked Sendable {

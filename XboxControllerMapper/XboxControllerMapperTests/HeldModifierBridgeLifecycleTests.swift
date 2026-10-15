@@ -111,6 +111,78 @@ final class HeldModifierBridgeLifecycleTests: XCTestCase {
 		bridge.startIfNeeded()
 		XCTAssertEqual(factory.attempts, 1, "Stop is terminal")
 	}
+
+	func testTapCallbackRecoversBothDisableReasonsOnlyWhileRunning() throws {
+		let factory = BridgeTestTapFactory()
+		let bridge = bridge(factory)
+		defer { bridge.stop(); XCTAssertTrue(factory.tap.waitForInvalidation()) }
+		bridge.startIfNeeded()
+		XCTAssertTrue(factory.tap.waitForEnable())
+		let event = try XCTUnwrap(CGEvent(source: nil))
+		event.flags = .maskShift
+		let context = Unmanaged.passUnretained(bridge).toOpaque()
+		// The callback does not use its proxy; no system tap is needed.
+		let proxy = try XCTUnwrap(OpaquePointer(bitPattern: 1))
+		for type in [CGEventType.tapDisabledByTimeout, .tapDisabledByUserInput] {
+			let returned = heldModifierPointerEventTapCallback(
+				proxy: proxy, type: type, event: event, userInfo: context)
+			XCTAssertTrue(returned?.takeUnretainedValue() === event)
+			XCTAssertEqual(event.flags, .maskShift)
+		}
+		XCTAssertEqual(factory.tap.enableCount, 3)
+		bridge.stop()
+		for type in [CGEventType.tapDisabledByTimeout, .tapDisabledByUserInput] {
+			_ = heldModifierPointerEventTapCallback(
+				proxy: proxy, type: type, event: event, userInfo: context)
+		}
+		XCTAssertEqual(factory.tap.enableCount, 3)
+	}
+
+	func testConcurrentStopsInvalidateTheTapOnce() {
+		let factory = BridgeTestTapFactory()
+		let bridge = bridge(factory)
+		defer { bridge.stop(); XCTAssertTrue(factory.tap.waitForInvalidation()) }
+		bridge.startIfNeeded()
+		XCTAssertTrue(factory.tap.waitForEnable())
+		let group = DispatchGroup()
+		for _ in 0..<20 {
+			group.enter()
+			DispatchQueue.global().async { bridge.stop(); group.leave() }
+		}
+		XCTAssertEqual(group.wait(timeout: .now() + 2), .success)
+		XCTAssertTrue(factory.tap.waitForInvalidation())
+		bridge.stop()
+		XCTAssertEqual(factory.tap.invalidationCount, 1)
+	}
+
+	func testWorkerRetainsCallbackContextUntilTapInvalidation() {
+		let factory = BridgeTestTapFactory()
+		let released = expectation(description: "Worker releases callback context after shutdown")
+		var token: BridgeTestLifetimeToken? = BridgeTestLifetimeToken(released: released)
+		var bridge: HeldModifierPointerEventBridge? = HeldModifierPointerEventBridge(
+			heldModifiers: { [token = token!] in token.flags },
+			isSecureInputEnabled: { false },
+			makeTap: { factory.make(mask: $0, context: $1) }
+		)
+		weak let context = bridge
+		defer { context?.stop() }
+		token = nil
+		bridge?.startIfNeeded()
+		XCTAssertTrue(factory.tap.waitForEnable())
+		bridge = nil
+		XCTAssertNotNil(context, "The tap's unretained callback context must remain alive")
+		context?.stop()
+		XCTAssertTrue(factory.tap.waitForInvalidation())
+		wait(for: [released], timeout: 2)
+		XCTAssertNil(context, "Stopped workers must release their callback context")
+	}
+}
+
+nonisolated private final class BridgeTestLifetimeToken: Sendable {
+	let flags: CGEventFlags = .maskCommand
+	private let released: XCTestExpectation
+	init(released: XCTestExpectation) { self.released = released }
+	deinit { released.fulfill() }
 }
 
 // A private source keeps a real CFRunLoop alive, without creating a system tap.
@@ -128,6 +200,7 @@ nonisolated private final class BridgeTestTap: HeldModifierEventTap, @unchecked 
 		set { scheduleHook.callback = newValue }
 	}
 	var enableCount: Int { lock.withLock { enableCalls } }
+	var invalidationCount: Int { lock.withLock { invalidationCalls } }
 
 	init() {
 		var context = CFRunLoopSourceContext()
