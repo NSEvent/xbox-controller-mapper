@@ -58,3 +58,6 @@
 ## 2024-07-13 - [Dynamic Accessibility Labels for Simple List Actions]
 **Learning:** Found static "Remove" and "Remove Linked App" labels on trash buttons in linked apps/controllers lists. This makes identifying the target difficult for VoiceOver users when multiple rows exist.
 **Action:** Always interpolate the item's context (e.g. `\(binding.displayName)` or `\(appInfo.name)`) into `.help()` and `.accessibilityLabel()` when used within a loop (`ForEach`).
+## 2024-11-20 - [SwiftUI Button Accessibility for Controller Map Sheet]
+**Learning:** Icon-only buttons used for controller mapping toggles in `ChordMappingSheet.swift` often lack `.help()` modifiers, making them inaccessible to hover-driven mouse users, even if `.accessibilityLabel()` is present.
+**Action:** Always verify symmetry between hover tooltips and accessibility labels on all icon-only buttons representing hardware actions.

@@ -853,6 +853,7 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
             }
             .buttonStyle(.plain)
             .disabled(isConflicted)
+            .help(buttonName)
             .accessibilityLabel(buttonName)
             .accessibilityValue(isConflicted ? "Unavailable, conflicts with existing chord" : (isSelected ? "Selected" : "Not selected"))
             .accessibilityAddTraits(.isToggle)
