@@ -61,3 +61,6 @@
 ## 2024-11-20 - [SwiftUI Button Accessibility for Controller Map Sheet]
 **Learning:** Icon-only buttons used for controller mapping toggles in `ChordMappingSheet.swift` often lack `.help()` modifiers, making them inaccessible to hover-driven mouse users, even if `.accessibilityLabel()` is present.
 **Action:** Always verify symmetry between hover tooltips and accessibility labels on all icon-only buttons representing hardware actions.
+## 2024-10-18 - Fix List Row Accessibility with `.onTapGesture`
+**Learning:** In SwiftUI, attaching `.onTapGesture` to generic structural views (like `HStack` or `VStack`) makes them interactive for mice/touch but opaque to keyboard navigation (Tab key) and screen readers (VoiceOver). Native buttons provide structural cues necessary for accessibility.
+**Action:** Wrap the interactive view in a `Button` with `.buttonStyle(.plain)` and apply `.contentShape(Rectangle())` inside the button to ensure native accessibility while maintaining the clickable area and preventing standard button styling from disrupting the layout.
