@@ -157,10 +157,8 @@ class DirectoryNavigatorManager: ObservableObject {
         let terminalApp = defaultTerminalApp
 
         // Escape the path for shell
-        let shellEscapedPath = path
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-        let command = "cd \"\(shellEscapedPath)\""
+        let shellEscapedPath = path.replacingOccurrences(of: "'", with: "'\\''")
+        let command = "cd '\(shellEscapedPath)'"
 
         guard let sanitizedTerminalApp = AppleScriptEscaping.sanitizeAppName(terminalApp) else {
             NSLog("[DirectoryNavigator] Terminal app name rejected: %@", terminalApp)
