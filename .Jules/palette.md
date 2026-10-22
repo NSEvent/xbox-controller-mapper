@@ -61,3 +61,6 @@
 ## 2024-11-20 - [SwiftUI Button Accessibility for Controller Map Sheet]
 **Learning:** Icon-only buttons used for controller mapping toggles in `ChordMappingSheet.swift` often lack `.help()` modifiers, making them inaccessible to hover-driven mouse users, even if `.accessibilityLabel()` is present.
 **Action:** Always verify symmetry between hover tooltips and accessibility labels on all icon-only buttons representing hardware actions.
+## 2023-10-24 - Ghost Tab Stops & Ambiguous VoiceOver Items
+**Learning:** Wrapping a list row with an invisible `Button(.plain)` makes it a "Ghost Tab Stop" if the row already contains explicit, separate action buttons (like Edit/Delete). VoiceOver will announce it redundantly. Furthermore, ForEach rows containing icon-only buttons need interpolated indices or names (e.g. `Delete step \(index + 1)`) so they aren't announced identically.
+**Action:** Only use `.onTapGesture` (no plain Button wrap) when row-level explicit actions exist. Always interpolate `\(item.name)` or `\(index + 1)` into `.help()` and `.accessibilityLabel()` modifiers for icon-only action buttons in loops.

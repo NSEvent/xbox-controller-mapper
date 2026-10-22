@@ -287,8 +287,8 @@ struct MacroStepRow: View {
                     .foregroundColor(.secondary)
             }
             .buttonStyle(.plain)
-            .help("Duplicate step")
-            .accessibilityLabel("Duplicate step")
+            .help("Duplicate step \(index + 1)")
+            .accessibilityLabel("Duplicate step \(index + 1)")
 
             Button {
                 onDelete()
@@ -298,8 +298,8 @@ struct MacroStepRow: View {
                     .foregroundColor(.red.opacity(0.7))
             }
             .buttonStyle(.plain)
-            .help("Delete step")
-            .accessibilityLabel("Delete step")
+            .help("Delete step \(index + 1)")
+            .accessibilityLabel("Delete step \(index + 1)")
 
             Image(systemName: "chevron.right")
                 .font(.caption)
