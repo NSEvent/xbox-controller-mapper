@@ -122,6 +122,7 @@ private struct UniversalControlPairingCodeToast: View {
 				}
 				.buttonStyle(.plain)
 				.keyboardShortcut(.cancelAction)
+				.help("Dismiss pairing code")
 				.accessibilityLabel("Dismiss pairing code")
 			}
 

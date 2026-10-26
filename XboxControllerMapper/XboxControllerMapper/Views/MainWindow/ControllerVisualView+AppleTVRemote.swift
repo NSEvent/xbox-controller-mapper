@@ -235,6 +235,7 @@ struct AppleTVRemoteMinimapView: View {
 			.onHover { hovering in onButtonHover(button, hovering) }
 			.swappable(button, onSwap: onSwapRequest)
 			.help(button.displayName(forAppleTVRemote: true))
+			.accessibilityLabel(button.displayName(forAppleTVRemote: true))
 	}
 
 	private var powerButton: some View {
@@ -253,6 +254,7 @@ struct AppleTVRemoteMinimapView: View {
 			.onHover { hovering in onButtonHover(.appleTVRemotePower, hovering) }
 			.swappable(.appleTVRemotePower, onSwap: onSwapRequest)
 			.help("Power")
+			.accessibilityLabel("Power")
 	}
 
 	private func roundButton(_ button: ControllerButton, systemImage: String) -> some View {
@@ -277,6 +279,7 @@ struct AppleTVRemoteMinimapView: View {
 			.onHover { hovering in onButtonHover(button, hovering) }
 			.swappable(button, onSwap: onSwapRequest)
 			.help(button.displayName(forAppleTVRemote: true))
+			.accessibilityLabel(button.displayName(forAppleTVRemote: true))
 	}
 
 	private func buttonGradient(_ color: Color, pressed: Bool) -> LinearGradient {
