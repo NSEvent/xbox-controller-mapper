@@ -100,6 +100,8 @@ struct TouchpadRegionMappingSheet: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(.accentColor)
+                    .help(showingKeyboard && keyboardTarget == kind ? "Hide Keyboard" : "Show Keyboard")
+                    .accessibilityLabel(showingKeyboard && keyboardTarget == kind ? "Hide Keyboard" : "Show Keyboard")
                 }
             }
 

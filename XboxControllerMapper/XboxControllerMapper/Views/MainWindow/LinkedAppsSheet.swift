@@ -57,8 +57,8 @@ struct LinkedAppsSheet: View {
                                     .foregroundColor(.red)
                             }
                             .buttonStyle(.borderless)
-                            .help("Remove")
-                            .accessibilityLabel("Remove Linked App")
+                            .help("Remove \(appMonitor.appInfo(for: bundleId)?.name ?? bundleId)")
+                            .accessibilityLabel("Remove \(appMonitor.appInfo(for: bundleId)?.name ?? bundleId)")
                         }
                         .padding(.vertical, 4)
                     }
