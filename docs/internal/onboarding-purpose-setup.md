@@ -42,6 +42,19 @@ and use the final completion choice when available. For incomplete setup, use th
 first choice or mark multi-choice intent separately: these are milestones, not
 a complete click history.
 
+## Optional "Tell me more" note
+
+Below the choices, an optional free-text box asks what the user wants to control,
+framed as a note to the indie creator. An optional reply email field appears once
+they start typing. The note is **not telemetry**: it is sent only if non-empty when
+the user presses Get Started (Skip clears it), at most once per install
+(`onboardingUseCaseNoteSent.v1`), through the same feedback backend as Settings ->
+Send Feedback with `category: use_case` and `trigger: onboarding_purpose`. The
+message records the chosen starting point and the typed text (capped at 1,000 chars);
+the email is included only if it looks valid. The send is fire-and-forget with one
+retry and never blocks onboarding. The wizard window grew from 640 to 760pt so the
+field is visible without scrolling.
+
 ## Next experiments, not implemented
 
 1. Measure first useful actions and mature paid conversion by purpose. Checkout

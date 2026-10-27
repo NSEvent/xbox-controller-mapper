@@ -29,6 +29,8 @@ struct OnboardingView: View {
     @State private var bluetoothRequested = false
     @State private var startedAt = Date()
 	@State private var selectedUseCase = OnboardingPurposePreference.load(from: .standard)
+	@State private var useCaseNote = ""
+	@State private var useCaseContact = ""
 	@State private var setupDestination: OnboardingSetupDestination?
 	@State private var setupPreviewToken: UUID?
 
@@ -63,7 +65,8 @@ struct OnboardingView: View {
             footer
         }
         .padding(24)
-		.frame(width: 480, height: 640)
+		// 760 leaves room for the optional "Tell me more" note on Welcome without scrolling.
+		.frame(width: 480, height: 760)
         .onAppear {
             startedAt = Date()
             permissions.startPolling()
@@ -151,11 +154,11 @@ struct OnboardingView: View {
 		VStack(alignment: .leading, spacing: 12) {
 			Text("Use your controller as a keyboard and mouse for your Mac.").font(.callout)
 			if isFirstRun {
-				OnboardingPurposeView(selection: selectedUseCase) { purpose in
+				OnboardingPurposeView(selection: selectedUseCase, onSelect: { purpose in
 					selectedUseCase = purpose
 					OnboardingPurposePreference.save(purpose, to: .standard)
 					TelemetryService.shared.onboardingPurposeSelected(purpose)
-				}
+				}, note: $useCaseNote, contact: $useCaseContact)
 				Text("Next, we'll connect your controller and set up macOS permissions.")
 					.font(.caption).foregroundStyle(.secondary)
 			} else {
@@ -290,6 +293,9 @@ struct OnboardingView: View {
 				Button("Skip") {
 					selectedUseCase = nil
 					OnboardingPurposePreference.save(nil, to: .standard)
+					// Skip means skip: never send a half-typed note.
+					useCaseNote = ""
+					useCaseContact = ""
 					goNext()
 				}.controlSize(.large)
 			} else if step == .done && readiness.repairStep != nil {
@@ -403,7 +409,10 @@ struct OnboardingView: View {
     }
 
     private func goNext() {
-		if step == .welcome && isFirstRun { TelemetryService.shared.onboardingPurposeSelected(selectedUseCase) }
+		if step == .welcome && isFirstRun {
+			TelemetryService.shared.onboardingPurposeSelected(selectedUseCase)
+			OnboardingUseCaseNote.submitIfNeeded(purpose: selectedUseCase, note: useCaseNote, contact: useCaseContact)
+		}
 		guard let next = stepState.nextStep(after: step) else { finishOnboarding(); return }
         withAnimation { step = next }
     }
