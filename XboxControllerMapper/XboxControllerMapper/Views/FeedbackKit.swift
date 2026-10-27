@@ -191,6 +191,7 @@ struct FeedbackFormView: View {
 					.foregroundStyle(.secondary)
 			}
 			.buttonStyle(.plain)
+			.help("Close")
 			.accessibilityLabel("Close")
 		}
 	}

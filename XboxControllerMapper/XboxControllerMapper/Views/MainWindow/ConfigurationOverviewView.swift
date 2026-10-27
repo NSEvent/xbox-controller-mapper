@@ -136,8 +136,8 @@ struct ConfigurationOverviewView: View {
 		}
 		.menuStyle(.borderlessButton)
 		.fixedSize()
-		.help("Choose what to edit. Runtime layers can activate independently.")
-		.accessibilityLabel("Editing scope")
+		.help("Editing scope: Choose what to edit. Runtime layers can activate independently.")
+		.accessibilityLabel("Editing scope: Choose what to edit. Runtime layers can activate independently.")
 		.accessibilityValue(snapshot?.scopeName ?? String(localized: "Base"))
 	}
 

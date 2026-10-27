@@ -273,7 +273,7 @@ struct LayerTabBar: View {
             .buttonStyle(.plain)
             .foregroundColor(isSwapMode ? .white : .secondary)
             .help(swapFirstButton != nil ? "Select the second button to swap" : "Swap two buttons' mappings")
-            .accessibilityLabel("Swap mappings")
+            .accessibilityLabel(swapFirstButton != nil ? "Select the second button to swap" : "Swap two buttons' mappings")
             .hoverableButton()
             .onChange(of: isSwapMode) { _, newValue in
                 if !newValue {

@@ -202,6 +202,7 @@ struct MenuBarView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Your free trial has ended — click to buy or enter a license key")
+                .accessibilityLabel("Your free trial has ended — click to buy or enter a license key")
             }
 
             if case let .trial(days) = license.status {
@@ -227,6 +228,7 @@ struct MenuBarView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Click for license options")
+                .accessibilityLabel("Click for license options")
             }
 
             Toggle(isOn: $streamOverlayEnabled) {
