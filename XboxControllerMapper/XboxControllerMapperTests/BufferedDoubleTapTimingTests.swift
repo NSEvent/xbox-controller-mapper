@@ -64,17 +64,25 @@ final class BufferedDoubleTapTimingTests: MappingEngineTestCase {
 
 	private func checkChordWins(realtime: Bool) async {
 		await install(.a, chord: true, realtime: realtime)
-		await firstTap(.a)
-		await waitForTasks(0.18)
-		await MainActor.run { controllerService.buttonPressed(.a) }
-		await waitForTasks(0.02)
-		await MainActor.run { controllerService.buttonPressed(.b) }
-		XCTAssertTrue(mockInputSimulator.events.isEmpty, "Reservation cannot emit an action before chord resolution")
-		await waitForTasks(0.2)
-		await MainActor.run {
-			controllerService.buttonReleased(.a)
-			controllerService.buttonReleased(.b)
+		let first = CFAbsoluteTimeGetCurrent() - 1
+		// Replay the callback order from a delayed chord buffer. The second
+		// physical press is 180 ms after the first release, independently of
+		// how long this test's executor takes to resume on a busy CI host.
+		controllerService.emitInputEvent(.buttonPressed(.a), timing: .physicalPressBegan(first + 0.2))
+		controllerService.emitInputEvent(.buttonPressed(.a), timing: .resolved(first))
+		controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.02), timing: .resolved(first + 0.02))
+		let state = mappingEngine.state
+		let reserved = await waitForCondition {
+			state.lock.withLock { state.pendingDoubleTapPressTime[.a] == first + 0.2 }
 		}
+		XCTAssertTrue(reserved, "The in-time press must reserve the pending double")
+		XCTAssertTrue(mockInputSimulator.events.isEmpty, "Reservation cannot emit an action before chord resolution")
+		controllerService.emitInputEvent(.chordDetected([.a, .b]),
+			timing: .chordResolved([.a: first + 0.2, .b: first + 0.22]))
+		let chordFired = await waitForCondition { self.mockInputSimulator.events == [.pressKey(3, [])] }
+		XCTAssertTrue(chordFired)
+		controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.2), timing: .resolved(first + 0.4))
+		controllerService.emitInputEvent(.buttonReleased(.b, holdDuration: 0.18), timing: .resolved(first + 0.4))
 		await waitForTasks(0.35)
 		XCTAssertEqual(mockInputSimulator.events, [.pressKey(3, [])])
 	}
