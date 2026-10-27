@@ -67,4 +67,39 @@ final class OnboardingPurposeTests: XCTestCase {
 		XCTAssertEqual(partial.nextStep(after: .accessibility), .bluetooth)
 		XCTAssertNil(partial.nextStep(after: .done))
 	}
+
+	// MARK: - Optional "Tell me more" note
+
+	func testUseCaseNoteIsOnlySentWithRealText() {
+		XCTAssertNil(OnboardingUseCaseNote.message(purpose: .photoVideo, note: ""))
+		XCTAssertNil(OnboardingUseCaseNote.message(purpose: .photoVideo, note: "  \n\t "))
+		let message = OnboardingUseCaseNote.message(purpose: .photoVideo, note: "  Culling wedding photos in Aftershoot \n")
+		XCTAssertEqual(message?.hasSuffix("\n\nCulling wedding photos in Aftershoot"), true)
+		XCTAssertEqual(message?.contains("Starting point: photo_video"), true)
+		XCTAssertEqual(OnboardingUseCaseNote.message(purpose: nil, note: "Dorico")?.contains("Starting point: none chosen"), true)
+	}
+
+	func testUseCaseNoteIsCappedAtMaxLength() throws {
+		let long = String(repeating: "a", count: OnboardingUseCaseNote.maxLength + 500)
+		let message = try XCTUnwrap(OnboardingUseCaseNote.message(purpose: .study, note: long))
+		let body = try XCTUnwrap(message.components(separatedBy: "\n\n").last)
+		XCTAssertEqual(body.count, OnboardingUseCaseNote.maxLength)
+	}
+
+	func testUseCaseNoteContactKeepsOnlyPlausibleEmails() {
+		XCTAssertEqual(OnboardingUseCaseNote.sanitizedContact(" me@example.com "), "me@example.com")
+		for bad in ["", "me", "me@", "@example.com", "me@example", "me@.com", "me@example.", "a b@example.com", "me\t@example.com", "me@exa\nmple.com", "a@b@c.com"] {
+			XCTAssertNil(OnboardingUseCaseNote.sanitizedContact(bad), bad)
+		}
+	}
+
+	func testUseCaseNoteSendsAtMostOncePerInstall() throws {
+		let suite = "ControllerKeys.UseCaseNoteTest.\(UUID().uuidString)"
+		let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+		defer { defaults.removePersistentDomain(forName: suite) }
+		XCTAssertFalse(OnboardingUseCaseNote.shouldSend(purpose: .music, note: " ", defaults: defaults))
+		XCTAssertTrue(OnboardingUseCaseNote.shouldSend(purpose: .music, note: "Logic Pro", defaults: defaults))
+		defaults.set(true, forKey: OnboardingUseCaseNote.sentKey)
+		XCTAssertFalse(OnboardingUseCaseNote.shouldSend(purpose: .music, note: "Logic Pro", defaults: defaults))
+	}
 }
