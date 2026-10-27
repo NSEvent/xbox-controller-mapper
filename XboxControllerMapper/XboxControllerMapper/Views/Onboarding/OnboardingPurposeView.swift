@@ -60,7 +60,7 @@ struct OnboardingUseCaseNoteField: View {
 					.textFieldStyle(.roundedBorder)
 					.textContentType(.emailAddress)
 					.accessibilityIdentifier("onboarding-use-case-contact")
-				Text("Sent when you press Get Started, with your app version and Mac model. Email only if you enter one.")
+				Text("Sent when you press Get Started, with your app version, macOS version and Mac model. Email only if you enter one.")
 					.font(.caption2).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
 			}
 		}

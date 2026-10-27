@@ -78,7 +78,7 @@ enum OnboardingPurposePreference {
 /// Optional free-text answer on the welcome screen ("tell me more about what you'll use it for").
 ///
 /// Deliberately separate from telemetry: the typed note is never part of a telemetry
-/// milestone. It is sent only when the user types something and presses Continue, through
+/// milestone. It is sent only when the user types something and presses Get Started, through
 /// the same user-initiated feedback backend as Settings → Send Feedback (category
 /// `use_case`), so it lands in the existing feedback inbox next to other use-case notes.
 enum OnboardingUseCaseNote {

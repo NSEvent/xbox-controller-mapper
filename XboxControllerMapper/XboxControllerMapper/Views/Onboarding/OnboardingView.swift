@@ -65,8 +65,9 @@ struct OnboardingView: View {
             footer
         }
         .padding(24)
-		// 760 leaves room for the optional "Tell me more" note on Welcome without scrolling.
-		.frame(width: 480, height: 760)
+		// 760 leaves room for the optional "Tell me more" note on Welcome without scrolling;
+		// on short displays it shrinks (never below the old 640) and the content scrolls.
+		.frame(width: 480, height: Self.windowHeight)
         .onAppear {
             startedAt = Date()
             permissions.startPolling()
@@ -92,6 +93,11 @@ struct OnboardingView: View {
     }
 
     // MARK: - Header
+
+	static var windowHeight: CGFloat {
+		let available = (NSScreen.main?.visibleFrame.height ?? 900) - 80
+		return min(760, max(640, available))
+	}
 
     private var header: some View {
         VStack(spacing: 10) {
