@@ -293,7 +293,7 @@ There are other controller mapping apps for macOS, but none offered everything I
   - A pixel-accurate on-screen map of each pad, with hardware-accurate labels (L/R bumpers, plus L2/R2 triggers on the Micro)
   - The d-pad just works: these tiny pads feed their d-pad through an analog axis that macOS mis-reads (right often registers as left), so ControllerKeys reads the raw reports and corrects it on every reconnect
   - Turn the d-pad into **Arrow Keys, WASD, custom keys, the Mouse, or Scroll** — so the pad can type, click, or move the cursor
-  - The Micro's Home button — which macOS normally swallows — is recovered and shown with the 8BitDo logo; the firmware profile (star) button stays as a non-mappable hint
+  - The Micro's Home button — which macOS normally swallows — is recovered and shown with the 8BitDo logo. Star stays non-mappable in D-input (the controller's Turbo key); a Micro preview connected through Switch mode exposes the Capture mapping.
   - It all works the moment you pair, and a clone-detection check keeps your other controllers unaffected
 
 - **S29 Bluetooth Button Ring Support (experimental)**: Use the S29 "TikTok scroller" ring as a tiny wireless controller

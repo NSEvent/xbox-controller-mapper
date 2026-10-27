@@ -25,6 +25,9 @@ enum ControllerVisualFamily: Equatable {
 
 struct ControllerVisualDescriptor: Equatable {
 	let family: ControllerVisualFamily
+	/// A Micro preview may represent a Switch-mode controller. Its Star uses
+	/// the Nintendo Capture mapping; D-input's firmware Turbo key emits none.
+	var eightBitDoStarIsCapture: Bool = false
 
 	var isAppleTVRemote: Bool {
 		family == .appleTVRemote
@@ -164,7 +167,7 @@ struct ControllerVisualDescriptor: Equatable {
 			buttons = Set(family == .nintendo ? ControllerButton.nintendoButtons : ControllerButton.xboxButtons)
 		case let .eightBitDo(model):
 			buttons = Set(ControllerButton.xboxButtons)
-			buttons.remove(.share)
+			if !eightBitDoStarIsCapture { buttons.remove(.share) }
 			if model == .zero2 { buttons.remove(.xbox) }
 		}
 
@@ -276,6 +279,8 @@ struct ControllerVisualDescriptor: Equatable {
 		var buttons: [ControllerButton] = [.menu]
 		if isDualSense {
 			buttons.append(.micMute)
+		} else if eightBitDoStarIsCapture {
+			buttons.append(.share)
 		} else if !isDualShock && (!isXboxElite || isSteamController) && eightBitDoModel == nil {
 			buttons.append(.share)
 		}
@@ -344,7 +349,7 @@ extension ControllerVisualDescriptor {
 			return ControllerVisualDescriptor(family: .eightBitDoUltimate2)
 		}
 		if let model = state.eightBitDoModel {
-			return ControllerVisualDescriptor(family: .eightBitDo(model))
+			return ControllerVisualDescriptor(family: .eightBitDo(model), eightBitDoStarIsCapture: model == .micro && state.isNintendo)
 		}
 		switch state.controllerType {
 		case .xbox:
@@ -400,11 +405,15 @@ extension ControllerVisualDescriptor {
 		previewLayout: ControllerPreviewLayout,
 		presentationState: ControllerPresentationState
 	) -> ControllerVisualDescriptor {
-		concrete(for: previewLayout) ?? active(from: presentationState)
+		guard var descriptor = concrete(for: previewLayout) else { return active(from: presentationState) }
+		descriptor.eightBitDoStarIsCapture = descriptor.eightBitDoModel == .micro && presentationState.isNintendo
+		return descriptor
 	}
 
 	static func resolved(previewLayout: ControllerPreviewLayout, using service: ControllerService) -> ControllerVisualDescriptor {
-		concrete(for: previewLayout) ?? active(using: service)
+		guard previewLayout != .active else { return active(using: service) }
+		guard service.isConnected else { return concrete(for: previewLayout)! }
+		return resolved(previewLayout: previewLayout, presentationState: service.threadSafeControllerPresentationState)
 	}
 }
 

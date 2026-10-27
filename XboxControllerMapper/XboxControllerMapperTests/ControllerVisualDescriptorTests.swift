@@ -2,6 +2,20 @@ import XCTest
 @testable import ControllerKeys
 
 final class ControllerVisualDescriptorTests: XCTestCase {
+	func testMicroStarAvailabilityFollowsSwitchConnectionNotOnlyPreviewShape() {
+		let switchMode = ControllerPresentationState(controllerType: .nintendo(.unknown), eightBitDoModel: nil)
+		let dinputMode = ControllerPresentationState(controllerType: .xbox, eightBitDoModel: .micro)
+		let switchPreview = ControllerVisualDescriptor.resolved(previewLayout: .eightBitDoMicro, presentationState: switchMode)
+		XCTAssertTrue(switchPreview.eightBitDoStarIsCapture)
+		XCTAssertTrue(switchPreview.supportedButtons.contains(.share))
+		XCTAssertTrue(switchPreview.rightSystemButtons.contains(.share))
+		let dinputPreview = ControllerVisualDescriptor.resolved(previewLayout: .eightBitDoMicro, presentationState: dinputMode)
+		XCTAssertFalse(dinputPreview.eightBitDoStarIsCapture)
+		XCTAssertFalse(dinputPreview.supportedButtons.contains(.share))
+		XCTAssertFalse(dinputPreview.rightSystemButtons.contains(.share))
+		XCTAssertFalse(ControllerVisualDescriptor.concrete(for: .eightBitDoMicro)!.eightBitDoStarIsCapture)
+		XCTAssertFalse(ControllerVisualDescriptor.resolved(previewLayout: .eightBitDoZero2, presentationState: switchMode).supportedButtons.contains(.share))
+	}
 	func testConcretePreviewLayoutsResolveExpectedFamilies() {
 		let expected: [ControllerPreviewLayout: ControllerVisualFamily] = [
 			.xbox: .xbox,

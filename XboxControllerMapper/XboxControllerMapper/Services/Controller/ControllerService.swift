@@ -1763,6 +1763,28 @@ class ControllerService: ObservableObject {
         }
     }
 
+	/// A stickless pad's canvas uses the left-stick mode for Mouse, Scroll,
+	/// Off and D-pad key presets. Give that path sole ownership of directions;
+	/// binding the digital buttons too would bypass Off and double-fire keys.
+	func bindPhysicalDirectionPad(_ dpad: GCControllerDirectionPad, from controller: GCController, isStickless: Bool) {
+		if isStickless {
+			for button in [dpad.up, dpad.down, dpad.left, dpad.right] {
+				button.pressedChangedHandler = nil
+			}
+			dpad.valueChangedHandler = { [weak self, weak controller] _, x, y in
+				guard let self, let controller else { return }
+				self.routeGameControllerStickInput(from: controller, x: x, y: y) { service, x, y in
+					service.updateLeftStick(x: x, y: y)
+				}
+			}
+		} else {
+			bindButton(dpad.up, to: .dpadUp, from: controller)
+			bindButton(dpad.down, to: .dpadDown, from: controller)
+			bindButton(dpad.left, to: .dpadLeft, from: controller)
+			bindButton(dpad.right, to: .dpadRight, from: controller)
+		}
+	}
+
 	/// D-pad binding for clone-capable controllers (Nintendo / DualShock). Feeds
 	/// the stickless-clone detector and, once a clone is confirmed, suppresses
 	/// the direct .dpad* mapping so the d-pad (which the clone also routes to the
@@ -2582,11 +2604,13 @@ class ControllerService: ObservableObject {
             (GCInputRightThumbstickButton, .rightThumbstick),
         ]
 
-        // Stickless 8BitDo pads (Zero 2 / Micro in D-input mode) have no real
-		// analog stick. When macOS exposes the physical d-pad as a
-		// `Direction Pad`, bind it as real .dpad* buttons and do not also use it
-		// as the left-stick fallback. The mapping canvas labels this control as
-		// a D-pad, and Android-mode Micro reports digital D-pad directions here.
+		// Known stickless pads use a dedicated Direction Pad binding below so
+		// their canvas's Mouse/Scroll/Off/key mode governs every direction.
+		// Other physical profiles retain the existing left-stick fallback.
+		let isStickless = Self.isSticklessEightBitDoModel(
+			vendorName: controller.vendorName,
+			productCategory: controller.productCategory
+		)
 		let useDirectionPadAsLeftStickFallback = Self.shouldUsePhysicalDirectionPadAsLeftStickFallback(
 			vendorName: controller.vendorName,
 			productCategory: controller.productCategory
@@ -2602,10 +2626,7 @@ class ControllerService: ObservableObject {
 
 		// D-pad.
 		if let dpad = profile.dpads[GCInputDirectionPad] {
-			bindButton(dpad.up, to: .dpadUp, from: controller)
-			bindButton(dpad.down, to: .dpadDown, from: controller)
-			bindButton(dpad.left, to: .dpadLeft, from: controller)
-			bindButton(dpad.right, to: .dpadRight, from: controller)
+			bindPhysicalDirectionPad(dpad, from: controller, isStickless: isStickless)
             boundCount += 4
         }
 
