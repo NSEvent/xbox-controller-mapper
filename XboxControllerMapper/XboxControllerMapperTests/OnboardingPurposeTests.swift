@@ -88,7 +88,7 @@ final class OnboardingPurposeTests: XCTestCase {
 
 	func testUseCaseNoteContactKeepsOnlyPlausibleEmails() {
 		XCTAssertEqual(OnboardingUseCaseNote.sanitizedContact(" me@example.com "), "me@example.com")
-		for bad in ["", "me", "me@", "@example.com", "me@example", "me@.com", "me@example.", "a b@example.com", "a@b@c.com"] {
+		for bad in ["", "me", "me@", "@example.com", "me@example", "me@.com", "me@example.", "a b@example.com", "me\t@example.com", "me@exa\nmple.com", "a@b@c.com"] {
 			XCTAssertNil(OnboardingUseCaseNote.sanitizedContact(bad), bad)
 		}
 	}

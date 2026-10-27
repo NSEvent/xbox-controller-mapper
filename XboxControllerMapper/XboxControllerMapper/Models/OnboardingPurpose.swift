@@ -97,7 +97,7 @@ enum OnboardingUseCaseNote {
 	/// Reply address, only when it looks like an email. Anything else is dropped, never guessed.
 	static func sanitizedContact(_ contact: String) -> String? {
 		let trimmed = contact.trimmingCharacters(in: .whitespacesAndNewlines)
-		guard trimmed.count <= 254, !trimmed.contains(" ") else { return nil }
+		guard trimmed.count <= 254, !trimmed.unicodeScalars.contains(where: CharacterSet.whitespacesAndNewlines.contains) else { return nil }
 		let parts = trimmed.split(separator: "@", omittingEmptySubsequences: false)
 		guard parts.count == 2, !parts[0].isEmpty, parts[1].contains("."),
 			  !parts[1].hasPrefix("."), !parts[1].hasSuffix(".") else { return nil }
