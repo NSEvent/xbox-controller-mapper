@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.1] - 2026-10-26
+
 ### Added
+
+- **Xiaomi Remote 2 Pro support**: map the RC003 remote’s directional and function buttons, with a dedicated preview and shared Apple TV Remote bindings. Native keyboard actions are suppressed while ControllerKeys handles the remote, preventing duplicate actions.
+- **Steam Deck and Quest gamepad input**: compatible ScreenShell Steam Deck input uses the active Steam profile, including touchpads, paddles and system buttons. Gamepads forwarded by Beamdesk on Quest use the active ControllerKeys profile and layers, with cleanup when the stream disconnects or expires.
+- **Reviewed community-profile sharing**: prepare a separate, reviewable profile copy and a GitHub submission draft from the app. Credentials and local identifiers are omitted; custom actions require explicit inclusion. New and updated community profiles cover Photo Mechanic culling, AeroSpace & Codex, and iMovie timeline editing.
 
 - **S29 Bluetooth button ring support (experimental)**: the inexpensive S29 "scroller" ring now works as a mappable controller. Swipes and holds land on Up/Down/Left/Right (the d-pad buttons, so existing d-pad mappings just work), plus dedicated **Camera** and **Home** buttons — including Camera double-tap and Down hold, which the ring's firmware sends as the same volume-down code. ControllerKeys takes exclusive control of the ring while mapping is on so its built-in swipe and volume actions stop, and hands it back to macOS when mapping is turned off. Built from hardware captures and not yet verified on a physical ring — reports welcome.
 - **8BitDo Ultimate 2 Wireless support (experimental)**: the Ultimate 2 now connects with a dedicated Elite-style preview showing all four back paddles. Home and the extra back buttons — which macOS's GameController framework drops — are read straight from the controller, so every button is mappable, and the bundled SDL mapping covers the pad when macOS doesn't claim it at all. Not yet verified on physical hardware — reports welcome.
@@ -19,14 +25,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Purpose-led onboarding**: choose an optional starting workflow during setup; mapped output stays muted while choosing and testing. New profiles and community templates use consistent, calibrated touchpad defaults.
+
 - **Clearer trigger precision settings**: a separate Trigger Cursor Slowdown section explains how trigger pressure affects joystick and touchpad mouse speed, displays full-pull speed as a percentage, and calls out overlap with the on-screen keyboard and other mapped actions.
 - **Interactive preset review**: prompts suggest which controller button to try next and highlight every held button's row, including several buttons held together. Exploratory presses do not execute mapped actions.
 - **Compact setup and capture controls**: the Set Up menu lives in the toolbar, and Press to Edit fits inside **Map → Buttons**. Preset verification is optional and can be revisited through **Set Up → Test This Preset** for the selected guided profile, with permission and connection checks.
 
 ### Fixed
 
-- **8BitDo Micro direction routing and Switch-mode Star (candidate)**: physical-profile D-pad input now follows the Micro's Mouse, Scroll, Off and key-preset menu without also firing direct button mappings. The Micro preview exposes the Nintendo Capture mapping when connected in Switch mode; D-input Star remains unavailable. Mock-output regression tests pass; physical confirmation pending.
+- **Reliable double taps**: a second press inside the configured interval claims the double tap immediately. Physical press timing survives chord buffering and delayed queues, while chords retain priority.
+- **Remote Mac handoff**: pairing connects to the Mac selected by its displayed code, and returning from remote control restores the local cursor.
+- **Steam Deck pointer precision**: already-filtered Deck input respects the profile deadzone instead of applying an additional physical-controller threshold.
+- **Automation safety and accessibility**: hardened AppleScript argument handling in Terminal and Safari actions, improved subprocess error handling, and clearer labels and tooltips throughout mapping and script controls.
 
+- **8BitDo Micro direction routing and Switch-mode Star (candidate)**: physical-profile D-pad input now follows the Micro's Mouse, Scroll, Off and key-preset menu without also firing direct button mappings. The Micro preview exposes the Nintendo Capture mapping when connected in Switch mode; D-input Star remains unavailable. Mock-output regression tests pass; physical confirmation pending.
 - **Held controller modifiers reach physical keyboards**: Command, Option, Control and Shift held on a controller now apply to concurrent keyboard input, including Bluetooth chatpads such as the MoKo/P5 Plus. ControllerKeys-generated keys and modifier releases retain their original flags. Transient tap-creation failures retry on the next hold, and stopping during startup reliably releases the tap without late re-enabling.
 - **DS4 background/reconnect light-bar recovery (candidate)**: on macOS 27, reapply the current Bluetooth color after backgrounding and HID setup, using three delayed raw-only writes. Retries use the latest layer/brightness/light-off settings and cancel on foregrounding or disconnect. Physical confirmation pending.
 - **Bluetooth light-bar report framing**: corrected the truncated raw DS4/DualSense packets used by the macOS 27 fallback and keep-alive. DS4 writes also clear flashing to match ds4color. Background color retention still needs verification on the affected hardware.
