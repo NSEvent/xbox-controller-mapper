@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-10-29
+
+### Added
+
+- **Optional "Tell me more" note on first launch**: the welcome screen now has an optional free-text box for describing what you want to control, with a reply email field if you'd like an answer. It's sent once, only if you type something and press Get Started, through the same channel as Settings → Send Feedback—it is not telemetry, and Skip discards it.
+
+### Changed
+
+- **Tooltips and VoiceOver labels on icon-only buttons**: icon-only buttons across the app now carry matching hover help and screen-reader labels.
+
+### Fixed
+
+- **8BitDo Micro D-pad in D mode**: the D-pad now works. macOS lists a Direction Pad for the Micro but never reports its presses, so ControllerKeys now reads the D-pad straight from the controller's own reports—the same way it already recovers the Home button. Directions follow the Micro's D-pad menu (Arrow Keys, WASD, Custom, Mouse, Scroll or Off), diagonals included, and a disconnect never leaves a direction stuck. Verified on a physical Micro.
+
 ## [2.9.1] - 2026-10-26
 
 ### Added
