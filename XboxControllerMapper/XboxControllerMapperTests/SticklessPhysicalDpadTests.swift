@@ -89,4 +89,70 @@ final class SticklessPhysicalDpadTests: MappingEngineTestCase {
 		XCTAssertEqual(controllerService.readStorage(\.leftStick), .zero)
 		dpad.up.pressedChangedHandler?(dpad.up, 0, false)
 	}
+
+	// MARK: - Raw-HID hat (GameController never fires the Micro's Direction Pad)
+
+	/// Feeds a Micro D-input report (id 0x03, 11 bytes) with the given hat.
+	/// Bytes mirror a 2026-10-29 Bluetooth capture: `03 HH 7F 7F 7F 7F 00 00 00 00 51`.
+	private func sendMicroReport(hat: UInt8) {
+		var bytes: [UInt8] = [0x03, hat, 0x7F, 0x7F, 0x7F, 0x7F, 0x00, 0x00, 0x00, 0x00, 0x51]
+		bytes.withUnsafeMutableBufferPointer { buffer in
+			controllerService.handleEightBitDoHIDReport(
+				productID: EightBitDoDInputHIDDriverDescriptor.microProductID,
+				reportID: 0x03,
+				report: buffer.baseAddress!,
+				length: buffer.count
+			)
+		}
+	}
+
+	func testMicroHatVectorsFollowHIDClockwiseOrder() {
+		let expected: [(UInt8, Float, Float)] = [
+			(0, 0, 1), (1, 1, 1), (2, 1, 0), (3, 1, -1),
+			(4, 0, -1), (5, -1, -1), (6, -1, 0), (7, -1, 1), (8, 0, 0), (15, 0, 0)
+		]
+		for (hat, x, y) in expected {
+			let vector = ControllerService.eightBitDoHatVector(hat)
+			XCTAssertEqual(vector.x, x, "hat \(hat)")
+			XCTAssertEqual(vector.y, y, "hat \(hat)")
+		}
+	}
+
+	@MainActor
+	func testMicroRawHatDrivesLeftStickAndCenters() async {
+		_ = install(mode: .none)
+		for (hat, point) in [(UInt8(0x00), CGPoint(x: 0, y: 1)), (0x04, CGPoint(x: 0, y: -1)),
+		                     (0x06, CGPoint(x: -1, y: 0)), (0x02, CGPoint(x: 1, y: 0))] {
+			sendMicroReport(hat: hat)
+			XCTAssertEqual(controllerService.readStorage(\.leftStick), point)
+			sendMicroReport(hat: 0x08)
+			XCTAssertEqual(controllerService.readStorage(\.leftStick), .zero)
+		}
+	}
+
+	@MainActor
+	func testMicroRawHatInWASDModePressesAndReleasesW() async {
+		_ = install(mode: .dpad)
+		sendMicroReport(hat: 0x00)
+		let pressed = await waitForCondition {
+			self.mockInputSimulator.events.contains { if case .startHoldMapping(let mapping) = $0 { return mapping.keyCode == 13 }; return false }
+		}
+		XCTAssertTrue(pressed)
+		sendMicroReport(hat: 0x08)
+		let released = await waitForCondition {
+			self.mockInputSimulator.events.contains { if case .stopHoldMapping(let mapping) = $0 { return mapping.keyCode == 13 }; return false }
+		}
+		XCTAssertTrue(released)
+	}
+
+	@MainActor
+	func testMicroRawHatRepeatedReportsDoNotRewriteStick() async {
+		_ = install(mode: .none)
+		sendMicroReport(hat: 0x02)
+		controllerService.updateLeftStick(x: 0, y: 0)
+		// Same hat again (e.g. a battery-byte change): edge-triggered, no rewrite.
+		sendMicroReport(hat: 0x02)
+		XCTAssertEqual(controllerService.readStorage(\.leftStick), .zero)
+		sendMicroReport(hat: 0x08)
+	}
 }

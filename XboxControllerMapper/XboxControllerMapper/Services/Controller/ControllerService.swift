@@ -126,6 +126,8 @@ final class ControllerStorage: @unchecked Sendable {
 	    // GameController profile omits, are read from raw HID instead.
 	    var lastEightBitDoHomeState: Bool = false
 	    var lastEightBitDoStarState: Bool = false
+	    /// Last raw Micro D-input hat value (0-7 = direction, 8 = centered).
+	    var lastEightBitDoHat: UInt8 = 0x08
 	    var appleTVRemoteTouchReleaseWorkItem: DispatchWorkItem?
     var appleTVRemoteActiveSystemKeyTypes: Set<Int> = []
     var appleTVRemoteSystemKeyTypeSuppressUntil: [Int: TimeInterval] = [:]

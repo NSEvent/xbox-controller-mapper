@@ -12,11 +12,20 @@ import IOKit.hid
 /// Micro (PID 0x9020) input report (report ID 0x03, 11 bytes) — VERIFIED by raw
 /// capture (the report buffer includes the report ID at byte 0):
 ///   [0]=reportID 0x03  [1]=0x08  [2..5]=analog axes (neutral 0x7F)
-///   [6..7]=L2/R2 analog  [8]=Button usages 1-8  [9]=Button usages 9-16  [10]=0x42
+///   [6..7]=L2/R2 analog  [8]=Button usages 1-8  [9]=Button usages 9-16  [10]=battery
+///   byte[1] low nibble = hat switch (0=up, clockwise to 7=up-left, 8=centered)
 ///   byte[9]: u9(0x01) u10(0x02) Select/u11(0x04) Start/u12(0x08)
 ///            Home/u13(0x10) Star/u14(0x20) u15(0x40) u16(0x80)
 ///
 /// Home = usage 13 (the SDL `guide` slot) → byte[9] & 0x10. Confirmed working.
+///
+/// D-pad: GameController exposes a `Direction Pad` for the Micro but never
+/// fires it — verified 2026-10-29 by a side-by-side capture (hat byte moved
+/// 00/04/06/02 for up/down/left/right while GameController reported nothing,
+/// though A/B arrived). The hat is therefore read here and fed to the left
+/// stick, the same pipeline the stickless D-pad menu (Mouse/Scroll/Off/keys)
+/// configures. Writing stick state is idempotent, so a host whose
+/// GameController does deliver the Direction Pad cannot double-fire.
 ///
 /// Star: the mask below targets usage 14 (byte[9] & 0x20) for completeness, but
 /// the Micro emits NOTHING when Star is pressed in D-input mode — verified by
@@ -87,6 +96,7 @@ extension ControllerService {
     // as buttons fired phantom Home/Star presses that corrupted every chord.)
     nonisolated private static let microReportLength = 11
     nonisolated private static let microButtonsHighOffset = 9
+    nonisolated private static let microHatOffset = 1
     nonisolated private static let eightBitDoHomeMask: UInt8 = 0x10   // HID Button usage 13
     nonisolated private static let eightBitDoStarMask: UInt8 = 0x20   // HID Button usage 14
     nonisolated private static let lite2ReportLength = 10
@@ -219,7 +229,12 @@ extension ControllerService {
         let starWasDown = storage.lastEightBitDoStarState
         storage.lastEightBitDoHomeState = false
         storage.lastEightBitDoStarState = false
+        let hatWasDeflected = storage.lastEightBitDoHat != 0x08
+        storage.lastEightBitDoHat = 0x08
         storage.lock.unlock()
+        if hatWasDeflected {
+            updateLeftStick(x: 0, y: 0)
+        }
         let ultimate2HeldButtons = eightBitDoUltimate2RawButtons.releaseAll()
         if homeWasDown {
             controllerQueue.async { [weak self] in self?.handleButton(.xbox, pressed: false) }
@@ -267,6 +282,7 @@ extension ControllerService {
 			let buttonsHigh = report[Self.microButtonsHighOffset]
 			homePressed = (buttonsHigh & Self.eightBitDoHomeMask) != 0
 			starPressed = (buttonsHigh & Self.eightBitDoStarMask) != 0
+			handleEightBitDoMicroHat(report[Self.microHatOffset] & 0x0F)
 		case Self.lite2ProductID:
 			guard reportID == Self.lite2InputReportID,
 				  length == Self.lite2ReportLength else { return }
@@ -299,6 +315,37 @@ extension ControllerService {
             controllerQueue.async { [weak self] in
                 self?.handleButton(.share, pressed: starPressed)
             }
+        }
+    }
+
+    /// Edge-triggered Micro hat → left-stick update. Out-of-range values
+    /// (the HID null state) read as centered.
+    nonisolated func handleEightBitDoMicroHat(_ hat: UInt8) {
+        storage.lock.lock()
+        let changed = hat != storage.lastEightBitDoHat
+        if changed {
+            storage.lastEightBitDoHat = hat
+            storage.lastInputTime = CFAbsoluteTimeGetCurrent()
+        }
+        storage.lock.unlock()
+        guard changed else { return }
+        let vector = Self.eightBitDoHatVector(hat)
+        updateLeftStick(x: vector.x, y: vector.y)
+    }
+
+    /// HID hat switch (0 = up, clockwise) → GameController-convention
+    /// direction vector (+y = up). Anything outside 0...7 is centered.
+    nonisolated static func eightBitDoHatVector(_ hat: UInt8) -> (x: Float, y: Float) {
+        switch hat {
+        case 0: return (0, 1)
+        case 1: return (1, 1)
+        case 2: return (1, 0)
+        case 3: return (1, -1)
+        case 4: return (0, -1)
+        case 5: return (-1, -1)
+        case 6: return (-1, 0)
+        case 7: return (-1, 1)
+        default: return (0, 0)
         }
     }
 }
