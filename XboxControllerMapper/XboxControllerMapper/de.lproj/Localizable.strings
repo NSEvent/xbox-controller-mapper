@@ -1115,3 +1115,15 @@
 "%@ also opens the on-screen keyboard. Pulling it slows the cursor across the desktop, too. Choose Off or another trigger to keep normal speed while using the keyboard." = "%@ öffnet auch die Bildschirmtastatur. Beim Drücken wird der Cursor auf dem gesamten Desktop langsamer. Wähle „Aus“ oder einen anderen Trigger, um beim Verwenden der Tastatur die normale Geschwindigkeit beizubehalten.";
 "%@ also has a button action. Pulling it will slow the cursor and run that action." = "%@ hat auch eine Tastenaktion. Beim Drücken wird der Cursor langsamer und die Aktion wird ausgeführt.";
 "L2 / LT also activates swipe typing. Holding it slows normal cursor movement before you start a swipe." = "L2 / LT aktiviert auch die Wischeingabe. Solange du den Trigger hältst, wird die normale Cursorbewegung vor Beginn einer Wischgeste verlangsamt.";
+
+/* Additional purchase provider */
+"Purchased from" = "Gekauft bei";
+"Pay with Alipay or WeChat Pay" = "Mit Alipay oder WeChat Pay bezahlen";
+"Already purchased?" = "Bereits gekauft?";
+"Find your license key in your purchase receipt, then paste it here to activate." = "Du findest deinen Lizenzschlüssel in deinem Kaufbeleg. Füge ihn hier ein, um ihn zu aktivieren.";
+"Lemon Squeezy licenses are not available in this build yet." = "Diese Version unterstützt noch keine Lemon Squeezy-Lizenzen.";
+"Couldn't save your license in Keychain. Try activating again." = "Die Lizenz konnte nicht im Schlüsselbund gespeichert werden. Versuche die Aktivierung erneut.";
+"Couldn't reach Lemon Squeezy. Check your connection and try again." = "Lemon Squeezy ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.";
+"Lemon Squeezy is temporarily unavailable. Please try again later." = "Lemon Squeezy ist vorübergehend nicht verfügbar. Versuche es später erneut.";
+"This license has expired or been disabled." = "Diese Lizenz ist abgelaufen oder wurde deaktiviert.";
+"That Lemon Squeezy key isn't a valid ControllerKeys license." = "Dieser Lemon Squeezy-Schlüssel ist keine gültige ControllerKeys-Lizenz.";

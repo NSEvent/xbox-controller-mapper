@@ -28,7 +28,7 @@ struct LicenseCredentialStore {
 ///   UserDefaults), so deleting + reinstalling the app does not grant a fresh
 ///   trial. (A determined user can still build from source — that segment was
 ///   never the paying one.)
-/// - A Gumroad license key, once verified, is cached in the keychain and the
+/// - A purchased license key, once verified, is cached in the keychain and the
 ///   app treats itself as licensed offline thereafter (offline grace).
 /// - When the trial expires with no license, `isActive` becomes false; the app
 ///   forces controller mapping off and the UI nudges the user to license.
@@ -94,15 +94,20 @@ final class LicenseManager: ObservableObject {
 	private let credentialStore: LicenseCredentialStore
 	private let skipsPersistentLicenseStorage: Bool
     private let isoFormatter = ISO8601DateFormatter()
+	private let lemonSqueezyVerifier: LemonSqueezyLicenseVerifier?
     private var clockTimer: Timer?
     private var enforcementCancellable: AnyCancellable?
 
     init(
 		credentialStore: LicenseCredentialStore = .keychain(service: keychainService),
-		skipsPersistentLicenseStorage: Bool = AppRuntime.isRunningTests
+		skipsPersistentLicenseStorage: Bool = AppRuntime.isRunningTests,
+		lemonSqueezyVerifier: LemonSqueezyLicenseVerifier? = LicenseDistribution.lemonSqueezyProduct.map {
+			LemonSqueezyLicenseVerifier(product: $0)
+		}
     ) {
 		self.credentialStore = credentialStore
 		self.skipsPersistentLicenseStorage = skipsPersistentLicenseStorage
+		self.lemonSqueezyVerifier = lemonSqueezyVerifier
 
 		if skipsPersistentLicenseStorage {
 			status = .licensed
@@ -215,7 +220,7 @@ final class LicenseManager: ObservableObject {
     /// Verifies a Gumroad license key against the Gumroad License API and, on
     /// success, caches it so the app is licensed (including offline) going
     /// forward.
-    func verify(key rawKey: String) async -> VerifyResult {
+	func verify(key rawKey: String, provider: LicenseProvider = .gumroad) async -> VerifyResult {
 		if skipsPersistentLicenseStorage {
 			status = .licensed
 			return VerifyResult(success: true, message: "License active for tests.")
@@ -226,6 +231,12 @@ final class LicenseManager: ObservableObject {
             TelemetryService.shared.licenseActivationFailed(.emptyKey)
             return VerifyResult(success: false, message: String(localized: "Enter your license key."))
         }
+
+		// Explicit selection avoids sending a customer's key to an unrelated
+		// provider. Never fall back from a blocked Gumroad request to Lemon Squeezy.
+		if provider == .lemonSqueezy {
+			return await verifyLemonSqueezy(key: key)
+		}
 
         guard let url = URL(string: "https://api.gumroad.com/v2/licenses/verify") else {
             TelemetryService.shared.licenseActivationFailed(.server)
@@ -295,6 +306,57 @@ final class LicenseManager: ObservableObject {
             )
         }
     }
+
+	private func verifyLemonSqueezy(key: String) async -> VerifyResult {
+		guard let lemonSqueezyVerifier else {
+			return VerifyResult(success: false, message: String(localized: "Lemon Squeezy licenses are not available in this build yet."))
+		}
+		switch await lemonSqueezyVerifier.verify(key: key) {
+		case .success:
+			// Match existing offline ownership behavior without modifying the
+			// trial anchor or overwriting an existing confirmed key on failure.
+			let previousKey = credentialStore.retrieve(Keys.licenseKey)
+			let previousConfirmation = credentialStore.retrieve(Keys.licensedConfirmed)
+			guard credentialStore.store(key, Keys.licenseKey) != nil,
+				  credentialStore.store("1", Keys.licensedConfirmed) != nil else {
+				if let previousKey {
+					if credentialStore.retrieve(Keys.licenseKey) != previousKey {
+						credentialStore.store(previousKey, Keys.licenseKey)
+					}
+				} else {
+					credentialStore.delete(Keys.licenseKey)
+				}
+				if credentialStore.retrieve(Keys.licenseKey) != previousKey || previousConfirmation != "1" {
+					credentialStore.delete(Keys.licensedConfirmed)
+				}
+				refresh()
+				return VerifyResult(success: false, message: String(localized: "Couldn't save your license in Keychain. Try activating again."))
+			}
+			status = .licensed
+			// Lemon order IDs must not enter the Gumroad sale-ID join or analytics.
+			TelemetryService.shared.licenseActivated(saleID: nil)
+			return VerifyResult(success: true, message: String(localized: "License activated — thank you for your support!"))
+		case .failure(let failure):
+			let category: TelemetryService.ActivationErrorCategory
+			let message: String
+			switch failure {
+			case .network:
+				category = .network
+				message = String(localized: "Couldn't reach Lemon Squeezy. Check your connection and try again.")
+			case .server:
+				category = .server
+				message = String(localized: "Lemon Squeezy is temporarily unavailable. Please try again later.")
+			case .revoked:
+				category = .revokedPurchase
+				message = String(localized: "This license has expired or been disabled.")
+			default:
+				category = .invalidKey
+				message = String(localized: "That Lemon Squeezy key isn't a valid ControllerKeys license.")
+			}
+			TelemetryService.shared.licenseActivationFailed(category)
+			return VerifyResult(success: false, message: message)
+		}
+	}
 
     /// Removes the stored license (used for testing / "deactivate this Mac").
     func clearLicense() {

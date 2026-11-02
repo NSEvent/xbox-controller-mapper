@@ -74,6 +74,7 @@ struct SettingsSheet: View {
     @State private var relaySecretStatusIsError = false
     @State private var isCheckingRelaySecret = false
     @State private var licenseKeyInput = ""
+	@State private var licenseProvider: LicenseProvider = .gumroad
     @State private var isVerifyingLicense = false
     @State private var licenseMessage: String?
     @State private var licenseMessageIsError = false
@@ -321,8 +322,16 @@ struct SettingsSheet: View {
                 }
                 .controlSize(.small)
             } else {
+				if LicenseDistribution.supportsLemonSqueezy {
+					Picker("Purchased from", selection: $licenseProvider) {
+						ForEach(LicenseProvider.allCases) { provider in
+							Text(provider.rawValue).tag(provider)
+						}
+					}
+					.disabled(isVerifyingLicense)
+				}
                 HStack {
-                    TextField("Gumroad license key", text: $licenseKeyInput)
+					TextField("License key", text: $licenseKeyInput)
                         .textFieldStyle(.roundedBorder)
                         .disableAutocorrection(true)
                         .onSubmit { activateLicense() }
@@ -352,6 +361,15 @@ struct SettingsSheet: View {
                     }
                 }
             }
+
+			if !license.isLicensed, let url = LicenseDistribution.lemonSqueezyCheckoutURL {
+				Button("Pay with Alipay or WeChat Pay") {
+					if NSWorkspace.shared.open(url) {
+						TelemetryService.shared.checkoutOpened(surface: "settings_lemon_squeezy")
+					}
+				}
+				.buttonStyle(.link)
+			}
 
             if let licenseMessage {
                 Label(
@@ -413,7 +431,7 @@ struct SettingsSheet: View {
         isVerifyingLicense = true
         licenseMessage = nil
         Task {
-            let result = await license.verify(key: key)
+			let result = await license.verify(key: key, provider: licenseProvider)
             isVerifyingLicense = false
             licenseMessage = result.message
             licenseMessageIsError = !result.success

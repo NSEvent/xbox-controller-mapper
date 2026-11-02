@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 /// Shown once on first launch: explains the free trial and lets customers who
-/// already bought on Gumroad paste their key and activate immediately.
+/// already purchased paste their key and activate immediately.
 struct TrialWelcomeSheet: View {
     @ObservedObject private var license = LicenseManager.shared
     var onDone: () -> Void
@@ -18,6 +18,7 @@ struct TrialWelcomeSheet: View {
     var emphasizeBuy: Bool = false
 
     @State private var licenseKeyInput = ""
+	@State private var licenseProvider: LicenseProvider = .gumroad
     @State private var isVerifying = false
     @State private var message: String?
     @State private var messageIsError = false
@@ -51,12 +52,21 @@ struct TrialWelcomeSheet: View {
 
             // Existing customers
             VStack(alignment: .leading, spacing: 8) {
-                Text("Already purchased on Gumroad?")
+				Text("Already purchased?")
                     .font(.callout.weight(.semibold))
-                Text("Find your license key in your Gumroad receipt or library, then paste it here to activate.")
+				Text("Find your license key in your purchase receipt, then paste it here to activate.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+
+				if LicenseDistribution.supportsLemonSqueezy {
+					Picker("Purchased from", selection: $licenseProvider) {
+						ForEach(LicenseProvider.allCases) { provider in
+							Text(provider.rawValue).tag(provider)
+						}
+					}
+					.disabled(isVerifying)
+				}
 
                 HStack {
                     TextField("License key", text: $licenseKeyInput)
@@ -82,6 +92,16 @@ struct TrialWelcomeSheet: View {
                         .buttonStyle(.link)
                         .font(.caption)
                 }
+
+				if let url = LicenseDistribution.lemonSqueezyCheckoutURL {
+					Button("Pay with Alipay or WeChat Pay") {
+						if NSWorkspace.shared.open(url) {
+							TelemetryService.shared.checkoutOpened(surface: "trial_welcome_lemon_squeezy")
+						}
+					}
+					.buttonStyle(.link)
+					.font(.caption)
+				}
 
                 if let message {
                     Label(message, systemImage: messageIsError ? "xmark.circle.fill" : "checkmark.circle.fill")
@@ -171,7 +191,7 @@ struct TrialWelcomeSheet: View {
         isVerifying = true
         message = nil
         Task {
-            let result = await license.verify(key: key)
+			let result = await license.verify(key: key, provider: licenseProvider)
             isVerifying = false
             message = result.message
             messageIsError = !result.success

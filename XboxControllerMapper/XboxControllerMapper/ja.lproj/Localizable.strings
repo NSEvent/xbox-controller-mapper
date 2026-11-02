@@ -1115,3 +1115,15 @@
 "%@ also opens the on-screen keyboard. Pulling it slows the cursor across the desktop, too. Choose Off or another trigger to keep normal speed while using the keyboard." = "%@には画面キーボードを開く操作も割り当てられています。押すとデスクトップ全体でカーソルが遅くなります。キーボード使用中も通常の速度を保つには、オフか別のトリガーを選んでください。";
 "%@ also has a button action. Pulling it will slow the cursor and run that action." = "%@にはボタン操作も割り当てられています。押すとカーソルが減速し、その操作も実行されます。";
 "L2 / LT also activates swipe typing. Holding it slows normal cursor movement before you start a swipe." = "L2 / LTはスワイプ入力も有効にします。押している間は、スワイプ開始前の通常のカーソル移動も遅くなります。";
+
+/* Additional purchase provider */
+"Purchased from" = "購入先";
+"Pay with Alipay or WeChat Pay" = "AlipayまたはWeChat Payで支払う";
+"Already purchased?" = "購入済みですか？";
+"Find your license key in your purchase receipt, then paste it here to activate." = "購入時のレシートに記載されているライセンスキーをここに貼り付けて、有効化してください。";
+"Lemon Squeezy licenses are not available in this build yet." = "このバージョンはまだLemon Squeezyのライセンスに対応していません。";
+"Couldn't save your license in Keychain. Try activating again." = "ライセンスをキーチェーンに保存できませんでした。もう一度有効化してください。";
+"Couldn't reach Lemon Squeezy. Check your connection and try again." = "Lemon Squeezyに接続できませんでした。接続を確認して再試行してください。";
+"Lemon Squeezy is temporarily unavailable. Please try again later." = "Lemon Squeezyは一時的に利用できません。しばらくしてから再試行してください。";
+"This license has expired or been disabled." = "このライセンスは期限切れか、無効化されています。";
+"That Lemon Squeezy key isn't a valid ControllerKeys license." = "このLemon Squeezyキーは有効なControllerKeysライセンスではありません。";

@@ -1115,3 +1115,15 @@
 "%@ also opens the on-screen keyboard. Pulling it slows the cursor across the desktop, too. Choose Off or another trigger to keep normal speed while using the keyboard." = "%@ 还用于打开屏幕键盘。按下时，整个桌面的光标也会减速。选择关闭或其他扳机，可在使用键盘时保持正常速度。";
 "%@ also has a button action. Pulling it will slow the cursor and run that action." = "%@ 还分配了按钮操作。按下时会减慢光标并执行该操作。";
 "L2 / LT also activates swipe typing. Holding it slows normal cursor movement before you start a swipe." = "L2 / LT 还会启用滑行输入。按住时，开始滑行前的普通光标移动也会减速。";
+
+/* Additional purchase provider */
+"Purchased from" = "购买渠道";
+"Pay with Alipay or WeChat Pay" = "使用支付宝或微信支付";
+"Already purchased?" = "已购买？";
+"Find your license key in your purchase receipt, then paste it here to activate." = "在购买收据中找到许可证密钥，然后粘贴到此处激活。";
+"Lemon Squeezy licenses are not available in this build yet." = "此版本尚不支持 Lemon Squeezy 许可证。";
+"Couldn't save your license in Keychain. Try activating again." = "无法将许可证保存到钥匙串。请重新尝试激活。";
+"Couldn't reach Lemon Squeezy. Check your connection and try again." = "无法连接 Lemon Squeezy。请检查网络连接后重试。";
+"Lemon Squeezy is temporarily unavailable. Please try again later." = "Lemon Squeezy 暂时不可用。请稍后重试。";
+"This license has expired or been disabled." = "此许可证已过期或被停用。";
+"That Lemon Squeezy key isn't a valid ControllerKeys license." = "此 Lemon Squeezy 密钥不是有效的 ControllerKeys 许可证。";
