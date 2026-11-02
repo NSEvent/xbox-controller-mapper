@@ -66,3 +66,7 @@
 ## 2026-06-06 - Ensure Symmetry in Accessibility and Tooltips for SwiftUI Icon Buttons
 **Learning:** In macOS SwiftUI applications, icon-only buttons often have either `.help()` (for hover tooltips) or `.accessibilityLabel()` (for VoiceOver), but frequently lack both. Both are necessary because they serve different user interaction models—`.help` for visual hover feedback and `.accessibilityLabel` for screen readers.
 **Action:** When adding or reviewing icon-only buttons in SwiftUI, always ensure symmetry by defining both `.help("Description")` and `.accessibilityLabel("Description")` to cover all accessibility and usability vectors.
+
+## 2024-11-20 - [Dynamic Accessibility Labels for OSK Action Buttons]
+**Learning:** Icon-only buttons used for editing and deleting items in dynamic lists (e.g., in `OnScreenKeyboardSettingsView.swift`) must interpolate the item's context (e.g., `item.name`) into both `.help()` and `.accessibilityLabel()` modifiers to prevent ambiguous or repeating VoiceOver announcements.
+**Action:** Always interpolate dynamic context into static accessibility labels for icon-only edit/delete buttons in lists.

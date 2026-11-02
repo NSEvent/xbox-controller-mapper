@@ -118,16 +118,16 @@ struct QuickTextRowView<SuggestionsView: View>: View {
                         Image(systemName: "pencil")
                     }
                     .buttonStyle(.borderless)
-                    .help("Edit quick text")
-                    .accessibilityLabel("Edit quick text")
+                    .help("Edit quick text: \(quickText.text)")
+                    .accessibilityLabel("Edit quick text: \(quickText.text)")
 
                     Button(action: onDelete) {
                         Image(systemName: "trash")
                             .foregroundColor(.red)
                     }
                     .buttonStyle(.borderless)
-                    .help("Delete quick text")
-                    .accessibilityLabel("Delete quick text")
+                    .help("Delete quick text: \(quickText.text)")
+                    .accessibilityLabel("Delete quick text: \(quickText.text)")
                 }
             }
 
@@ -199,16 +199,16 @@ struct AppBarItemRowView: View {
                 Image(systemName: "pencil")
             }
             .buttonStyle(.borderless)
-            .help("Edit app")
-            .accessibilityLabel("Edit app")
+            .help("Edit app: \(app.name)")
+            .accessibilityLabel("Edit app: \(app.name)")
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
                     .foregroundColor(.red)
             }
             .buttonStyle(.borderless)
-            .help("Delete app")
-            .accessibilityLabel("Delete app")
+            .help("Delete app: \(app.name)")
+            .accessibilityLabel("Delete app: \(app.name)")
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
@@ -280,16 +280,16 @@ struct WebsiteLinkRowView: View {
                 Image(systemName: "pencil")
             }
             .buttonStyle(.borderless)
-            .help("Edit link")
-            .accessibilityLabel("Edit link")
+            .help("Edit link: \(link.title.isEmpty ? link.url : link.title)")
+            .accessibilityLabel("Edit link: \(link.title.isEmpty ? link.url : link.title)")
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
                     .foregroundColor(.red)
             }
             .buttonStyle(.borderless)
-            .help("Delete link")
-            .accessibilityLabel("Delete link")
+            .help("Delete link: \(link.title.isEmpty ? link.url : link.title)")
+            .accessibilityLabel("Delete link: \(link.title.isEmpty ? link.url : link.title)")
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
