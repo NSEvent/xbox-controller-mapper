@@ -118,16 +118,16 @@ struct QuickTextRowView<SuggestionsView: View>: View {
                         Image(systemName: "pencil")
                     }
                     .buttonStyle(.borderless)
-                    .help("Edit quick text")
-                    .accessibilityLabel("Edit quick text")
+                    .help("Edit quick text: \(quickText.text)")
+                    .accessibilityLabel("Edit quick text: \(quickText.text)")
 
                     Button(action: onDelete) {
                         Image(systemName: "trash")
                             .foregroundColor(.red)
                     }
                     .buttonStyle(.borderless)
-                    .help("Delete quick text")
-                    .accessibilityLabel("Delete quick text")
+                    .help("Delete quick text: \(quickText.text)")
+                    .accessibilityLabel("Delete quick text: \(quickText.text)")
                 }
             }
 
@@ -199,16 +199,16 @@ struct AppBarItemRowView: View {
                 Image(systemName: "pencil")
             }
             .buttonStyle(.borderless)
-            .help("Edit app")
-            .accessibilityLabel("Edit app")
+            .help("Edit app: \(item.displayName)")
+            .accessibilityLabel("Edit app: \(item.displayName)")
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
                     .foregroundColor(.red)
             }
             .buttonStyle(.borderless)
-            .help("Delete app")
-            .accessibilityLabel("Delete app")
+            .help("Delete app: \(item.displayName)")
+            .accessibilityLabel("Delete app: \(item.displayName)")
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
@@ -280,16 +280,16 @@ struct WebsiteLinkRowView: View {
                 Image(systemName: "pencil")
             }
             .buttonStyle(.borderless)
-            .help("Edit link")
-            .accessibilityLabel("Edit link")
+            .help("Edit link: \(link.displayName.isEmpty ? link.url : link.displayName)")
+            .accessibilityLabel("Edit link: \(link.displayName.isEmpty ? link.url : link.displayName)")
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
                     .foregroundColor(.red)
             }
             .buttonStyle(.borderless)
-            .help("Delete link")
-            .accessibilityLabel("Delete link")
+            .help("Delete link: \(link.displayName.isEmpty ? link.url : link.displayName)")
+            .accessibilityLabel("Delete link: \(link.displayName.isEmpty ? link.url : link.displayName)")
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
@@ -440,11 +440,9 @@ struct EditAppBarItemSheet: View {
     }
 
     private func loadInstalledApps() {
-        DispatchQueue.global(qos: .userInitiated).async {
+        Task { @MainActor in
             let apps = AppMonitor().installedApplications
-            DispatchQueue.main.async {
-                installedApps = apps
-            }
+            installedApps = apps
         }
     }
 
