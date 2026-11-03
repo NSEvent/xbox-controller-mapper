@@ -23,10 +23,15 @@ struct CommunityProfileRow: View {
 			.accessibilityLabel(isSelected ? "Deselect \(profileInfo.displayName)" : "Select \(profileInfo.displayName)")
 
 			// Profile name (clickable for preview)
-			Text(profileInfo.displayName)
-				.lineLimit(1)
-				.frame(maxWidth: .infinity, alignment: .leading)
-				.foregroundColor(isAlreadyImported ? .secondary : .primary)
+			Button(action: onPreview) {
+				Text(profileInfo.displayName)
+					.lineLimit(1)
+					.frame(maxWidth: .infinity, alignment: .leading)
+					.foregroundColor(isAlreadyImported ? .secondary : .primary)
+			}
+			.buttonStyle(.plain)
+			.help("Preview \(profileInfo.displayName)")
+			.accessibilityLabel("Preview \(profileInfo.displayName)")
 
 			// Already imported indicator
 			if isAlreadyImported {

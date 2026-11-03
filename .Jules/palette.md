@@ -66,3 +66,6 @@
 ## 2026-06-06 - Ensure Symmetry in Accessibility and Tooltips for SwiftUI Icon Buttons
 **Learning:** In macOS SwiftUI applications, icon-only buttons often have either `.help()` (for hover tooltips) or `.accessibilityLabel()` (for VoiceOver), but frequently lack both. Both are necessary because they serve different user interaction models—`.help` for visual hover feedback and `.accessibilityLabel` for screen readers.
 **Action:** When adding or reviewing icon-only buttons in SwiftUI, always ensure symmetry by defining both `.help("Description")` and `.accessibilityLabel("Description")` to cover all accessibility and usability vectors.
+## 2024-05-19 - [Missing Accessibility for Implicit Row Actions]
+**Learning:** List rows in SwiftUI that use `.onTapGesture` for secondary actions (like previewing a profile) while having an explicit button for a primary action (like selecting a checkbox) cause VoiceOver users to completely miss the secondary action since the row cannot be focused.
+**Action:** In list rows with multiple actions, ensure all distinct actions have explicit, focusable elements. Convert relevant text (e.g., the item name) into a `Button` with `.buttonStyle(.plain)` instead of relying solely on `.onTapGesture` for the row, ensuring proper `.help()` and `.accessibilityLabel()` modifiers are attached.
