@@ -7,9 +7,15 @@ Status: prepared locally, **not selling yet** (2026-11-02).
 Google sign-in reached new-account registration. The business-intent form was
 submitted as Kevin Tang, United States, with the existing ControllerKeys website.
 Lemon Squeezy recommended Stripe Managed Payments; we selected Lemon Squeezy for
-its license API, download fulfillment and Chinese wallets. Account creation is
-waiting for Kevin's approval of the registration terms. No password was created,
-no payout details entered and no payment made.
+its license API, download fulfillment and Chinese wallets. Kevin approved account
+creation with his primary Google login and the displayed signup terms on 2026-11-02.
+The subsequent Google signup repeated the business-intent flow and returned to
+registration rather than creating an account. Name/email are prefilled in the
+Chrome handoff tab at `https://auth.lemonsqueezy.com/register`. Kevin must finish
+the new password and CAPTCHA, then submit Create account; browser-control rules
+require a human handoff for entering new credentials. Do not ask again for the
+already-approved signup terms. No password was created, no payout details entered
+and no payment made.
 
 Create a store/product in test mode first. Product settings:
 
