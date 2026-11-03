@@ -1,6 +1,6 @@
 # Lemon Squeezy distribution
 
-Status: prepared locally, **not selling yet** (2026-11-02).
+Status: account verified, store created, test product drafted; **not selling yet** (2026-11-03).
 
 ## Account and storefront
 
@@ -9,13 +9,20 @@ submitted as Kevin Tang, United States, with the existing ControllerKeys website
 Lemon Squeezy recommended Stripe Managed Payments; we selected Lemon Squeezy for
 its license API, download fulfillment and Chinese wallets. Kevin approved account
 creation with his primary Google login and the displayed signup terms on 2026-11-02.
-The subsequent Google signup repeated the business-intent flow and returned to
-registration rather than creating an account. Name/email are prefilled in the
-Chrome handoff tab at `https://auth.lemonsqueezy.com/register`. Kevin must finish
-the new password and CAPTCHA, then submit Create account; browser-control rules
-require a human handoff for entering new credentials. Do not ask again for the
-already-approved signup terms. No password was created, no payout details entered
-and no payment made.
+Google signup looped back to registration. Kevin completed email/password signup
+on 2026-11-03; email verification succeeded. Store `controllerkeys.lemonsqueezy.com`
+was created in test mode and the public support email below was saved.
+Test product `1497491` is saved as a draft at
+`https://app.lemonsqueezy.com/products/1497491`: USD 19.99 single payment,
+Software tax category, English/Chinese description, license keys enabled with
+unlimited length and activations, storefront visibility disabled. No files/media
+uploaded yet. This is a test product ID, never a production configuration value.
+
+Current handoff: `https://app.lemonsqueezy.com/settings/general/identity` opens
+Stripe Connect onboarding in a separate window, initially requesting an email.
+Kevin must complete financial-account onboarding, identity verification and payout
+setup himself under browser-control rules. No Stripe details or payout information
+were entered, and no payment was made. Do not repeat account creation.
 
 Create a store/product in test mode first. Product settings:
 
