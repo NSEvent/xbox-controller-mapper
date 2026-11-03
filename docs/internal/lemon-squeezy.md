@@ -1,6 +1,6 @@
 # Lemon Squeezy distribution
 
-Status: account verified, store created, test product drafted; **not selling yet** (2026-11-03).
+Status: seller application **in review**, test product drafted; **not selling yet** (2026-11-03).
 
 ## Account and storefront
 
@@ -18,13 +18,13 @@ Software tax category, English/Chinese description, license keys enabled with
 unlimited length and activations, storefront visibility disabled. No files/media
 uploaded yet. This is a test product ID, never a production configuration value.
 
-Current handoff: `https://app.lemonsqueezy.com/settings/general/identity` opens
-Stripe Connect onboarding in a separate window, initially requesting an email.
-Kevin must complete financial-account onboarding, identity verification and payout
-setup himself under browser-control rules. No Stripe details or payout information
-were entered, and no payment was made. Do not repeat account creation.
+Kevin completed the Stripe onboarding handoff on 2026-11-03. The general settings
+page now confirms: "Your application has been received and will be reviewed as
+soon as possible" and Identity verification "In Review". Store remains in test
+mode. Do not repeat signup or seller onboarding while review is pending. Payout
+readiness has not been independently verified; no live payment was made.
 
-Create a store/product in test mode first. Product settings:
+Store/test product created. Settings to retain for the eventual live product:
 
 - Name: ControllerKeys
 - Price: USD 19.99, one-time payment, matching the existing app price.
