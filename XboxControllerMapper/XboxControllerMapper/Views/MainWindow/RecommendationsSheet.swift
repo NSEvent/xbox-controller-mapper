@@ -250,7 +250,8 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
 	) -> String {
 		button.displayName(
 			forDualSense: presentationState.isPlayStation,
-			forNintendo: presentationState.isNintendo
+			forNintendo: presentationState.isNintendo,
+			forWiimote: presentationState.isWiimote
 		)
 	}
 
@@ -262,7 +263,8 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
 			.map {
 				$0.shortLabel(
 					forDualSense: presentationState.isPlayStation,
-					forNintendo: presentationState.isNintendo
+					forNintendo: presentationState.isNintendo,
+					forWiimote: presentationState.isWiimote
 				)
 			}
             .joined(separator: "+")

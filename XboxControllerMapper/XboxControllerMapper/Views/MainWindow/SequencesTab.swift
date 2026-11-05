@@ -29,6 +29,7 @@ struct SequencesTab: View {
 						isNintendo: presentationState.isNintendo,
 						isSteamController: presentationState.isSteamController,
 						isAppleTVRemote: presentationState.isAppleTVRemote,
+						isWiimote: presentationState.isWiimote,
 						onEdit: { sequence in
                             editingSequence = sequence
                         },

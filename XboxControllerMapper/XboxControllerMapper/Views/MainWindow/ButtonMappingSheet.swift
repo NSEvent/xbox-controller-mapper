@@ -10,6 +10,7 @@ struct ButtonMappingSheet: View {
 	    var isNintendo: Bool = false
 	    var isSteamController: Bool = false
 	    var isAppleTVRemote: Bool = false
+	    var isWiimote: Bool = false
 	    var selectedLayerId: UUID? = nil  // nil = editing base layer
 
     @EnvironmentObject var profileManager: ProfileManager
@@ -301,11 +302,11 @@ struct ButtonMappingSheet: View {
     private var header: some View {
 		let physicalButton = presentationButton ?? button
 		return HStack {
-				ButtonIconView(button: physicalButton, isPressed: false, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
+				ButtonIconView(button: physicalButton, isPressed: false, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote, isWiimote: isWiimote)
 					.padding(.trailing, 8)
 
 				VStack(alignment: .leading, spacing: 4) {
-					Text("Configure \(physicalButton.displayName(forDualSense: isDualSense, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote))")
+					Text("Configure \(physicalButton.displayName(forDualSense: isDualSense, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forWiimote: isWiimote))")
 						.font(.headline)
 					if physicalButton != button {
 						Text("Shared with \(button.isXiaomiRemoteOnly ? "Xiaomi" : "Apple TV") \(button.displayName(forAppleTVRemote: true))")
@@ -394,7 +395,7 @@ struct ButtonMappingSheet: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 if primaryState.mappingType == .singleKey {
-					ActionMappingEditor(state: $primaryState, variant: .primary, showsScrollActionSettings: true)
+					ActionMappingEditor(state: $primaryState, variant: .primary, showsScrollActionSettings: true, showWiimotePointer: isWiimote)
 
                     // Show hold option if any mapping is configured
                     if primaryState.keyCode != nil || primaryState.modifiers.hasAny {
@@ -462,7 +463,7 @@ struct ButtonMappingSheet: View {
 						}
                     }
                 } else {
-					ActionMappingEditor(state: $primaryState, variant: .primary, showsScrollActionSettings: true)
+					ActionMappingEditor(state: $primaryState, variant: .primary, showsScrollActionSettings: true, showWiimotePointer: isWiimote)
                 }
             }
             .onChange(of: primaryState.keyCode) { _, newValue in

@@ -184,6 +184,21 @@ extension ControllerButton {
         }
     }
 
+    /// Display name for the Wii Remote. Its 1/2 buttons ride the X/Y identity
+    /// slots and +/− ride Menu/View, so relabel those; the power button is
+    /// hardware-only (no HID report) and never appears here.
+    func displayName(forWiimote isWiimote: Bool) -> String {
+        guard isWiimote else { return displayName }
+        switch self {
+        case .x: return "1"
+        case .y: return "2"
+        case .menu: return "+"
+        case .view: return "\u{2212}"  // minus sign
+        case .xbox: return "Home"
+        default: return displayName
+        }
+    }
+
 	/// Display name for Apple TV/Siri Remote controls.
 	func displayName(forAppleTVRemote isAppleTVRemote: Bool) -> String {
 		guard isAppleTVRemote else { return displayName }
@@ -207,8 +222,10 @@ extension ControllerButton {
 		forDualSense isDualSense: Bool,
 		forNintendo isNintendo: Bool,
 		forAppleTVRemote isAppleTVRemote: Bool = false,
-		forEightBitDo isEightBitDo: Bool = false
+		forEightBitDo isEightBitDo: Bool = false,
+		forWiimote isWiimote: Bool = false
     ) -> String {
+		if isWiimote { return displayName(forWiimote: true) }
 		if isAppleTVRemote { return displayName(forAppleTVRemote: true) }
 		if isEightBitDo { return displayName(forEightBitDo: true) }
         if isNintendo { return displayName(forNintendo: true) }
@@ -387,6 +404,19 @@ extension ControllerButton {
         }
     }
 
+    /// Short label for the Wii Remote (see displayName(forWiimote:)).
+    func shortLabel(forWiimote isWiimote: Bool) -> String {
+        guard isWiimote else { return shortLabel }
+        switch self {
+        case .x: return "1"
+        case .y: return "2"
+        case .menu: return "+"
+        case .view: return "\u{2212}"  // minus sign
+        case .xbox: return "\u{2302}"  // home
+        default: return shortLabel
+        }
+    }
+
     /// Short label for Apple TV/Siri Remote controls.
 	func shortLabel(forAppleTVRemote isAppleTVRemote: Bool) -> String {
 		guard isAppleTVRemote else { return shortLabel }
@@ -409,8 +439,10 @@ extension ControllerButton {
     func shortLabel(
 		forDualSense isDualSense: Bool,
 		forNintendo isNintendo: Bool,
-		forAppleTVRemote isAppleTVRemote: Bool = false
+		forAppleTVRemote isAppleTVRemote: Bool = false,
+		forWiimote isWiimote: Bool = false
     ) -> String {
+		if isWiimote { return shortLabel(forWiimote: true) }
 		if isAppleTVRemote { return shortLabel(forAppleTVRemote: true) }
         if isNintendo { return shortLabel(forNintendo: true) }
         return shortLabel(forDualSense: isDualSense)

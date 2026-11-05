@@ -17,6 +17,8 @@ struct ControllerPairingHintView: View {
     let previewLayout: ControllerPreviewLayout
     /// Change the previewed controller (also drives the picker above).
     let onSelectLayout: (ControllerPreviewLayout) -> Void
+    /// Session-only dismissal (the X in the corner). Nil hides the button.
+    var onDismiss: (() -> Void)? = nil
 
     /// Every concrete family, in picker order, for the chooser grid.
     private static let selectableLayouts: [ControllerPreviewLayout] =
@@ -33,6 +35,26 @@ struct ControllerPairingHintView: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(GlassCardBackground(cornerRadius: 14))
+        .overlay(alignment: .topTrailing) {
+            if let onDismiss {
+                Button {
+                    onDismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .frame(width: 18, height: 18)
+                        .foregroundStyle(.secondary)
+                        .background(.regularMaterial, in: Circle())
+                        .overlay {
+                            Circle()
+                                .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+                        }
+                }
+                .buttonStyle(.plain)
+                .help("Hide until the next controller disconnect")
+                .padding(6)
+            }
+        }
     }
 
     // MARK: - Chooser (no specific controller)

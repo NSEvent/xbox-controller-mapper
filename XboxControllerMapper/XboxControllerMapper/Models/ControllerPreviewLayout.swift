@@ -8,6 +8,7 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 	case dualSenseEdge
 	case dualShock
 	case nintendo
+	case wiimote
 	case steam
 	case eightBitDoZero2
 	case eightBitDoMicro
@@ -35,6 +36,7 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 		case .dualSenseEdge: return "DualSense Edge"
 		case .dualShock: return "DualShock 4"
 		case .nintendo: return "Nintendo"
+		case .wiimote: return "Wii Remote"
 		case .steam: return "Steam"
 		case .eightBitDoZero2: return "8BitDo Zero 2"
 		case .eightBitDoMicro: return "8BitDo Micro"
@@ -58,6 +60,7 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 		case .dualSenseEdge: return "PS5 (Edge)"
 		case .dualShock: return "PS4"
 		case .nintendo: return "Switch Pro / Joy-Con"
+		case .wiimote: return "Wii Remote (Bluetooth)"
 		case .steam: return "Steam Controller"
 		case .eightBitDoZero2: return "Keychain Bluetooth pad"
 		case .eightBitDoMicro: return "Micro Bluetooth pad"
@@ -78,6 +81,7 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 		case .xbox, .xboxElite: return "xbox.logo"
 		case .dualSense, .dualSenseEdge, .dualShock: return "playstation.logo"
 		case .nintendo: return "house"
+		case .wiimote: return "av.remote"
 		case .steam: return "gamecontroller"
 		case .eightBitDoZero2, .eightBitDoMicro: return "gamecontroller.circle"
 		case .eightBitDoLite2, .eightBitDoLiteSE: return "gamecontroller.circle.fill"

@@ -208,6 +208,9 @@ struct ContentView: View {
 							.scrollContentBackground(.hidden)
 					case 17:
 						TriggerSettingsView().scrollContentBackground(.hidden)
+					case 18:
+						WiimoteSettingsView()
+							.scrollContentBackground(.hidden)
 					case 2:
 						JoystickSettingsView(
 							initialOverrideLayerId: selectedLayerId,
@@ -287,6 +290,7 @@ struct ContentView: View {
 					isNintendo: controllerVisualDescriptor.isNintendo,
 					isSteamController: controllerVisualDescriptor.isSteamController,
 					isAppleTVRemote: controllerVisualDescriptor.isAppleTVRemote,
+					isWiimote: controllerVisualDescriptor.isWiimote,
 					selectedLayerId: selectedLayerId
 				)
         }
@@ -1196,6 +1200,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
     case input = 14
 	case ring = 15
 	case triggers = 17
+	case wiimote = 18
 
     static let hiddenDefaultsKey = "hiddenMainWindowSectionTags"
 
@@ -1210,6 +1215,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         .wheel,
         .input,
 		.ring,
+		.wiimote,
         .joysticks,
 		.triggers,
         .touchpad,
@@ -1242,6 +1248,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .history: return "History"
         case .input: return "Input"
 		case .ring: return "Ring"
+		case .wiimote: return "Wii Remote"
         }
     }
 
@@ -1260,7 +1267,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
             return .map
         case .macros, .scripts, .wheel, .keyboard:
             return .automate
-		case .input, .ring, .joysticks, .triggers, .touchpad, .leds, .microphone:
+		case .input, .ring, .wiimote, .joysticks, .triggers, .touchpad, .leds, .microphone:
             return .hardware
         case .stats, .history:
             return .activity
@@ -1279,6 +1286,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .wheel: return "circle.grid.cross"
         case .input: return "speedometer"
 		case .ring: return "circle.dashed"
+		case .wiimote: return "av.remote"
         case .keyboard: return "keyboard"
         case .joysticks: return "circle.circle"
 		case .triggers: return "slider.horizontal.3"
@@ -1304,6 +1312,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .wheel: return ["radial", "menu", "command", "pie"]
         case .input: return ["latency", "realtime", "timing", "mode"]
 		case .ring: return ["oura", "motion", "tilt", "tap", "flick", "bluetooth", "pairing", "calibration", "recenter"]
+		case .wiimote: return ["wii", "wiimote", "nintendo", "pairing", "sync", "tilt", "ir", "pointer", "sensor bar", "sensitivity"]
         case .joysticks: return ["sticks", "deadzone", "sensitivity", "curve", "analog"]
 		case .triggers: return ["MIDI", "CC", "pressure", "continuous", "analog", "music"]
         case .touchpad: return ["trackpad", "gyro", "regions", "quadrants", "pad"]

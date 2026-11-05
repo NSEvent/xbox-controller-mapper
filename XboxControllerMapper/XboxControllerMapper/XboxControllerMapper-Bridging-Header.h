@@ -9,6 +9,7 @@
 #define XboxControllerMapper_Bridging_Header_h
 
 #include "Services/Controller/AppleTVRemoteMultitouch.h"
+#include "Services/Controller/WiimotePairingPrivate.h"
 #include "GestureEvents/GestureWrapper.h"
 
 #endif /* XboxControllerMapper_Bridging_Header_h */

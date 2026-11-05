@@ -353,7 +353,7 @@ There are other controller mapping apps for macOS, but none offered everything I
 |-------|------------|
 | **Xbox** | Series X\|S, Xbox One, Xbox 360, Xbox Elite Series 2 (with paddles) |
 | **PlayStation** | DualSense (PS5), DualSense Edge, DualShock 4 v1/v2 (PS4) |
-| **Nintendo** | Switch Pro Controller, Joy-Con (single or paired L+R) |
+| **Nintendo** | Switch Pro Controller, Joy-Con (single or paired L+R), Wii Remote (experimental buttons, tilt and sensor-bar IR pointer) |
 | **Valve** | Steam Controller (touchpads, gyro, grips, haptics — no Steam required) |
 | **Apple** | Siri Remote / Apple TV Remote 2nd gen (clickpad cursor, edge scroll, mappable side buttons) |
 | **Rings** | S29 Bluetooth button ring (swipes, holds, Camera + Home; experimental) |
@@ -364,6 +364,19 @@ There are other controller mapping apps for macOS, but none offered everything I
 | **Others** | ~313 controllers total via [SDL gamecontrollerdb](https://github.com/gabomdq/SDL_GameControllerDB) |
 
 Any controller recognized by macOS's GameController framework works out of the box. Unrecognized controllers fall back to the SDL database for automatic button mapping.
+
+### Wii Remote and infrared sensor bar
+
+Use **Hardware → Wii Remote → Pair Wii Remote**, tapping the red SYNC button
+under the battery cover while scanning. Power a regular sensor bar and place it
+above or below the display. Import the [Wii Sensor Bar profile](community-profiles/Wii%20Sensor%20Bar.json):
+**B toggles pointing**, **A clicks/drags**, and **1 right-clicks**. Disable Tilt
+steering for sensor-bar-only aiming. The optional Pointer (Hold) action remains
+available in the button editor. See the [setup and controls](community-profiles/Wii%20Sensor%20Bar.md).
+
+IR movement is relative; toggling off lets you reposition your hand. Pointing
+resets off on disconnect, profile change, controller lock, or disabling mapping.
+Wii Remote Plus detection is included but has not been hardware-verified.
 
 ### DualSense as a wired USB controller (Pico bridge)
 

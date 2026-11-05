@@ -11,6 +11,7 @@ struct ButtonIconView: View {
     let isAppleTVRemote: Bool
     let isEightBitDo: Bool
 	let isXiaomiRemote: Bool
+    let isWiimote: Bool
     let showDirectionalArrows: Bool
 
     init(
@@ -22,6 +23,7 @@ struct ButtonIconView: View {
 		isAppleTVRemote: Bool = false,
         isEightBitDo: Bool = false,
 		isXiaomiRemote: Bool = false,
+        isWiimote: Bool = false,
         showDirectionalArrows: Bool = false
     ) {
         self.button = button
@@ -32,6 +34,7 @@ struct ButtonIconView: View {
 		self.isAppleTVRemote = isAppleTVRemote
         self.isEightBitDo = isEightBitDo
 		self.isXiaomiRemote = isXiaomiRemote
+        self.isWiimote = isWiimote
         self.showDirectionalArrows = showDirectionalArrows
     }
     
@@ -186,6 +189,14 @@ struct ButtonIconView: View {
         if isEightBitDo && button == .xbox {
             return Color(white: 0.24)
         }
+        // Wii Remote: cream/white face buttons with engraved gray labels;
+        // only the d-pad cross is glossy dark plastic.
+        if isWiimote {
+            switch button {
+            case .dpadUp, .dpadDown, .dpadLeft, .dpadRight: return Color(white: 0.22)
+            default: return Color(white: 0.88)
+            }
+        }
         // Use PlayStation style for DualSense face buttons (dark background), standard colors for others
 		if isAppleTVRemote {
 			switch button {
@@ -331,9 +342,25 @@ struct ButtonIconView: View {
 						.font(.system(size: fontSize, weight: .bold, design: .rounded))
 						.foregroundColor(foregroundColor)
 				}
+            } else if isWiimote {
+                // Wii theme: engraved gray labels on the cream buttons, the
+                // blue-lit house on Home, white arrows on the dark d-pad.
+                if button == .xbox {
+                    Image(systemName: "house.fill")
+                        .font(.system(size: fontSize - 1, weight: .bold))
+                        .foregroundColor(Color(red: 0.25, green: 0.55, blue: 0.85))
+                } else if button.category == .dpad {
+                    Text(button.shortLabel(forWiimote: true))
+                        .font(.system(size: fontSize, weight: .bold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.95))
+                } else {
+                    Text(button.shortLabel(forWiimote: true))
+                        .font(.system(size: fontSize, weight: .bold, design: .rounded))
+                        .foregroundColor(Color(white: 0.38))
+                }
             } else if button == .leftFunction || button == .rightFunction {
                 // Function buttons: show "LFn" or "RFn" text (similar to L1/R1)
-                Text(button.shortLabel(forDualSense: isDualSense, forNintendo: isNintendo))
+                Text(button.shortLabel(forDualSense: isDualSense, forNintendo: isNintendo, forWiimote: isWiimote))
                     .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
                     .foregroundColor(.white.opacity(0.95))
             } else if let systemImage = isNintendo ? button.systemImageName(forNintendo: true) : button.systemImageName(forDualSense: isDualSense) {
@@ -343,7 +370,8 @@ struct ButtonIconView: View {
 				Text(button.shortLabel(
 					forDualSense: isDualSense,
 					forNintendo: isNintendo,
-					forAppleTVRemote: isAppleTVRemote
+					forAppleTVRemote: isAppleTVRemote,
+					forWiimote: isWiimote
 				))
                     .font(.system(size: fontSize, weight: .bold, design: .rounded))
                     .foregroundColor(.white.opacity(0.95))

@@ -80,4 +80,45 @@ extension MappingEngine {
             state.gyroPauseButtons.remove(button)
         }
     }
+
+    /// "Pointer (Hold)": Wiimote tilt/IR pointer control while held. Engages
+    /// on the first held binding, disengages when the last one releases —
+    /// mirrors the gyro hold set so a disconnect-time synthetic release also
+    /// cleans up.
+    nonisolated func handleWiimotePointerPressed(_ button: ControllerButton, toggle: Bool = false) {
+        state.lock.withLock {
+            _ = state.pressConsumedByAction.insert(button)
+            if toggle {
+                state.wiimotePointerToggledOn.toggle()
+            } else {
+                _ = state.wiimotePointerButtons.insert(button)
+            }
+        }
+        syncWiimotePointerEngagement()
+        inputLogService?.log(buttons: [button], type: .singlePress, action: "Pointer")
+    }
+
+    /// Cheap enough to call unconditionally from the release chain.
+    nonisolated func handleWiimotePointerReleased(_ button: ControllerButton) {
+        let removed = state.lock.withLock {
+            state.wiimotePointerButtons.remove(button) != nil
+        }
+        if removed { syncWiimotePointerEngagement() }
+    }
+
+    /// Re-align the service's pointer engagement after any state reset that
+    /// clears wiimotePointerButtons out-of-band (profile switch, disconnect).
+    /// Idempotent — disengage no-ops when already disengaged.
+    nonisolated func syncWiimotePointerEngagement() {
+        // Read the latest state when the main queue executes this update.
+        // A queued press must never re-engage after disable/profile cleanup.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let engaged = self.state.lock.withLock {
+                self.state.isEnabled && !self.state.isLocked
+                    && (self.state.wiimotePointerToggledOn || !self.state.wiimotePointerButtons.isEmpty)
+            }
+            self.controllerService.setWiimotePointerEngaged(engaged)
+        }
+    }
 }

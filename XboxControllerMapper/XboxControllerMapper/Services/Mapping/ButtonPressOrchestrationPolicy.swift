@@ -17,6 +17,7 @@ enum ButtonPressOrchestrationPolicy {
         case interceptDirectoryNavigator(holdMode: Bool)
         case interceptCommandWheel(holdMode: Bool)
         case interceptGyroAction(GyroButtonAction)
+        case interceptWiimotePointer(toggle: Bool)
         case interceptDirectoryNavigation
         case interceptDirectoryConfirm
         case interceptDirectoryDismiss
@@ -116,6 +117,14 @@ enum ButtonPressOrchestrationPolicy {
 
         if mapping.keyCode == KeyCodeMapping.showCommandWheel {
             return .interceptCommandWheel(holdMode: mapping.isHoldModifier)
+        }
+
+        if mapping.keyCode == KeyCodeMapping.wiimotePointerHold {
+            return .interceptWiimotePointer(toggle: false)
+        }
+
+        if mapping.keyCode == KeyCodeMapping.wiimotePointerToggle {
+            return .interceptWiimotePointer(toggle: true)
         }
 
         if let keyCode = mapping.keyCode, let gyroAction = GyroButtonAction(keyCode: keyCode) {

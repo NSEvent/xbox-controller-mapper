@@ -99,6 +99,85 @@ struct DualShockHIDParser: HIDReportParser {
     }
 }
 
+// MARK: - Wii Remote
+
+/// Parses Nintendo Wii Remote (RVL-CNT-01 / -TR) HID input reports.
+///
+/// Layout verified by live capture on an original RVL-CNT-01 (2026-09-08).
+/// Byte 0 is the report ID, included by the input callback:
+///
+///   Core buttons 0x30 (3 bytes): [0x30, BB1, BB2] — sent on change.
+///   Data reports 0x31-0x37 also begin [id, BB1, BB2] with sensor payloads after.
+///   Status 0x20 (7 bytes): [0x20, BB1, BB2, flags, 0, 0, battery] — battery
+///     raw scale ≈ 0xC0 = full; flags bit 0x01 = battery low.
+///
+/// BB1: Left 0x01, Right 0x02, Down 0x04, Up 0x08, Plus 0x10.
+/// BB2: Two 0x01, One 0x02, B 0x04, A 0x08, Minus 0x10, Home 0x80.
+///
+/// Distinct from NintendoHIDParser's report 0x30: the Pro Controller's is
+/// ≥ 5 bytes with buttons at byte 4; the Wiimote's is exactly 3 bytes. The two
+/// parsers are also never fed the same device (separate PID matchers).
+struct WiimoteHIDParser: HIDReportParser {
+    /// Full-charge reference per WiiBrew — raw 0xC0 ≈ fresh batteries.
+    private static let batteryFullScale: Float = 0xC0
+
+    func parse(reportID: UInt32, report: UnsafePointer<UInt8>, length: Int) -> HIDReportParseResult? {
+        switch (reportID, length) {
+        case (0x31, let len) where len >= 6:
+            // Core buttons + accelerometer: [0x31, BB1, BB2, AX, AY, AZ].
+            var result = HIDReportParseResult(wiimoteButtons: Self.buttons(report))
+            result.wiimoteAccelX = Self.accelG(report[3])
+            result.wiimoteAccelY = Self.accelG(report[4])
+            result.wiimoteAccelZ = Self.accelG(report[5])
+            return result
+        case (0x33, let len) where len >= 18:
+            // Buttons + accel + 12 bytes of extended-format IR:
+            // [0x33, BB1, BB2, AX, AY, AZ, 4 × (Xlo, Ylo, hi/size)].
+            var result = HIDReportParseResult(wiimoteButtons: Self.buttons(report))
+            result.wiimoteAccelX = Self.accelG(report[3])
+            result.wiimoteAccelY = Self.accelG(report[4])
+            result.wiimoteAccelZ = Self.accelG(report[5])
+            result.wiimoteIRPoints = Self.irPoints(report, offset: 6)
+            return result
+        case (0x30...0x37, let len) where len >= 3:
+            return HIDReportParseResult(wiimoteButtons: Self.buttons(report))
+        case (0x20, let len) where len >= 7:
+            var result = HIDReportParseResult(wiimoteButtons: Self.buttons(report))
+            result.wiimoteBatteryLevel = min(1.0, Float(report[6]) / Self.batteryFullScale)
+            return result
+        default:
+            return nil
+        }
+    }
+
+    private static func buttons(_ report: UnsafePointer<UInt8>) -> WiimoteButtons {
+        WiimoteButtons(rawValue: UInt16(report[1]) | (UInt16(report[2]) << 8))
+    }
+
+    /// Raw accel byte → g units (zero point 0x80, ≈26 counts per g).
+    private static func accelG(_ raw: UInt8) -> Float {
+        (Float(raw) - 128.0) / 26.0
+    }
+
+    /// Extended IR format: per blob, byte0 = X<7:0>, byte1 = Y<7:0>,
+    /// byte2 = Y<9:8><<6 | X<9:8><<4 | size. An unseen blob slot is 0xFF-filled.
+    private static func irPoints(_ report: UnsafePointer<UInt8>, offset: Int) -> [WiimoteIRPoint] {
+        var points: [WiimoteIRPoint] = []
+        for i in 0..<4 {
+            let b0 = report[offset + i * 3]
+            let b1 = report[offset + i * 3 + 1]
+            let b2 = report[offset + i * 3 + 2]
+            if b0 == 0xFF && b1 == 0xFF && b2 == 0xFF { continue }
+            points.append(WiimoteIRPoint(
+                x: Int(b0) | ((Int(b2) & 0x30) << 4),
+                y: Int(b1) | ((Int(b2) & 0xC0) << 2),
+                size: Int(b2) & 0x0F
+            ))
+        }
+        return points
+    }
+}
+
 // MARK: - Nintendo Pro Controller
 
 /// Parses Nintendo Pro Controller HID input reports for the Home button, and

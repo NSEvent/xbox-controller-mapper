@@ -904,6 +904,7 @@ extension ControllerService {
 		UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
 		UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
 		UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
+		UserDefaults.standard.set(false, forKey: Config.lastControllerWasWiimoteKey)
 
 		connectedController = nil
 		currentControllerIdentity = ControllerIdentityResolver.identity(for: device, fallbackName: "Apple TV Remote")

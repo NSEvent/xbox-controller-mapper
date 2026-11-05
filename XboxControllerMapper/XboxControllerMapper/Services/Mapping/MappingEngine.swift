@@ -144,6 +144,9 @@ class MappingEngine: ObservableObject {
 
         // Set up on-screen keyboard manager with our input simulator
         OnScreenKeyboardManager.shared.setInputSimulator(inputSimulator)
+        // The Wiimote pointer posts through this same simulator so held
+        // mapped clicks turn its moves into drags (see wiimotePointerSimulator).
+        controllerService.wiimotePointerSimulator = inputSimulator
         Task { @MainActor in
             if let service = usageStatsService {
                 OnScreenKeyboardManager.shared.setUsageStatsService(service)
@@ -539,6 +542,7 @@ class MappingEngine: ObservableObject {
 	}
 
 	nonisolated func performRoutingBoundaryCleanup(_ cleanup: RoutingBoundaryCleanup, resetMIDI: Bool = true) {
+        syncWiimotePointerEngagement()
 		if resetMIDI { triggerMIDIOutput.reset() }
 		for mapping in cleanup.heldMappings {
 			stopHeldAction(mapping)
@@ -1041,6 +1045,10 @@ class MappingEngine: ObservableObject {
                 handleCommandWheelPressed(button, holdMode: holdMode)
                 return
 
+            case .interceptWiimotePointer(let toggle):
+                handleWiimotePointerPressed(button, toggle: toggle)
+                return
+
             case .interceptGyroAction(let action):
                 // consumingPress marks the press consumed atomically with the
                 // gyro state change, so the release is suppressed from
@@ -1321,6 +1329,8 @@ class MappingEngine: ObservableObject {
             state.directoryNavigatorButton = nil
             state.directoryNavigatorHoldMode = false
             state.commandWheelActive = false
+            state.wiimotePointerButtons.removeAll()
+            state.wiimotePointerToggledOn = false
 
 			cleanup = (heldMappings, leftKeys, rightKeys, directionButtons)
         } else {
@@ -1328,6 +1338,7 @@ class MappingEngine: ObservableObject {
         }
 		state.lock.unlock()
 
+        syncWiimotePointerEngagement()
 		_ = OuraRingCommandCenter.shared.centerRing()
 
         if nowLocked {
@@ -1448,6 +1459,7 @@ class MappingEngine: ObservableObject {
 					|| state.pressConsumedByAction.contains(resolvedButtonForState)
 					|| state.gyroHoldButtons.contains(resolvedButtonForState)
 					|| state.gyroPauseButtons.contains(resolvedButtonForState)
+					|| state.wiimotePointerButtons.contains(resolvedButtonForState)
 					|| state.cancelledPhysicalButtonReleases.contains(button)
 			}
             if !hasLocalButtonState {
@@ -1462,6 +1474,7 @@ class MappingEngine: ObservableObject {
 		// release happened, so the set membership must clear even when the release
 		// is cancelled by a routing boundary or otherwise consumed. Idempotent.
 		handleGyroActionReleased(button)
+		handleWiimotePointerReleased(button)
 
 		let wasCancelledByRoutingBoundary = state.lock.withLock {
 			state.cancelledPhysicalButtonReleases.remove(physicalButton) != nil

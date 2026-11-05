@@ -47,6 +47,7 @@ struct ButtonMappingsTab: View {
     // Canvas pan/zoom. The pan offset is view state (resets on relaunch);
     // the zoom factor is profileManager.uiScale (persisted in the config).
     @State private var canvasPan: CGSize = .zero
+	@State private var pairingHintDismissed = false
     @State private var panDragBase: CGSize?
     @State private var pinchBase: (scale: CGFloat, pan: CGSize, anchor: CGPoint)?
     @State private var canvasEventView: NSView?
@@ -210,15 +211,21 @@ struct ButtonMappingsTab: View {
 				// doesn't also cross-fade the picker label / mismatch note / layer
 				// bar, which change on the same `isConnected` flip.
 				Group {
-					if !controllerService.isConnected {
+					if !controllerService.isConnected && !pairingHintDismissed {
 						ControllerPairingHintView(
 							previewLayout: controllerPreviewLayout,
-							onSelectLayout: { controllerPreviewLayout = $0 }
+							onSelectLayout: { controllerPreviewLayout = $0 },
+							onDismiss: { withAnimation(.easeInOut(duration: 0.25)) { pairingHintDismissed = true } }
 						)
 						.transition(.opacity.combined(with: .move(edge: .top)))
 					}
 				}
 				.animation(.easeInOut(duration: 0.25), value: controllerService.isConnected)
+				// Dismissal lasts until a controller connects again — the next
+				// disconnect shows the card fresh.
+				.onChange(of: controllerService.isConnected) { _, connected in
+					if connected { pairingHintDismissed = false }
+				}
 
                 if isSectionVisible(.timeline) {
                     removableSection(.timeline) {
@@ -515,6 +522,9 @@ struct ButtonMappingsTab: View {
 			if presentationState.isNintendo {
 				layouts.insert(.nintendo)
 			}
+			if presentationState.isWiimote {
+				layouts.insert(.wiimote)
+			}
 			if presentationState.isEightBitDoUltimate2 {
 				layouts.insert(.eightBitDoUltimate2)
 			} else if presentationState.isXboxElite {
@@ -544,6 +554,12 @@ struct ButtonMappingsTab: View {
 
 		if controllerService.appleTVRemoteHIDDevice != nil || controllerService.appleTVRemoteHIDTouchDevice != nil {
 			layouts.insert(.appleTVRemote)
+		}
+		// A Wiimote counts as connected whenever its raw HID interface is
+		// registered — including when it joined as an auxiliary input while
+		// another controller held the active slot.
+		if !controllerService.wiimoteHIDRegistrations.isEmpty {
+			layouts.insert(.wiimote)
 		}
 		if controllerService.isOuraRingConnected {
 			layouts.insert(.ouraRing)

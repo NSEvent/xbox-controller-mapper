@@ -47,6 +47,7 @@ enum ControllerTypeState: Equatable, Sendable {
 	case nintendo(ControllerJoyConSide)
 	case steam
 	case appleTVRemote
+	case wiimote
 
 	init?(screenshotVariant: String) {
 		switch screenshotVariant {
@@ -66,6 +67,8 @@ enum ControllerTypeState: Equatable, Sendable {
 			self = .steam
 		case "appletv":
 			self = .appleTVRemote
+		case "wiimote":
+			self = .wiimote
 		default:
 			return nil
 		}
@@ -117,6 +120,10 @@ struct ControllerPresentationState: Equatable, Sendable {
 		return false
 	}
 
+	var isWiimote: Bool {
+		controllerType == .wiimote
+	}
+
 	/// Elite-style layout with four back paddles — the Xbox Elite Series 2
 	/// itself, or the Elite-shaped 8BitDo Ultimate 2.
 	var isXboxElite: Bool {
@@ -141,7 +148,8 @@ extension ControllerStorage {
 		isNintendo: Bool,
 		isXboxElite: Bool,
 		isSteamController: Bool,
-		isAppleTVRemote: Bool
+		isAppleTVRemote: Bool,
+		isWiimote: Bool = false
 	) {
 		lock.lock()
 		defer { lock.unlock() }
@@ -152,7 +160,8 @@ extension ControllerStorage {
 			isNintendo: isNintendo,
 			isXboxElite: isXboxElite,
 			isSteamController: isSteamController,
-			isAppleTVRemote: isAppleTVRemote
+			isAppleTVRemote: isAppleTVRemote,
+			isWiimote: isWiimote
 		)
 	}
 
@@ -164,7 +173,8 @@ extension ControllerStorage {
 		isNintendo: Bool,
 		isXboxElite: Bool,
 		isSteamController: Bool,
-		isAppleTVRemote: Bool
+		isAppleTVRemote: Bool,
+		isWiimote: Bool = false
 	) {
 		clearControllerTypeFlagsLocked()
 		self.isDualSense = isDualSense
@@ -174,6 +184,7 @@ extension ControllerStorage {
 		self.isXboxElite = isXboxElite
 		self.isSteamController = isSteamController
 		self.isAppleTVRemote = isAppleTVRemote
+		self.isWiimote = isWiimote
 		normalizeControllerTypeFlagsLocked()
 	}
 
@@ -189,6 +200,7 @@ extension ControllerStorage {
 		isSteamController = false
 		hasFilteredSteamDeckPads = false
 		isAppleTVRemote = false
+		isWiimote = false
 	}
 
 	/// Caller owns `lock`.
@@ -214,6 +226,8 @@ extension ControllerStorage {
 			isSteamController = true
 		case .appleTVRemote:
 			isAppleTVRemote = true
+		case .wiimote:
+			isWiimote = true
 		}
 	}
 
@@ -225,6 +239,7 @@ extension ControllerStorage {
 	/// Caller owns `lock`.
 	var controllerTypeStateLocked: ControllerTypeState {
 		if isAppleTVRemote { return .appleTVRemote }
+		if isWiimote { return .wiimote }
 		if isSteamController { return .steam }
 		if isDualSenseEdge { return .dualSenseEdge }
 		if isDualSense { return .dualSense }

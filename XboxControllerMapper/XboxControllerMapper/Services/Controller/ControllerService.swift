@@ -56,6 +56,7 @@ final class ControllerStorage: @unchecked Sendable {
     /// ScreenShell has already filtered idle sensor noise on its mouse pad.
     var hasFilteredSteamDeckPads: Bool = false
     var isAppleTVRemote: Bool = false
+    var isWiimote: Bool = false    // Nintendo Wii Remote (raw HID backend)
     /// Non-nil when the connected pad is one of the small 8BitDo models
     /// (drives the dedicated minimap preview).
     var eightBitDoModel: EightBitDoMinimapModel?
@@ -128,6 +129,10 @@ final class ControllerStorage: @unchecked Sendable {
 	    var lastEightBitDoStarState: Bool = false
 	    /// Last raw Micro D-input hat value (0-7 = direction, 8 = centered).
 	    var lastEightBitDoHat: UInt8 = 0x08
+	    // Wii Remote HID button state (WiimoteButtons raw bitmask)
+	    var lastWiimoteButtons: UInt16 = 0
+	    // Wiimote tilt/IR pointer engaged (driven by the mapped Pointer action)
+	    var wiimotePointerEngaged: Bool = false
 	    var appleTVRemoteTouchReleaseWorkItem: DispatchWorkItem?
     var appleTVRemoteActiveSystemKeyTypes: Set<Int> = []
     var appleTVRemoteSystemKeyTypeSuppressUntil: [Int: TimeInterval] = [:]
@@ -334,6 +339,23 @@ class ControllerService: ObservableObject {
     // 8BitDo D-input pad HID monitoring (Home + Star not exposed by GameController)
     var eightBitDoHIDManager: IOHIDManager?
     var eightBitDoHIDRegistrations: [EightBitDoHIDRegistration] = []
+
+    // Wii Remote raw HID monitoring (system-paired Wiimotes deliver opaque
+    // vendor reports, so buttons come from raw report parsing, not elements)
+    var wiimoteHIDManager: IOHIDManager?
+    var wiimoteHIDRegistrations: [WiimoteHIDRegistration] = []
+    var wiimoteHIDActiveDevice: IOHIDDevice?
+    var wiimoteHIDCallbackContext: UnsafeMutableRawPointer?
+    /// Pending debounced disconnect — interface churn must not flap the
+    /// connected state (each flip animates the empty-state card).
+    var wiimoteDisconnectWorkItem: DispatchWorkItem?
+    /// MappingEngine's input simulator, injected once at engine setup (before
+    /// any input flows). The Wiimote pointer MUST post through the same
+    /// simulator that holds mapped mouse buttons — a second instance can't
+    /// see held clicks, so drags would post as plain mouseMoved.
+    nonisolated(unsafe) var wiimotePointerSimulator: InputSimulatorProtocol?
+    /// Last twin adoption uptime, to break removal↔adoption ping-pong loops.
+    var wiimoteLastAdoptionUptime: TimeInterval = 0
 
     /// Detects a stickless d-pad clone (8BitDo Zero 2 impersonating a Pro
     /// Controller in Switch mode or a DualShock 4 in Mac mode) from input
@@ -888,6 +910,7 @@ class ControllerService: ObservableObject {
         setupSteamControllerHIDMonitoring()
         setupGenericHIDMonitoring()
         setupAppleTVRemoteHIDMonitoring()
+        setupWiimoteHIDMonitoring()
 		if let connectedController {
 			startEightBitDoHIDMonitoringIfNeeded(for: connectedController, reason: "input monitoring start")
 		}
@@ -910,7 +933,8 @@ class ControllerService: ObservableObject {
 			isNintendo: UserDefaults.standard.bool(forKey: Config.lastControllerWasNintendoKey),
 			isXboxElite: UserDefaults.standard.bool(forKey: Config.lastControllerWasXboxEliteKey),
 			isSteamController: UserDefaults.standard.bool(forKey: Config.lastControllerWasSteamControllerKey),
-			isAppleTVRemote: UserDefaults.standard.bool(forKey: Config.lastControllerWasAppleTVRemoteKey)
+			isAppleTVRemote: UserDefaults.standard.bool(forKey: Config.lastControllerWasAppleTVRemoteKey),
+			isWiimote: UserDefaults.standard.bool(forKey: Config.lastControllerWasWiimoteKey)
 		)
 
         // Screenshot mode: force the preview to the requested variant and
@@ -1003,6 +1027,7 @@ class ControllerService: ObservableObject {
 		configuredGameControllerIDs.removeAll()
 		batteryMonitor.stopMonitoring()
 		cleanupSteamControllerHIDMonitoring()
+		cleanupWiimoteHIDMonitoring()
 		cleanupGenericHIDMonitoring()
 		cleanupAppleTVRemoteHIDMonitoring()
 		stopEliteHelper()
@@ -1234,6 +1259,7 @@ class ControllerService: ObservableObject {
 	}
 
 	func prepareForActiveControllerSwitch() {
+        setWiimotePointerEngaged(false)
 		let wasAppleTVRemote = storage.lock.withLock { storage.isAppleTVRemote }
 		if wasAppleTVRemote {
 			releaseAppleTVRemoteButtonsIfNeeded()
@@ -1304,6 +1330,7 @@ class ControllerService: ObservableObject {
 	}
 
     func controllerDisconnected() {
+        setWiimotePointerEngaged(false)
 		let wasAppleTVRemote = storage.lock.withLock { storage.isAppleTVRemote }
 		if wasAppleTVRemote {
 			releaseAppleTVRemoteButtonsIfNeeded()
@@ -2048,6 +2075,7 @@ class ControllerService: ObservableObject {
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasWiimoteKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasAppleTVRemoteKey)
     }
 
@@ -2234,6 +2262,7 @@ class ControllerService: ObservableObject {
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasWiimoteKey)
 
             // Trigger battery monitor refresh for Xbox controller
             batteryMonitor.refreshBatteryLevel()
@@ -2310,6 +2339,7 @@ class ControllerService: ObservableObject {
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasWiimoteKey)
 
             setupTouchpadHandlers(
 				for: controller,
@@ -2338,6 +2368,7 @@ class ControllerService: ObservableObject {
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasWiimoteKey)
 
             setupTouchpadHandlers(
 				for: controller,
@@ -2389,6 +2420,7 @@ class ControllerService: ObservableObject {
 		UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
 		UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
 		UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
+		UserDefaults.standard.set(false, forKey: Config.lastControllerWasWiimoteKey)
 
 		controllerName = appleTVRemoteDisplayName(for: controller)
 
@@ -2560,6 +2592,7 @@ class ControllerService: ObservableObject {
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasWiimoteKey)
     }
 
     // MARK: - PhysicalInputProfile Handlers (Single Joy-Con, etc.)

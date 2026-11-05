@@ -188,7 +188,8 @@ struct PreviewMappingRow: View {
 				isNintendo: presentationState.isNintendo,
 				isSteamController: presentationState.isSteamController,
 				isAppleTVRemote: presentationState.isAppleTVRemote,
-				isEightBitDo: presentationState.eightBitDoModel != nil
+				isEightBitDo: presentationState.eightBitDoModel != nil,
+				isWiimote: presentationState.isWiimote
 			)
 				.frame(width: 28, height: 28)
 
@@ -309,7 +310,8 @@ struct PreviewChordRow: View {
 						isNintendo: presentationState.isNintendo,
 						isSteamController: presentationState.isSteamController,
 						isAppleTVRemote: presentationState.isAppleTVRemote,
-						isEightBitDo: presentationState.eightBitDoModel != nil
+						isEightBitDo: presentationState.eightBitDoModel != nil,
+						isWiimote: presentationState.isWiimote
 					)
 				}
 			}

@@ -16,7 +16,8 @@ final class CommunityTouchpadProfilesTests: XCTestCase {
 	}
 
 	func testGeneralProfilesKeepDefaultTouchpadTuningThroughImportAndMigration() throws {
-		let specialized: Set<String> = ["Anki - AnKing (USMLE).json", "Codex Micro - Apple TV Remote.json"]
+		// The Wii Remote has no touchpad; its dedicated IR profile is covered by WiimoteMappingTests.
+		let specialized: Set<String> = ["Anki - AnKing (USMLE).json", "Codex Micro - Apple TV Remote.json", "Wii Sensor Bar.json"]
 		let files = try FileManager.default.contentsOfDirectory(at: library, includingPropertiesForKeys: nil)
 			.filter { $0.pathExtension == "json" && !specialized.contains($0.lastPathComponent) }
 		XCTAssertGreaterThanOrEqual(files.count, 38)

@@ -21,6 +21,10 @@ struct StreamOverlayView: View {
         visualDescriptor.isAppleTVRemote
     }
 
+    private var isWiimote: Bool {
+        visualDescriptor.isWiimote
+    }
+
 	private var isOuraRing: Bool {
 		visualDescriptor.isOuraRing
 	}
@@ -51,6 +55,8 @@ struct StreamOverlayView: View {
 					s29RingGraphic
 				} else if isAppleTVRemote {
                     appleTVRemoteGraphic
+                } else if isWiimote {
+                    wiimoteGraphic
                 } else {
                     controllerGraphic
                 }
@@ -152,6 +158,17 @@ struct StreamOverlayView: View {
         let scale = height / size.height
 
         return AppleTVRemoteMinimapView(controllerService: controllerService)
+            .frame(width: size.width, height: size.height)
+            .scaleEffect(scale)
+            .frame(width: graphicWidth, height: height)
+    }
+
+    private var wiimoteGraphic: some View {
+        let size = WiimoteMinimapView.previewSize
+        let height: CGFloat = 165
+        let scale = height / size.height
+
+        return WiimoteMinimapView(controllerService: controllerService)
             .frame(width: size.width, height: size.height)
             .scaleEffect(scale)
             .frame(width: graphicWidth, height: height)

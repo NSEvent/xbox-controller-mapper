@@ -21,6 +21,7 @@ enum ControllerVisualFamily: Equatable {
 	case ouraRing
 	case s29Ring
 	case beamdeskHands
+	case wiimote
 }
 
 struct ControllerVisualDescriptor: Equatable {
@@ -97,6 +98,10 @@ struct ControllerVisualDescriptor: Equatable {
 		family == .nintendo
 	}
 
+	var isWiimote: Bool {
+		family == .wiimote
+	}
+
 	var eightBitDoModel: EightBitDoMinimapModel? {
 		if case let .eightBitDo(model) = family {
 			return model
@@ -109,7 +114,7 @@ struct ControllerVisualDescriptor: Equatable {
 	}
 
 	var hasSticks: Bool {
-		!isStickless && !isAuxiliaryInputDevice && !isAppleTVRemote
+		!isStickless && !isAuxiliaryInputDevice && !isAppleTVRemote && !isWiimote
 	}
 
 	var supportsMotionGestures: Bool {
@@ -125,6 +130,7 @@ struct ControllerVisualDescriptor: Equatable {
 		eightBitDoModel != .zero2
 			&& !isAuxiliaryInputDevice
 			&& !isAppleTVRemote
+			&& !isWiimote
 	}
 
 	/// Exact logical controls represented by this descriptor's editor. Keep
@@ -142,6 +148,14 @@ struct ControllerVisualDescriptor: Equatable {
 			return Set(ControllerButton.appleTVRemoteButtons)
 		case .xiaomiRemote:
 			return Set(ControllerButton.xiaomiRemoteButtons)
+		case .wiimote:
+			// Eleven physical controls: A, B (trigger), 1, 2, +, −, Home,
+			// d-pad. The power button is hardware-only (hold = remote off)
+			// and never appears in HID reports, so it is not mappable.
+			return [
+				.a, .b, .x, .y, .menu, .view, .xbox,
+				.dpadUp, .dpadDown, .dpadLeft, .dpadRight,
+			]
 		case .dualShock:
 			buttons = Set(ControllerButton.dualShockButtons)
 		case .dualSense:
@@ -191,6 +205,7 @@ struct ControllerVisualDescriptor: Equatable {
 		case .dualSenseEdge: return "DualSense Edge"
 		case .dualShock: return "DualShock 4"
 		case .nintendo: return "Nintendo"
+		case .wiimote: return "Wii Remote"
 		case .steam: return "Steam Controller"
 		case .eightBitDo(.zero2): return "8BitDo Zero 2"
 		case .eightBitDo(.micro): return "8BitDo Micro"
@@ -252,11 +267,13 @@ struct ControllerVisualDescriptor: Equatable {
 			return nil
 		case .beamdeskHands:
 			return nil
+		case .wiimote:
+			return nil
 		}
 	}
 
 	func shoulderButtons(side: JoystickSide) -> [ControllerButton] {
-		if isAuxiliaryInputDevice || isAppleTVRemote { return [] }
+		if isAuxiliaryInputDevice || isAppleTVRemote || isWiimote { return [] }
 		switch side {
 		case .left:
 			return hasTriggers ? [.leftTrigger, .leftBumper] : [.leftBumper]
@@ -276,6 +293,7 @@ struct ControllerVisualDescriptor: Equatable {
 
 	var rightSystemButtons: [ControllerButton] {
 		if isAuxiliaryInputDevice { return [] }
+		if isWiimote { return [.menu] }
 		var buttons: [ControllerButton] = [.menu]
 		if isDualSense {
 			buttons.append(.micMute)
@@ -338,6 +356,8 @@ extension ControllerVisualDescriptor {
 			return ControllerVisualDescriptor(family: .s29Ring)
 		case .beamdeskHands:
 			return ControllerVisualDescriptor(family: .beamdeskHands)
+		case .wiimote:
+			return ControllerVisualDescriptor(family: .wiimote)
 		}
 	}
 
@@ -368,6 +388,8 @@ extension ControllerVisualDescriptor {
 			return ControllerVisualDescriptor(family: .steam)
 		case .appleTVRemote:
 			return ControllerVisualDescriptor(family: .appleTVRemote)
+		case .wiimote:
+			return ControllerVisualDescriptor(family: .wiimote)
 		}
 	}
 

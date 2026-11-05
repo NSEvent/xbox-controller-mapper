@@ -9,6 +9,9 @@ struct ActionMappingEditor: View {
     /// Which variant is being edited (controls which features are available)
     let variant: Variant
     var showsScrollActionSettings = false
+    /// Whether the Wiimote Pointer (Hold) special action is offered (a Wii
+    /// Remote is the active/connected family).
+    var showWiimotePointer = false
 
     enum Variant {
         case primary
@@ -144,7 +147,8 @@ struct ActionMappingEditor: View {
             KeyboardVisualView(
                 selectedKeyCode: $state.keyCode,
                 modifiers: $state.modifiers,
-                gyroKeys: variant == .primary ? .all : .toggleOnly
+                gyroKeys: variant == .primary ? .all : .toggleOnly,
+				showWiimotePointer: showWiimotePointer && variant == .primary
             )
         } else {
             KeyCaptureField(keyCode: $state.keyCode, modifiers: $state.modifiers)

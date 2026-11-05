@@ -141,6 +141,13 @@ enum KeyCodeMapping {
     /// Shows standalone command wheel while button is held
     static let showCommandWheel: CGKeyCode = 0xF014
 
+    /// Wiimote tilt/IR pointer drives the mouse while button is held
+    /// (no OS key event; engaged/disengaged by MappingEngine)
+    static let wiimotePointerHold: CGKeyCode = 0xF015
+
+    /// Latches Wiimote pointing on/off with a tap; no OS key event.
+    static let wiimotePointerToggle: CGKeyCode = 0xF016
+
     // MARK: - Gyro Control Markers
 
     /// Toggles gyro aiming on/off (no OS key event)
@@ -303,6 +310,8 @@ enum KeyCodeMapping {
 	// Gyro control
 	Int(gyroToggle): "Gyro Toggle",
 	Int(gyroHold): "Gyro Hold",
+	Int(wiimotePointerHold): "Pointer (Hold)",
+    Int(wiimotePointerToggle): "Pointer (Toggle)",
 	Int(gyroPause): "Gyro Pause",
 
 	// Media keys
@@ -498,7 +507,7 @@ enum KeyCodeMapping {
 
     /// Checks if a key code represents a special action (on-screen keyboard, etc.)
     static func isSpecialAction(_ keyCode: CGKeyCode) -> Bool {
-        keyCode == showOnScreenKeyboard || keyCode == showLaserPointer || keyCode == controllerLock || keyCode == showDirectoryNavigator || keyCode == showCommandWheel || isGyroAction(keyCode)
+        keyCode == showOnScreenKeyboard || keyCode == showLaserPointer || keyCode == controllerLock || keyCode == showDirectoryNavigator || keyCode == showCommandWheel || keyCode == wiimotePointerHold || keyCode == wiimotePointerToggle || isGyroAction(keyCode)
     }
 
     /// Checks if a key code represents a gyro-control action (toggle/hold/pause).

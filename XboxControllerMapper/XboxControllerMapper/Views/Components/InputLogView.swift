@@ -77,7 +77,8 @@ private struct LogEntryView: View, Equatable {
 							isDualSense: presentationState.isPlayStation,
 							isNintendo: presentationState.isNintendo,
 							isSteamController: presentationState.isSteamController,
-							isAppleTVRemote: presentationState.isAppleTVRemote
+							isAppleTVRemote: presentationState.isAppleTVRemote,
+							isWiimote: presentationState.isWiimote
 						)
 					}
 
@@ -129,7 +130,8 @@ private struct LogEntryView: View, Equatable {
 				$0.displayName(
 					forDualSense: presentationState.isPlayStation,
 					forNintendo: presentationState.isNintendo,
-					forAppleTVRemote: presentationState.isAppleTVRemote
+					forAppleTVRemote: presentationState.isAppleTVRemote,
+					forWiimote: presentationState.isWiimote
 				)
 			}
 			.joined(separator: " plus ")

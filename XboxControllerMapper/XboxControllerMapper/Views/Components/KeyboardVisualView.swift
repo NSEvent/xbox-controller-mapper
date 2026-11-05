@@ -17,6 +17,9 @@ struct KeyboardVisualView: View {
     @Binding var selectedKeyCode: CGKeyCode?
     @Binding var modifiers: ModifierFlags
     var gyroKeys: GyroKeyVisibility = .toggleOnly
+    /// Show the Wiimote Pointer (Hold) key — only when a Wii Remote family
+    /// is in play; on other controllers the action would be a dead button.
+    var showWiimotePointer: Bool = false
 
     @State private var hoveredKey: CGKeyCode?
 
@@ -340,6 +343,11 @@ struct KeyboardVisualView: View {
                     if gyroKeys == .all {
                         KeyButton(keyCode: KeyCodeMapping.gyroHold, label: "Gyro Hold", width: 70, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                         KeyButton(keyCode: KeyCodeMapping.gyroPause, label: "Gyro Pause", width: 75, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                        if showWiimotePointer {
+                            // Wiimote tilt/IR pointer while held
+                            KeyButton(keyCode: KeyCodeMapping.wiimotePointerToggle, label: "Pointer Toggle", width: 100, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                            KeyButton(keyCode: KeyCodeMapping.wiimotePointerHold, label: "Pointer Hold", width: 90, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                        }
                     }
                 }
                 Spacer()

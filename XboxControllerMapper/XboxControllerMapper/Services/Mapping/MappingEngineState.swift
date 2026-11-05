@@ -181,6 +181,9 @@ extension MappingEngine {
         var gyroToggledOn: Bool = false
         var gyroHoldButtons: Set<ControllerButton> = []
         var gyroPauseButtons: Set<ControllerButton> = []
+        /// Buttons currently holding the Wiimote tilt/IR pointer engaged.
+        var wiimotePointerButtons: Set<ControllerButton> = []
+        var wiimotePointerToggledOn = false
         var wasGyroActive = false
 
         /// Re-derives the Gyro Toggle latch from the bound settings' activation mode.
@@ -196,6 +199,10 @@ extension MappingEngine {
             wasGyroActive = false
             gyroHoldButtons.removeAll()
             gyroPauseButtons.removeAll()
+            // Callers follow up with syncWiimotePointerEngagement() so the
+            // service-side engaged flag can't outlive the cleared set.
+            wiimotePointerButtons.removeAll()
+            wiimotePointerToggledOn = false
             rederiveGyroLatchLocked()
         }
 

@@ -1,0 +1,135 @@
+{
+  "id": "90686B9B-CF45-48D6-A297-6155F662FC27",
+  "name": "Wii Sensor Bar",
+  "icon": "display",
+  "isDefault": false,
+  "controllerPreviewLayout": "wiimote",
+  "createdAt": "2026-11-05T15:00:00Z",
+  "modifiedAt": "2026-11-05T15:00:00Z",
+  "buttonMappings": {
+    "a": {
+      "keyCode": 61440,
+      "hint": "Left click / drag",
+      "isHoldModifier": true,
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      }
+    },
+    "b": {
+      "keyCode": 61462,
+      "hint": "Toggle IR mouse",
+      "isHoldModifier": false,
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      }
+    },
+    "x": {
+      "keyCode": 61441,
+      "hint": "Right click (1)",
+      "isHoldModifier": false,
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      }
+    },
+    "y": {
+      "keyCode": 53,
+      "hint": "Escape (2)",
+      "isHoldModifier": false,
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      }
+    },
+    "menu": {
+      "keyCode": 61443,
+      "hint": "Scroll up (+)",
+      "isHoldModifier": false,
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      }
+    },
+    "view": {
+      "keyCode": 61444,
+      "hint": "Scroll down (\u2212)",
+      "isHoldModifier": false,
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      }
+    },
+    "xbox": {
+      "keyCode": 61458,
+      "hint": "Lock / unlock controller",
+      "isHoldModifier": false,
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      }
+    },
+    "dpadUp": {
+      "keyCode": 126,
+      "hint": "Up",
+      "isHoldModifier": false,
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      }
+    },
+    "dpadDown": {
+      "keyCode": 125,
+      "hint": "Down",
+      "isHoldModifier": false,
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      }
+    },
+    "dpadLeft": {
+      "keyCode": 123,
+      "hint": "Left",
+      "isHoldModifier": false,
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      }
+    },
+    "dpadRight": {
+      "keyCode": 124,
+      "hint": "Right",
+      "isHoldModifier": false,
+      "modifiers": {
+        "command": false,
+        "option": false,
+        "shift": false,
+        "control": false
+      }
+    }
+  },
+  "chordMappings": [],
+  "linkedApps": [],
+  "linkedControllers": []
+}

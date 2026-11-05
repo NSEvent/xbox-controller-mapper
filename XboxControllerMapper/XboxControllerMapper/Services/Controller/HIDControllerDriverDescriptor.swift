@@ -135,6 +135,27 @@ struct S29RingHIDDriverDescriptor: HIDControllerDriverDescriptor {
 	}
 }
 
+struct WiimoteHIDDriverDescriptor: HIDControllerDriverDescriptor {
+	static let vendorID = 0x057E
+	/// RVL-CNT-01 — the original Wii Remote (verified working 2026-09-08).
+	static let wiimoteProductID = 0x0306
+	/// RVL-CNT-01-TR — Wii Remote Plus with built-in MotionPlus. Same core
+	/// button reports; untested on hardware, included so it at least matches.
+	static let wiimotePlusProductID = 0x0330
+
+	let displayName = "Nintendo Wii Remote"
+
+	var matchingCriteria: [HIDMatchingCriterion] {
+		Self.productIDs.map {
+			.vendorProduct(vendorID: Self.vendorID, productID: $0)
+		}
+	}
+
+	static var productIDs: [Int] {
+		[wiimoteProductID, wiimotePlusProductID]
+	}
+}
+
 struct GenericHIDDriverDescriptor: HIDControllerDriverDescriptor {
 	static let excludedVendorIDs: Set<Int> = [
 		0x045E, // Xbox raw Guide/Elite path
