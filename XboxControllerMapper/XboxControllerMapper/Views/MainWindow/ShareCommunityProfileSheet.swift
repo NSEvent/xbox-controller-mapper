@@ -33,7 +33,7 @@ struct ShareCommunityProfileSheet: View {
 			}
 			Divider()
 			HStack {
-				Button(packet == nil ? "Cancel" : "Done") { dismiss() }.keyboardShortcut(.cancelAction)
+				Button(packet == nil ? "Cancel" : "Close") { dismiss() }.keyboardShortcut(.cancelAction)
 				if submission != nil && packet == nil {
 					Button("Back") { submission = nil; reviewed = false; errorMessage = nil }
 				}
@@ -42,7 +42,7 @@ struct ShareCommunityProfileSheet: View {
 					if submission == nil {
 						Button("Review Shared Copy") { prepare() }.disabled(!details.isValid).buttonStyle(.borderedProminent)
 					} else {
-						Button("Save & Open GitHub Draft") { saveAndOpen() }.disabled(!reviewed).buttonStyle(.borderedProminent)
+						Button(submission?.pasteBody == nil ? "Save File & Open GitHub" : "Copy Submission & Open GitHub") { saveAndOpen() }.disabled(!reviewed).buttonStyle(.borderedProminent)
 					}
 				}
 			}
@@ -62,7 +62,7 @@ struct ShareCommunityProfileSheet: View {
 			Text("Off by default: macros, scripts, shell commands, Shortcuts, webhooks, custom text and website links are omitted. App launches, keyboard and mouse mappings stay included.")
 				.font(.caption).foregroundStyle(.secondary)
 			Label("Your working profile stays unchanged.", systemImage: "doc.on.doc").font(.callout)
-			Text("Sharing opens a draft on GitHub. Sign in, attach the prepared file, then submit it for review. A maintainer adds accepted profiles to the library.")
+			Text("You'll review a copy, then finish on GitHub. Paste the complete submission there and click Create. Larger profiles need a file attachment instead. A maintainer reviews each submission before adding it to the library.")
 				.font(.callout).foregroundStyle(.secondary)
 		}
 	}
@@ -89,7 +89,7 @@ struct ShareCommunityProfileSheet: View {
 					.textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
 			}
 			DisclosureGroup("GitHub description—exact contents") {
-				Text(submission.issueBody).font(.caption).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+				Text(submission.pasteBody ?? submission.issueBody).font(.caption).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
 			}
 			Toggle("I tested this setup, reviewed it for private data, and agree to share it publicly under the library's PolyForm Noncommercial license.", isOn: $reviewed)
 				.fixedSize(horizontal: false, vertical: true)
@@ -97,22 +97,9 @@ struct ShareCommunityProfileSheet: View {
 	}
 
 	private func ready(_ packet: CommunityProfileSubmissionFiles.Packet, submission: CommunityProfileSubmission) -> some View {
-		VStack(alignment: .leading, spacing: 16) {
-			Label("Your submission is prepared", systemImage: "checkmark.circle.fill").font(.headline).foregroundStyle(.green)
-			Text("1. Sign in to GitHub if asked.\n2. Drag \(submission.filename) from Finder into the draft description.\n3. Click Submit new issue on GitHub.")
-			Text("The file and setup guide are saved in Downloads → ControllerKeys Community. They become public when you attach them on GitHub; review before attaching.")
-				.font(.callout).foregroundStyle(.secondary)
-			HStack {
-				Button("Show Profile File") { NSWorkspace.shared.activateFileViewerSelecting([packet.profileURL]) }
-				Button(browserOpened ? "Reopen GitHub Draft" : "Open GitHub Draft") { browserOpened = NSWorkspace.shared.open(submission.issueURL) }
-			}
-			Button(copied ? "Description Copied" : "Copy Submission Description") {
-				NSPasteboard.general.clearContents()
-				copied = NSPasteboard.general.setString(submission.issueBody, forType: .string)
-			}
-			Text("Opening this draft does not submit the profile or add it to the library. Keep this folder until your submission is accepted.")
-				.font(.caption).foregroundStyle(.secondary)
-		}
+		CommunityProfileSubmissionReadyView(packet: packet, submission: submission,
+			browserOpened: browserOpened, copied: copied,
+			copySubmission: { copySubmission(submission) }, openDraft: { openDraft(submission) })
 	}
 
 	private func prepare() {
@@ -129,9 +116,55 @@ struct ShareCommunityProfileSheet: View {
 			let downloads = try FileManager.default.url(for: .downloadsDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
 			let saved = try CommunityProfileSubmissionFiles.write(submission, to: downloads)
 			packet = saved
-			NSWorkspace.shared.activateFileViewerSelecting([saved.profileURL])
-			browserOpened = NSWorkspace.shared.open(submission.issueURL)
-			errorMessage = browserOpened ? nil : "The draft could not open. Your files are saved; use Open GitHub Draft or copy the description."
+			openDraft(submission)
 		} catch { errorMessage = error.localizedDescription }
+	}
+
+	@discardableResult
+	private func copySubmission(_ submission: CommunityProfileSubmission) -> Bool {
+		guard let body = submission.pasteBody else { return false }
+		NSPasteboard.general.clearContents()
+		copied = NSPasteboard.general.setString(body, forType: .string)
+		errorMessage = copied ? nil : "Could not copy the submission. Click Copy Complete Submission to try again."
+		return copied
+	}
+
+	private func openDraft(_ submission: CommunityProfileSubmission) {
+		if submission.pasteBody != nil && !copySubmission(submission) { return }
+		browserOpened = NSWorkspace.shared.open(submission.issueURL)
+		errorMessage = browserOpened ? nil : "The draft could not open. Your files are saved; click Open GitHub Draft to try again."
+	}
+}
+
+/// The same handoff view is rendered in paste and attachment regression snapshots.
+struct CommunityProfileSubmissionReadyView: View {
+	let packet: CommunityProfileSubmissionFiles.Packet
+	let submission: CommunityProfileSubmission
+	let browserOpened: Bool
+	let copied: Bool
+	let copySubmission: () -> Void
+	let openDraft: () -> Void
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 16) {
+			Label("Finish on GitHub—not submitted yet", systemImage: "arrow.up.forward.square").font(.headline)
+			if submission.pasteBody != nil {
+				Text("1. Sign in to GitHub if asked.\n2. Click the description box, press ⌘A, then ⌘V.\n3. Check that Profile data appears, then click Create (or Submit new issue).")
+				Text("One paste includes your description and profile. No file attachment needed.").font(.callout)
+				Button(copied ? "Copy Complete Submission Again" : "Copy Complete Submission") { copySubmission() }
+			} else {
+				Text("This profile is too large to paste. The GitHub draft contains only the description.").font(.callout)
+				Text("1. Sign in to GitHub if asked.\n2. Drag the file below into the description box.\n3. Wait for a clickable file link, then click Create (or Submit new issue).")
+				Label(submission.filename, systemImage: "doc.badge.arrow.up")
+					.padding(12).frame(maxWidth: .infinity, alignment: .leading)
+					.background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+					.onDrag { NSItemProvider(contentsOf: packet.profileURL) ?? NSItemProvider() }
+					.help("Drag this profile file into the GitHub description")
+				Button("Show Profile File") { NSWorkspace.shared.activateFileViewerSelecting([packet.profileURL]) }
+			}
+			Button(browserOpened ? "Reopen GitHub Draft" : "Open GitHub Draft") { openDraft() }
+			Text("A backup is saved in Downloads → ControllerKeys Community. Opening GitHub does not submit anything; a maintainer reviews your profile after you create the issue.")
+				.font(.caption).foregroundStyle(.secondary)
+		}
 	}
 }

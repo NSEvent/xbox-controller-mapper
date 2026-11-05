@@ -19,6 +19,8 @@ struct CommunityProfileSubmission {
 	let json: Data
 	let guide: String
 	let issueBody: String
+	/// Complete reviewed payload for pasting, never placed in a browser URL.
+	let pasteBody: String?
 	let issueURL: URL
 	let filename: String
 	let removedItems: [String]
@@ -91,22 +93,44 @@ struct CommunityProfileSubmission {
 		## Community profile submission
 		\(guide)
 
-		## Profile attachment
-		Drag **\(filename)** from the folder opened by ControllerKeys into this description before submitting.
-
 		- [ ] I tested this setup and described any requirements.
-		- [ ] I reviewed the attached profile and description for private data.
+		- [ ] I reviewed the shared profile and description for private data.
 		- [ ] I agree to publish this profile in the ControllerKeys community library under the repository's PolyForm Noncommercial 1.0.0 license.
 
 		Submitted for maintainer review; this is not yet a community-library entry.
 		"""
+		// A single paste carries the description AND profile. Keep a conservative
+		// budget; larger profiles use the explicit file-attachment flow instead.
+		let compactJSON = try JSONSerialization.data(withJSONObject: cleaned, options: [.sortedKeys, .withoutEscapingSlashes])
+		let complete = body + "\n\n## Profile data\n\n```json\n" + String(decoding: compactJSON, as: UTF8.self) + "\n```\n"
+		let pasteBody = complete.utf8.count <= 60_000 ? complete : nil
+		let draftBody: String
+		if pasteBody != nil {
+			draftBody = """
+			## Paste your ControllerKeys submission here
+
+			Click inside this description, select all (⌘A), then paste (⌘V).
+			ControllerKeys copied your description AND reviewed profile together.
+			Before submitting, check that a **Profile data** section appears below your description.
+			If your clipboard changed, return to ControllerKeys and click **Copy Complete Submission**.
+			"""
+		} else {
+			draftBody = """
+			## Profile attachment required
+			This description does not contain your profile yet. Attach **\(filename)** before submitting.
+			In ControllerKeys, click **Show Profile File**, then drag that file into this description.
+			Wait until GitHub shows a clickable file link. A description alone cannot be added to the library.
+
+			\(body)
+			"""
+		}
 		var components = URLComponents(string: "https://github.com/NSEvent/xbox-controller-mapper/issues/new")!
 		components.queryItems = [URLQueryItem(name: "title", value: "[Community Profile] \(profile.name)"),
-			URLQueryItem(name: "body", value: body)]
+			URLQueryItem(name: "body", value: draftBody)]
 		guard let url = components.url, url.absoluteString.utf8.count <= 8000 else { throw SubmissionError.detailsTooLong }
 		let fields = privateFields(in: cleaned) + privateFields(in: ["name": details.name, "summary": details.summary,
 			"controller": details.controller, "instructions": details.instructions], path: "description")
-		return Self(profile: profile, json: data, guide: guide, issueBody: body, issueURL: url,
+		return Self(profile: profile, json: data, guide: guide, issueBody: draftBody, pasteBody: pasteBody, issueURL: url,
 			filename: filename, removedItems: removed, reviewFields: Array(Set(fields)).sorted())
 	}
 

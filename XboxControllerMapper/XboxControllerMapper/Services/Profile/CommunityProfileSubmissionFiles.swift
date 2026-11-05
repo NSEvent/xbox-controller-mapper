@@ -16,7 +16,7 @@ enum CommunityProfileSubmissionFiles {
 		let guideURL = profileURL.deletingPathExtension().appendingPathExtension("md")
 		try AtomicFileWriter.write(submission.json, to: profileURL)
 		try AtomicFileWriter.write(Data(submission.guide.utf8), to: guideURL)
-		try AtomicFileWriter.write(Data(submission.issueBody.utf8), to: directory.appendingPathComponent("Submission.txt"))
+		try AtomicFileWriter.write(Data((submission.pasteBody ?? submission.issueBody).utf8), to: directory.appendingPathComponent("Submission.txt"))
 		return Packet(directory: directory, profileURL: profileURL, guideURL: guideURL)
 	}
 }

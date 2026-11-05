@@ -15,7 +15,10 @@ assignees: ''
 ## Profile attachment
 
 In ControllerKeys, right-click your profile → **Share to Community…**. Review the
-shared copy, then save the submission. Drag the prepared `.json` file here.
+shared copy, then choose **Copy Submission & Open GitHub**. Select all text in this
+description and paste (⌘V); the complete submission includes a **Profile data**
+section. For a large profile, choose **Save File & Open GitHub**, drag the prepared
+`.json` file here, and wait for its clickable link before submitting.
 Screenshots are welcome. You can also attach an exported profile manually after
 removing controller identities, private text, credentials and machine-specific actions.
 

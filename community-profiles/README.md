@@ -20,10 +20,16 @@ You can contribute a profile without learning Git or creating a pull request.
 3. Review the shared copy. Controller identities and default status are removed.
    Custom automations/text are omitted unless you explicitly include them. Your
    working profile stays unchanged.
-4. Choose **Save & Open GitHub Draft**. Sign in to GitHub, drag the prepared JSON
-   file from Finder into the draft description, and submit the issue.
+4. Choose **Copy Submission & Open GitHub**. Sign in if needed. Click the issue's
+   description box, press **⌘A**, then **⌘V**. This pastes the description and the
+   reviewed profile together. Check that **Profile data** appears, then click
+   **Create** (or **Submit new issue**). Use **Copy Complete Submission** in the
+   app if your clipboard changed. No separate attachment is needed.
+5. For a large profile, the app instead offers **Save File & Open GitHub**.
+   Drag its file card into the GitHub description, or use **Show Profile File**
+   to find it. Wait until a clickable attachment link appears before submitting.
 
-The JSON and setup guide are saved in **Downloads → ControllerKeys Community**.
+The JSON, setup guide and submission text are saved in **Downloads → ControllerKeys Community**.
 Attachments become public as soon as you upload them to GitHub. Review labels,
 text, scripts, links, credentials and local paths before attaching anything.
 The reminder scan cannot guarantee that a profile is free of private data.
@@ -35,6 +41,11 @@ If your app version does not have sharing yet, [open a profile submission](https
 and attach a carefully reviewed exported JSON file. Please include the same setup
 details and explicitly agree to contribute under this repository's
 **PolyForm Noncommercial 1.0.0** license. A matching Markdown setup guide is welcome.
+
+For maintainers: submissions with a **Profile data** JSON code block already
+contain the profile. Save that block as a `.json` file, then perform the same
+validation and safety review as for attached profiles. A description without
+either profile data or a file attachment is incomplete.
 
 Contributors comfortable with Git may submit a pull request instead. Give the
 reviewed JSON and optional Markdown guide the same basename. Keep profiles

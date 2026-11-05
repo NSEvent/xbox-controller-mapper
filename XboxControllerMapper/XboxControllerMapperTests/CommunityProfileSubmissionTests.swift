@@ -109,9 +109,51 @@ final class CommunityProfileSubmissionTests: XCTestCase {
 		XCTAssertEqual(first.profileURL.deletingLastPathComponent(), first.directory)
 		XCTAssertEqual(try Data(contentsOf: first.profileURL), result.json)
 		XCTAssertEqual(try String(contentsOf: first.guideURL, encoding: .utf8), result.guide)
+		XCTAssertEqual(try String(contentsOf: first.directory.appendingPathComponent("Submission.txt"), encoding: .utf8), result.pasteBody)
 		let imported = try ProfileTransferService.importProfile(from: first.profileURL)
 		XCTAssertEqual(imported.name, input.name)
 		XCTAssertFalse(imported.isDefault)
+	}
+
+	func testCompletePasteIncludesTheReviewedProfileWithoutSeparateAttachment() throws {
+		var source = Profile(name: "Source")
+		source.buttonMappings[.a] = KeyMapping(keyCode: 49, hint: "Reveal card")
+		let result = try CommunityProfileSubmission.prepare(profile: source, details: details)
+		let body = try XCTUnwrap(result.pasteBody)
+		XCTAssertTrue(body.contains(details.summary))
+		XCTAssertTrue(body.contains("## Profile data"))
+		XCTAssertFalse(body.contains("## Profile attachment"))
+		let encoded = try XCTUnwrap(body.components(separatedBy: "```json\n").last?.components(separatedBy: "\n```").first)
+		let decoder = JSONDecoder()
+		decoder.dateDecodingStrategy = .iso8601
+		XCTAssertEqual(try decoder.decode(Profile.self, from: Data(encoded.utf8)), result.profile)
+		XCTAssertFalse(result.issueURL.absoluteString.contains("Reveal"), "Profile data must never enter browser history or URL logs")
+		XCTAssertTrue(result.issueBody.contains("⌘V"))
+	}
+
+	func testOversizedPasteFallsBackToExplicitAttachmentWithoutTruncation() throws {
+		var source = Profile(name: "Large")
+		let largeHint = String(repeating: "🎮", count: 16_000)
+		source.buttonMappings[.a] = KeyMapping(keyCode: 49, hint: largeHint)
+		let result = try CommunityProfileSubmission.prepare(profile: source, details: details)
+		XCTAssertNil(result.pasteBody)
+		XCTAssertTrue(result.issueBody.hasPrefix("## Profile attachment required"))
+		XCTAssertTrue(result.issueBody.contains(result.filename))
+		XCTAssertTrue(result.issueBody.contains("clickable file link"))
+		XCTAssertEqual(result.profile.buttonMappings[.a]?.hint, largeHint)
+		XCTAssertLessThanOrEqual(result.issueURL.absoluteString.utf8.count, 8000)
+	}
+
+	func testPastedJSONCannotEscapeItsCodeFenceAndOmitsPrivateActions() throws {
+		var source = Profile(name: "Source")
+		source.buttonMappings[.a] = KeyMapping(keyCode: 49, hint: "label\n```\n@somebody\n<script>")
+		source.buttonMappings[.b] = KeyMapping(systemCommand: .shellCommand(command: "secret-command", inTerminal: false))
+		let result = try CommunityProfileSubmission.prepare(profile: source, details: details)
+		let body = try XCTUnwrap(result.pasteBody)
+		let codeLines = Array(body.components(separatedBy: "\n").drop { $0 != "```json" }.dropFirst())
+		XCTAssertTrue(codeLines[0].hasPrefix("{"))
+		XCTAssertEqual(codeLines[1], "```")
+		XCTAssertFalse(body.contains("secret-command"))
 	}
 
 	func testIncompleteAndOversizedDetailsDoNotPrepare() {

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Complete community-profile submissions**: sharing now copies the description and reviewed profile together for one paste into GitHub. Larger profiles show an explicit attachment step with a draggable file card. Clearer instructions and a “not submitted yet” reminder prevent mistaking a prepared draft for a shared profile.
+
 ## [2.10.0] - 2026-10-29
 
 ### Added
