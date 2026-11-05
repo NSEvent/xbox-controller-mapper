@@ -37,6 +37,8 @@ final class MouseClickDragTests: XCTestCase {
 
     override func tearDown() async throws {
         await MainActor.run {
+			mappingEngine.disable()
+			controllerService.cleanup()
             mappingEngine = nil
             controllerService = nil
             profileManager = nil
@@ -50,6 +52,32 @@ final class MouseClickDragTests: XCTestCase {
         try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
     }
 
+	private func waitForProfile(file: StaticString = #filePath, line: UInt = #line) async {
+		let (state, expected) = await MainActor.run { (mappingEngine.state, profileManager.activeProfile?.id) }
+		let ready = await waitForCondition {
+			expected != nil && state.lock.withLock { state.activeProfile?.id == expected }
+		}
+		XCTAssertTrue(ready, "Mouse profile did not settle", file: file, line: line)
+	}
+
+	private func waitForMouseEvents(starts: Int? = nil, stops: Int? = nil,
+		keyCode: UInt16 = KeyCodeMapping.mouseLeftClick,
+		file: StaticString = #filePath, line: UInt = #line) async {
+		let ready = await waitForCondition {
+			let events = self.mockInputSimulator.events
+			let startCount = events.filter {
+				if case .startHoldMapping(let mapping) = $0 { return mapping.keyCode == keyCode }
+				return false
+			}.count
+			let stopCount = events.filter {
+				if case .stopHoldMapping(let mapping) = $0 { return mapping.keyCode == keyCode }
+				return false
+			}.count
+			return (starts == nil || starts == startCount) && (stops == nil || stops == stopCount)
+		}
+		XCTAssertTrue(ready, "Buffered mouse events did not settle", file: file, line: line)
+	}
+
     // MARK: - Mouse Hold State Tracking
 
     func testMouseLeftClick_UsesHoldPath() async throws {
@@ -60,17 +88,12 @@ final class MouseClickDragTests: XCTestCase {
             let profile = Profile(name: "MouseHold", buttonMappings: [.x: mapping])
             profileManager.setActiveProfile(profile)
         }
-		let state = await MainActor.run { mappingEngine.state }
-		let profileReady = await waitForCondition {
-			state.lock.withLock { state.activeProfile?.name == "MouseHold" }
-		}
-		XCTAssertTrue(profileReady, "Mouse profile did not settle")
+		await waitForProfile()
 
         await MainActor.run {
             controllerService.buttonPressed(.x)
         }
-		let pressHandled = await waitForCondition { self.mockInputSimulator.isLeftMouseButtonHeld }
-		XCTAssertTrue(pressHandled, "The buffered mouse press did not reach the input simulator")
+		await waitForMouseEvents(starts: 1)
 
         let events = mockInputSimulator.events
         let holdStartCount = events.filter {
@@ -93,7 +116,7 @@ final class MouseClickDragTests: XCTestCase {
             let profile = Profile(name: "MouseHold", buttonMappings: [.x: mapping])
             profileManager.setActiveProfile(profile)
         }
-        try? await Task.sleep(nanoseconds: 10_000_000)
+		await waitForProfile()
 
         // Before press: not held
         XCTAssertFalse(mockInputSimulator.isLeftMouseButtonHeld, "Mouse should not be held before button press")
@@ -101,7 +124,7 @@ final class MouseClickDragTests: XCTestCase {
         await MainActor.run {
             controllerService.buttonPressed(.x)
         }
-        await waitForTasks(0.1)
+		await waitForMouseEvents(starts: 1)
 
         // During hold: held
         XCTAssertTrue(mockInputSimulator.isLeftMouseButtonHeld, "Mouse should be held after button press")
@@ -109,7 +132,7 @@ final class MouseClickDragTests: XCTestCase {
         await MainActor.run {
             controllerService.buttonReleased(.x)
         }
-        await waitForTasks(0.1)
+		await waitForMouseEvents(stops: 1)
 
         // After release: not held
         XCTAssertFalse(mockInputSimulator.isLeftMouseButtonHeld, "Mouse should not be held after button release")
@@ -122,17 +145,17 @@ final class MouseClickDragTests: XCTestCase {
             let profile = Profile(name: "MouseHold", buttonMappings: [.x: mapping])
             profileManager.setActiveProfile(profile)
         }
-        try? await Task.sleep(nanoseconds: 10_000_000)
+		await waitForProfile()
 
         await MainActor.run {
             controllerService.buttonPressed(.x)
         }
-        await waitForTasks(0.1)
+		await waitForMouseEvents(starts: 1)
 
         await MainActor.run {
             controllerService.buttonReleased(.x)
         }
-        await waitForTasks(0.1)
+		await waitForMouseEvents(stops: 1)
 
         let events = mockInputSimulator.events
         let holdStarts = events.filter {
@@ -168,11 +191,12 @@ final class MouseClickDragTests: XCTestCase {
             let profile = Profile(name: "MouseHoldRepeat", buttonMappings: [.x: mapping])
             profileManager.setActiveProfile(profile)
         }
-        try? await Task.sleep(nanoseconds: 10_000_000)
+		await waitForProfile()
 
         await MainActor.run {
             controllerService.buttonPressed(.x)
         }
+		await waitForMouseEvents(starts: 1)
         await waitForTasks(0.12)
 
         let events = mockInputSimulator.events
@@ -191,7 +215,7 @@ final class MouseClickDragTests: XCTestCase {
         await MainActor.run {
             controllerService.buttonReleased(.x)
         }
-        await waitForTasks(0.05)
+		await waitForMouseEvents(stops: 1)
         XCTAssertFalse(mockInputSimulator.isLeftMouseButtonHeld)
     }
 
@@ -223,13 +247,13 @@ final class MouseClickDragTests: XCTestCase {
             let profile = Profile(name: "ClickDrag", buttonMappings: [.x: mapping])
             profileManager.setActiveProfile(profile)
         }
-        try? await Task.sleep(nanoseconds: 10_000_000)
+		await waitForProfile()
 
         // Step 1: Press button (mouseDown)
         await MainActor.run {
             controllerService.buttonPressed(.x)
         }
-        await waitForTasks(0.1)
+		await waitForMouseEvents(starts: 1)
 
         XCTAssertTrue(mockInputSimulator.isLeftMouseButtonHeld, "Left mouse should be held during drag")
 
@@ -247,7 +271,7 @@ final class MouseClickDragTests: XCTestCase {
         await MainActor.run {
             controllerService.buttonReleased(.x)
         }
-        await waitForTasks(0.1)
+		await waitForMouseEvents(stops: 1)
 
         XCTAssertFalse(mockInputSimulator.isLeftMouseButtonHeld, "Left mouse should not be held after release")
 
@@ -321,7 +345,7 @@ final class MouseClickDragTests: XCTestCase {
             let profile = Profile(name: "QuickClick", buttonMappings: [.x: mapping])
             profileManager.setActiveProfile(profile)
         }
-        try? await Task.sleep(nanoseconds: 10_000_000)
+		await waitForProfile()
 
         // Press and release immediately (both within the chord window)
         await MainActor.run {
@@ -329,8 +353,8 @@ final class MouseClickDragTests: XCTestCase {
             controllerService.buttonReleased(.x)
         }
 
-        // Wait for chord window + processing
-        await waitForTasks(0.2)
+		// Wait for the matched pair, including delayed chord processing.
+		await waitForMouseEvents(starts: 1, stops: 1)
 
         let events = mockInputSimulator.events
         let holdStarts = events.filter {
@@ -361,13 +385,13 @@ final class MouseClickDragTests: XCTestCase {
             let profile = Profile(name: "QuickRightClick", buttonMappings: [.y: mapping])
             profileManager.setActiveProfile(profile)
         }
-        try? await Task.sleep(nanoseconds: 10_000_000)
+		await waitForProfile()
 
         await MainActor.run {
             controllerService.buttonPressed(.y)
             controllerService.buttonReleased(.y)
         }
-        await waitForTasks(0.2)
+		await waitForMouseEvents(starts: 1, stops: 1, keyCode: KeyCodeMapping.mouseRightClick)
 
         let events = mockInputSimulator.events
         let holdStarts = events.filter {
@@ -390,14 +414,14 @@ final class MouseClickDragTests: XCTestCase {
             let profile = Profile(name: "RapidClicks", buttonMappings: [.x: mapping])
             profileManager.setActiveProfile(profile)
         }
-        try? await Task.sleep(nanoseconds: 10_000_000)
+		await waitForProfile()
 
-        for _ in 0..<5 {
+		for click in 1...5 {
             await MainActor.run {
                 controllerService.buttonPressed(.x)
                 controllerService.buttonReleased(.x)
             }
-            await waitForTasks(0.15)
+			await waitForMouseEvents(starts: click, stops: click)
         }
 
         let events = mockInputSimulator.events
