@@ -46,16 +46,27 @@ final class BufferedDoubleTapTimingTests: MappingEngineTestCase {
 
 	private func checkBufferedSecondPress(_ button: ControllerButton, shift: Bool) async {
 		await install(button, shift: shift)
-		await firstTap(button)
-		await waitForTasks(0.18)
-		let state = await MainActor.run { mappingEngine.state }
-		let gap = state.lock.withLock { CFAbsoluteTimeGetCurrent() - (state.lastTapTime[button] ?? 0) }
-		XCTAssertLessThan(gap, 0.25, "Physical second press must be in time")
-		await MainActor.run { controllerService.buttonPressed(button) }
-		await waitForTasks(0.22)
-		await MainActor.run { controllerService.buttonReleased(button) }
-		await waitForTasks(0.4)
+		let first = CFAbsoluteTimeGetCurrent() - 1
+		let second = first + 0.26 // 240 ms after the first release, inside the 250 ms limit.
+		// Replay a delayed chord buffer's physical timestamps. Sleeping until a
+		// deadline on CI tests executor scheduling, not the recorded input timing.
+		controllerService.emitInputEvent(.buttonPressed(button), timing: .physicalPressBegan(second))
+		controllerService.emitInputEvent(.buttonPressed(button), timing: .resolved(first))
+		controllerService.emitInputEvent(.buttonReleased(button, holdDuration: 0.02), timing: .resolved(first + 0.02))
+		let state = mappingEngine.state
+		let reserved = await waitForCondition {
+			state.lock.withLock { state.pendingDoubleTapPressTime[button] == second }
+		}
+		XCTAssertTrue(reserved, "The near-deadline physical press must reserve the double tap")
+		// Keep the second press unresolved beyond the single-tap deadline.
+		await waitForTasks(0.3)
+		XCTAssertTrue(mockInputSimulator.events.isEmpty, "The chord buffer must retain the reserved action")
+		controllerService.emitInputEvent(.buttonPressed(button), timing: .resolved(second))
+		controllerService.emitInputEvent(.buttonReleased(button, holdDuration: 0.02), timing: .resolved(second + 0.02))
 		let flags: CGEventFlags = shift ? [.maskCommand, .maskShift] : .maskCommand
+		let fired = await waitForCondition { self.mockInputSimulator.events == [.pressKey(50, flags)] }
+		XCTAssertTrue(fired, "Resolving the buffered press must emit the double-tap action")
+		await waitForTasks(0.3)
 		XCTAssertEqual(mockInputSimulator.events, [.pressKey(50, flags)])
 	}
 

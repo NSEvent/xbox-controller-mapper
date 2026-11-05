@@ -60,12 +60,17 @@ final class MouseClickDragTests: XCTestCase {
             let profile = Profile(name: "MouseHold", buttonMappings: [.x: mapping])
             profileManager.setActiveProfile(profile)
         }
-        try? await Task.sleep(nanoseconds: 10_000_000)
+		let state = await MainActor.run { mappingEngine.state }
+		let profileReady = await waitForCondition {
+			state.lock.withLock { state.activeProfile?.name == "MouseHold" }
+		}
+		XCTAssertTrue(profileReady, "Mouse profile did not settle")
 
         await MainActor.run {
             controllerService.buttonPressed(.x)
         }
-        await waitForTasks(0.1)
+		let pressHandled = await waitForCondition { self.mockInputSimulator.isLeftMouseButtonHeld }
+		XCTAssertTrue(pressHandled, "The buffered mouse press did not reach the input simulator")
 
         let events = mockInputSimulator.events
         let holdStartCount = events.filter {
