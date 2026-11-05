@@ -170,7 +170,9 @@ struct CommunityProfileSubmission {
 		}
 		if let array = value as? [Any] { return array.enumerated().flatMap { privateFields(in: $0.element, path: "\(path)[\($0.offset)]") } }
 		guard let text = value as? String else { return [] }
-		let pattern = #"(?i)(/Users/|/home/|~/|\b(?:localhost|127\.0\.0\.1|192\.168\.|10\.\d+\.)|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|\b(?:gh[pousr]_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]{12,})|(?:token|password|secret|authorization|api[_-]?key)\s*[=:]|https?://[^\s/]+:[^\s/]+@)"#
+		// Start email matching only at a token boundary; otherwise a long label
+		// without @ retries the entire remaining suffix at every character.
+		let pattern = #"(?i)(/Users/|/home/|~/|\b(?:localhost|127\.0\.0\.1|192\.168\.|10\.\d+\.)|(?<![A-Z0-9._%+-])[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|\b(?:gh[pousr]_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]{12,})|(?:token|password|secret|authorization|api[_-]?key)\s*[=:]|https?://[^\s/]+:[^\s/]+@)"#
 		return text.range(of: pattern, options: .regularExpression) == nil ? [] : [path]
 	}
 

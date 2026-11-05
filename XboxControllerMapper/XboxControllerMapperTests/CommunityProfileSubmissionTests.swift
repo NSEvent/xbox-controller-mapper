@@ -156,6 +156,14 @@ final class CommunityProfileSubmissionTests: XCTestCase {
 		XCTAssertFalse(body.contains("secret-command"))
 	}
 
+	func testLongUnbrokenLabelStillFindsEmailAfterSeparator() throws {
+		var source = Profile(name: "Long label")
+		source.buttonMappings[.a] = KeyMapping(keyCode: 49, hint: String(repeating: "a", count: 65_000) + " alice+test@example.com")
+		let result = try CommunityProfileSubmission.prepare(profile: source, details: details)
+		XCTAssertNil(result.pasteBody)
+		XCTAssertTrue(result.reviewFields.contains { $0.contains("hint") })
+	}
+
 	func testIncompleteAndOversizedDetailsDoNotPrepare() {
 		XCTAssertThrowsError(try CommunityProfileSubmission.prepare(profile: Profile(name: "Source"), details: .init(name: "")))
 		var input = details
