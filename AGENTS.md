@@ -34,6 +34,14 @@ but don't withhold help from someone who's just trying it.
   auto-licensed via the `DEV_BYPASS_LICENSE` compile flag set by `make install`; that
   flag is never set by the release pipeline and must not be shipped.
 
+## Release delivery
+
+Every release must upload and verify the new DMG on Gumroad, then move the existing
+**License key** block to the very top of the product's Content page, above all
+downloads. Save and reload to verify the order. Preserve the existing license
+block/settings and older files; do not recreate the block or paste a customer's
+key. Uploading the DMG alone is not a completed release. (Kevin, 2026-11-04.)
+
 ## Contributing
 
 PRs welcome. `make install BUILD_FROM_SOURCE=1` builds and installs locally;

@@ -86,6 +86,7 @@ manifest = {
     "product": product,
     "release": release,
     "notify_customers": False,
+    "content_order": {"first_block": "license_key", "verify_after_reload": True},
 }
 
 Path(manifest_path).write_text(
@@ -100,3 +101,4 @@ echo "  Version: $VERSION ($BUILD)"
 echo "  Artifact: $ARTIFACT"
 echo "  SHA-256: $SHA256"
 echo "  Release notes: $NOTES_FILE"
+echo "  Required: move the existing License key block above all downloads; save and verify after reload."
