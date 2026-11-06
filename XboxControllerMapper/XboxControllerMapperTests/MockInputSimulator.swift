@@ -38,10 +38,19 @@ class MockInputSimulator: InputSimulatorProtocol {
         return _events
     }
 
+    /// Full scroll events (with phases); `events` keeps only dx/dy.
+    private var _scrollEvents: [ScrollEvent] = []
+    var scrollEvents: [ScrollEvent] {
+        lock.lock()
+        defer { lock.unlock() }
+        return _scrollEvents
+    }
+
     func clearEvents() {
         lock.lock()
         defer { lock.unlock() }
         _events.removeAll()
+        _scrollEvents.removeAll()
     }
     
     private var _heldModifiers: CGEventFlags = []
@@ -167,6 +176,7 @@ class MockInputSimulator: InputSimulatorProtocol {
         lock.lock()
         defer { lock.unlock() }
         _events.append(.scroll(scrollEvent.dx, scrollEvent.dy))
+        _scrollEvents.append(scrollEvent)
     }
     
     func executeMapping(_ mapping: KeyMapping) {

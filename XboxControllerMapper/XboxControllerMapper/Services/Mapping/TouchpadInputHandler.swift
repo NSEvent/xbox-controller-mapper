@@ -423,14 +423,19 @@ extension MappingEngine {
             smoothedDistance += (gesture.distanceDelta - smoothedDistance) * alpha
         }
 
-        state.lock.withLock {
+        let interruptedMomentum = state.lock.withLock { () -> Bool in
             state.smoothedTouchpadCenterDelta = smoothedCenter
             state.smoothedTouchpadDistanceDelta = smoothedDistance
             state.lastTouchpadGestureSampleTime = now
 
             // Reset momentum candidate state when a new gesture begins so stale
             // velocity from a previous gesture cannot leak into the new one.
+            // A touch landing mid-momentum also stops the momentum stream.
+            var interruptedMomentum = false
             if !wasActive {
+                interruptedMomentum = state.touchpadMomentumWasActive
+                state.touchpadMomentumWasActive = false
+                state.touchpadMomentumVelocity = .zero
                 state.touchpadMomentumCandidateVelocity = .zero
                 state.touchpadMomentumCandidateTime = 0
                 state.touchpadMomentumHighVelocityStartTime = 0
@@ -438,6 +443,20 @@ extension MappingEngine {
                 state.touchpadMomentumPeakVelocity = .zero
                 state.touchpadMomentumPeakMagnitude = 0
             }
+            return interruptedMomentum
+        }
+
+        if interruptedMomentum {
+            inputSimulator.scroll(
+                event: ScrollEvent(
+                    dx: 0,
+                    dy: 0,
+                    phase: nil,
+                    momentumPhase: .end,
+                    isContinuous: true,
+                    flags: inputSimulator.getHeldModifiers()
+                )
+            )
         }
 
         let phase: CGScrollPhase = wasActive ? .changed : .began
