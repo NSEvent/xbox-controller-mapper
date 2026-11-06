@@ -348,7 +348,7 @@ class MappingEngine: ObservableObject {
         profileManager.$activeProfile
             .sink { [weak self] profile in
                 guard let self = self else { return }
-				let cleanup = self.state.lock.withLock {
+				let (cleanup, isProfileSwitch) = self.state.lock.withLock {
 					let cleanup = RoutingBoundaryCleanup(state: self.state)
 					let isProfileSwitch = self.state.activeProfile?.id != profile?.id
 					let oldGyroMode = self.state.joystickSettings?.gyroActivationMode
@@ -383,7 +383,7 @@ class MappingEngine: ObservableObject {
 					)
                     self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
                     self.state.applyProfileIndex(MappingProfileIndex(profile: profile))
-					return cleanup
+					return (cleanup, isProfileSwitch)
                 }
 				self.performRoutingBoundaryCleanup(cleanup, resetMIDI: false)
                 self.syncGestureSettings(from: profile?.joystickSettings)
@@ -391,7 +391,11 @@ class MappingEngine: ObservableObject {
                 self.syncTouchpadSettings(from: profile)
                 self.syncMotionActivation(for: profile)
                 self.syncLatencySettings(for: profile)
-                self.scriptEngine.clearState()
+                // Script `state` is per-profile session memory; settings edits
+                // republish the same profile and must not wipe it.
+                if isProfileSwitch {
+                    self.scriptEngine.clearState()
+                }
 				self.refreshLayerPresentation()
             }
             .store(in: &cancellables)
