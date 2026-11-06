@@ -230,6 +230,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// an unmatched key-down.
     private var modifierHeldKeyCodes: [UInt64: CGKeyCode] = [:]
 
+    /// Whether each held key and modifier went to this Mac or the Universal
+    /// Control peer. Releases follow the press route; guarded by stateLock.
+    private var heldOutputRoutes = HeldOutputRoutes()
+
     /// Track if we've warned about accessibility
     private var hasWarnedAboutAccessibility = false
 
@@ -555,8 +559,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         if KeyCodeMapping.isSpecialAction(keyCode) { return }
         if shouldRelayUniversalControlAction(),
            UniversalControlMouseRelay.shared.sendKeyDown(keyCode, modifiers: modifiers) {
+            stateLock.withLock { heldOutputRoutes.keyPressed(keyCode, route: .remote) }
             return
         }
+        stateLock.withLock { heldOutputRoutes.keyPressed(keyCode, route: .local) }
 
         if KeyCodeMapping.isMouseButton(keyCode) {
             mouseButtonDown(keyCode)
@@ -601,9 +607,18 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 		}
         // Special-action markers never post or relay as key events (see pressKeyInternal).
         if KeyCodeMapping.isSpecialAction(keyCode) { return }
-        if shouldRelayUniversalControlAction(),
-           UniversalControlMouseRelay.shared.sendKeyUp(keyCode) {
+        switch stateLock.withLock({ heldOutputRoutes.keyReleased(keyCode) }) {
+        case .remote:
+            // Never post a local key-up for a key this Mac never saw go down.
+            _ = UniversalControlMouseRelay.shared.sendKeyUp(keyCode)
             return
+        case .local:
+            break
+        case nil:
+            if shouldRelayUniversalControlAction(),
+               UniversalControlMouseRelay.shared.sendKeyUp(keyCode) {
+                return
+            }
         }
 
         if KeyCodeMapping.isMouseButton(keyCode) {
@@ -684,11 +699,13 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Stops holding a modifier
     func releaseModifier(_ modifier: CGEventFlags) {
-        if shouldRelayUniversalControlAction(),
-           UniversalControlMouseRelay.shared.sendReleaseModifier(modifier) {
-            recordReleasedModifier(modifier)
-            return
+        let routes = splitModifierRelease(modifier)
+        if !routes.remote.isEmpty {
+            _ = UniversalControlMouseRelay.shared.sendReleaseModifier(routes.remote)
+            recordReleasedModifier(routes.remote)
         }
+        let modifier = routes.local
+        guard !modifier.isEmpty else { return }
 
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
@@ -797,8 +814,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         let mask = KeyCodeMapping.modifierFlag(for: keyCode)
         guard !mask.isEmpty else { return }
 
-        if shouldRelayUniversalControlAction(),
-           UniversalControlMouseRelay.shared.sendKeyUp(keyCode) {
+        if !splitModifierRelease(mask).remote.isEmpty {
+            _ = UniversalControlMouseRelay.shared.sendKeyUp(keyCode)
             recordReleasedModifier(mask)
             return
         }
@@ -866,11 +883,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Performs all state mutation and event posting under a single lock acquisition
     /// to prevent races between reading state and resetting counts.
     func releaseAllModifiers() {
-        if shouldRelayUniversalControlAction(),
-           UniversalControlMouseRelay.shared.sendReleaseAllModifiers() {
-            clearHeldModifiers()
-            return
+        if shouldRelayUniversalControlAction() {
+            _ = UniversalControlMouseRelay.shared.sendReleaseAllModifiers()
         }
+        // Peer holds are released (or the session that owned them is gone);
+        // holds made on this Mac before a handoff still need local key-ups below.
+        stateLock.withLock { forgetRemoteModifierHoldsLocked(heldOutputRoutes.clearRemoteModifiers()) }
 
         guard let source = eventSource else { return }
 
@@ -911,6 +929,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
 		for mask in ModifierKeyEmissionPolicy.modifierMasks where modifier.contains(mask) {
             let key = mask.rawValue
+			heldOutputRoutes.modifierPressedRemotely(mask: key)
 			let count = modifierCounts[key] ?? 0
 			modifierCounts[key] = count + 1
 			if count == 0, let vKey = ModifierKeyEmissionPolicy.defaultKeyCode(forRawMask: key) {
@@ -927,6 +946,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
 		for mask in ModifierKeyEmissionPolicy.modifierMasks where modifier.contains(mask) {
 			let key = mask.rawValue
+			heldOutputRoutes.modifierPressedRemotely(mask: key)
 			let count = modifierCounts[key] ?? 0
 			modifierCounts[key] = count + 1
 			if count == 0 {
@@ -953,14 +973,46 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         }
     }
 
-    private func clearHeldModifiers() {
+    /// Splits a modifier release by the route each mask was held on.
+    private func splitModifierRelease(_ modifier: CGEventFlags) -> (local: CGEventFlags, remote: CGEventFlags) {
+        let relaying = shouldRelayUniversalControlAction()
         stateLock.lock()
-        for key in modifierCounts.keys {
-            modifierCounts[key] = 0
+        defer { stateLock.unlock() }
+        var local = CGEventFlags()
+        var remote = CGEventFlags()
+		for mask in ModifierKeyEmissionPolicy.modifierMasks where modifier.contains(mask) {
+            let route = heldOutputRoutes.modifierReleaseRoute(
+                mask: mask.rawValue,
+                totalCount: modifierCounts[mask.rawValue] ?? 0,
+                relaying: relaying
+            )
+            if route == .remote { remote.insert(mask) } else { local.insert(mask) }
         }
-		modifierHeldKeyCodes.removeAll()
-        heldModifiers = []
-        stateLock.unlock()
+        return (local, remote)
+    }
+
+    /// Drops forgotten peer holds from the shared counts. Requires stateLock.
+    private func forgetRemoteModifierHoldsLocked(_ remoteCounts: [UInt64: Int]) {
+        for (key, remoteCount) in remoteCounts {
+            let remaining = max(0, (modifierCounts[key] ?? 0) - remoteCount)
+            modifierCounts[key] = remaining
+            if remaining == 0 {
+                modifierHeldKeyCodes[key] = nil
+                heldModifiers.remove(CGEventFlags(rawValue: key))
+            }
+        }
+    }
+
+    /// Releases on the peer every key and modifier still held there. Called
+    /// before a relay session ends, while the peer still accepts our input.
+    private func releaseRemoteRoutedOutputs() {
+        let held = stateLock.withLock { heldOutputRoutes.takeRemoteHolds() }
+        for keyCode in held.keys {
+            _ = UniversalControlMouseRelay.shared.sendKeyUp(keyCode)
+        }
+        guard !held.modifierCounts.isEmpty else { return }
+        _ = UniversalControlMouseRelay.shared.sendReleaseAllModifiers()
+        stateLock.withLock { forgetRemoteModifierHoldsLocked(held.modifierCounts) }
     }
 
     // MARK: - Mouse Button State
@@ -1247,6 +1299,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
 			let canContinueRemoteHandoff = UniversalControlMouseRelay.shared.canStartRemoteHandoff
 			if (zoomActive || isDrag || !canContinueRemoteHandoff || relayConfirmationTimedOut), self.universalControlRelayActive {
+                self.releaseRemoteRoutedOutputs()
                 self.deactivateUniversalControlRelaySession()
 				if relayConfirmationTimedOut {
 					UniversalControlMouseRelay.shared.suppressRemoteHandoff(reason: "no authenticated cursor status")
@@ -1291,6 +1344,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                            dx: Int(moveX),
                            dy: Int(moveY)
                        ) {
+                        self.releaseRemoteRoutedOutputs()
                         self.deactivateUniversalControlRelaySession()
                         UniversalControlMouseRelay.shared.endRemoteSession()
                     } else {
@@ -1317,6 +1371,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 									return
 								}
 						} else {
+							self.releaseRemoteRoutedOutputs()
 							self.deactivateUniversalControlRelaySession()
                             UniversalControlMouseRelay.shared.cancelUnconfirmedRemoteSession()
                         }
