@@ -97,7 +97,7 @@ extension WiimotePairingService: IOBluetoothDeviceInquiryDelegate {
         guard sender === inquiry, phase == .scanning, let device,
               Self.isWiiRemoteName(device.name) else { return }
         phase = .pairing
-        NSLog("[WiiPair] Found %@; stopping inquiry before pairing", device.name ?? "Wii Remote")
+		NSLog("[WiiPair] Found %@; stopping inquiry before pairing", device.name ?? "Wii Remote")
         sender.stop()
 
 		let agent = IOBluetoothDevicePair(device: device)
@@ -157,7 +157,7 @@ extension WiimotePairingService: IOBluetoothDevicePairDelegate {
 	}
 
 	@objc func devicePairingFinished(_ sender: Any!, error: IOReturn) {
-        NSLog("[WiiPair] Pair finished: error=0x%08X phase=%@", error, String(describing: phase))
+		NSLog("[WiiPair] Pair finished: error=0x%08X phase=%@", error, String(describing: phase))
         guard let pair = sender as? IOBluetoothDevicePair,
               pair === pairingAgent, phase == .pairing else { return }
 		if error == kIOReturnSuccess {
