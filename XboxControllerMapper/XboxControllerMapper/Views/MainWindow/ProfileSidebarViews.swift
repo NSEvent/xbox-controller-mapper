@@ -53,6 +53,7 @@ struct ProfileSidebar: View {
 	@State private var profileToShare: Profile?
     @State private var profileToLink: Profile?
     @State private var profileToLinkController: Profile?
+	@State private var profileToCopyMappingsFrom: Profile?
     @State private var showingCommunityProfiles = false
 	@State private var showingGuidedPreset = false
 	@State private var draggedProfile: Profile?
@@ -173,6 +174,9 @@ struct ProfileSidebar: View {
                                     onLinkController: {
                                         profileToLinkController = profile
                                     },
+									onCopyControllerMappings: {
+										profileToCopyMappingsFrom = profile
+									},
 				    keyboardSourceProfiles: profileManager.onScreenKeyboardInheritanceCandidates(for: profile),
 				    onSetOnScreenKeyboardSource: { sourceProfileId in
 					profileManager.setOnScreenKeyboardInheritance(
@@ -235,6 +239,9 @@ struct ProfileSidebar: View {
         .sheet(item: $profileToLinkController) { profile in
             LinkedControllersSheet(profile: profile)
         }
+		.sheet(item: $profileToCopyMappingsFrom) { profile in
+			CopyControllerMappingsSheet(sourceProfileId: profile.id, layout: profile.controllerPreviewLayout)
+		}
         .fileImporter(
             isPresented: $isImporting,
             allowedContentTypes: [.json, .data],

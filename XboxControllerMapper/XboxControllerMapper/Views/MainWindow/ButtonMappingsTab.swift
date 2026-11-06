@@ -48,6 +48,7 @@ struct ButtonMappingsTab: View {
     // the zoom factor is profileManager.uiScale (persisted in the config).
     @State private var canvasPan: CGSize = .zero
 	@State private var pairingHintDismissed = false
+	@State private var showingCopyMappingsSheet = false
     @State private var panDragBase: CGSize?
     @State private var pinchBase: (scale: CGFloat, pan: CGSize, anchor: CGPoint)?
     @State private var canvasEventView: NSView?
@@ -392,6 +393,11 @@ struct ButtonMappingsTab: View {
         .sheet(isPresented: $showingAddLayerSheet) {
             AddLayerSheet()
         }
+		.sheet(isPresented: $showingCopyMappingsSheet) {
+			if let profileId = profileManager.activeProfileId {
+				CopyControllerMappingsSheet(sourceProfileId: profileId, layout: controllerPreviewLayout)
+			}
+		}
         .sheet(item: $editingLayerId) { layerId in
             if let profile = profileManager.activeProfile,
                let layer = profile.layers.first(where: { $0.id == layerId }) {
@@ -456,6 +462,24 @@ struct ButtonMappingsTab: View {
 			// even on a wide window). Pin it to its label width instead.
 			.fixedSize()
 			.help("Preview controller layout")
+
+			Button {
+				showingCopyMappingsSheet = true
+			} label: {
+				Image(systemName: "square.on.square")
+					.font(.system(size: 11, weight: .semibold))
+					.frame(width: 26, height: 26)
+					.background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+					.overlay(
+						RoundedRectangle(cornerRadius: 7, style: .continuous)
+							.stroke(Color.white.opacity(0.08), lineWidth: 1)
+					)
+					.contentShape(Rectangle())
+			}
+			.buttonStyle(.plain)
+			.help("Copy these controller mappings to another profile")
+			.accessibilityLabel("Copy controller mappings to another profile")
+			.disabled(profileManager.profiles.count < 2)
 
 			if let note = layoutPreviewMismatchNote {
 				Label(note, systemImage: "exclamationmark.triangle.fill")

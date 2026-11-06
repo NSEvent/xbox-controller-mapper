@@ -163,6 +163,7 @@ struct ProfileContextMenu: View {
 	let onSetDefault: () -> Void
 	let onLinkApps: () -> Void
 	let onLinkController: () -> Void
+	let onCopyControllerMappings: () -> Void
 	let keyboardSourceProfiles: [Profile]
 	let onSetOnScreenKeyboardSource: (UUID?) -> Void
 	let onSetIcon: (String?) -> Void
@@ -180,6 +181,8 @@ struct ProfileContextMenu: View {
 
 		Button("Linked Apps...", action: onLinkApps)
 		Button("Linked Controller...", action: onLinkController)
+		Button("Copy Controller Mappings To...", action: onCopyControllerMappings)
+			.disabled(profileCount < 2)
 
 	Menu("Shared Keyboard Settings") {
 	    Button("Do Not Inherit") {

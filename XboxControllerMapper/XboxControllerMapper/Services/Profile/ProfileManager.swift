@@ -670,7 +670,7 @@ class ProfileManager: ObservableObject {
     /// Snapshots the current configuration with a human-readable reason. Called
     /// before destructive operations so the user can roll back via the Settings UI.
     /// Best-effort: failures are logged but don't block the caller.
-    private func snapshotCurrentState(reason: String) {
+    func snapshotCurrentState(reason: String) {
         snapshotService.writeSnapshot(currentConfiguration(), reason: reason)
         // Bump unconditionally — even if the write failed, a re-render is
         // cheap and any observer that re-reads availableSnapshots() will see
