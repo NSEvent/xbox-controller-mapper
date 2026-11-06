@@ -7,10 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-11-06
+
 ### Added
 
 - **Wii Remote support (experimental)**: pair an original Wii Remote from **Hardware → Wii Remote**, since macOS Bluetooth settings reject its legacy PIN. All eleven buttons are mappable, with a Wii-styled preview and 1, 2, +, − and Home labels, plus battery level. Pairing and input are verified on a physical RVL-CNT-01; the automatic reconnect after a fresh pairing hasn't been re-tested end to end yet.
 - **Sensor-bar pointing**: map **Pointer (Toggle)** to aim the cursor by pointing the remote at the screen. The bundled Wii Sensor Bar community profile toggles with B and clicks or drags with A. Aiming is absolute, as on a Wii: the cursor goes where you point, and every screen edge is reachable while the bar is in view. One end of the bar dropping out or a tilted grip doesn't throw the cursor, and losing the bar holds it still. Without a sensor bar, tilt steering moves the pointer instead. Power the bar from a wall USB adapter: TV USB ports often underpower it, which makes the cursor jumpy. Verified with a physical remote and sensor bar.
+
+### Changed
+
+- **Copy/Paste on hover**: hovering a button mapping on the Buttons tab now shows Copy and Paste buttons, so you no longer need the right-click menu. Clear stays in the right-click menu.
 
 ## [2.10.1] - 2026-11-05
 
