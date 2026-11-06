@@ -37,6 +37,8 @@ extension MappingEngine {
 		var physicalTapPressOwners: [ControllerButton: PhysicalTapPress] = [:]
 		var cancelledPhysicalTapPressCutoffs: [ControllerButton: CFAbsoluteTime] = [:]
         var pendingReleaseActions: [ControllerButton: DispatchWorkItem] = [:]
+		// Press-time mappings whose release action fires when the button comes up.
+		var armedReleaseActions: [ControllerButton: KeyMapping] = [:]
         var longHoldTimers: [ControllerButton: DispatchWorkItem] = [:]
         var longHoldTriggered: Set<ControllerButton> = []
         var repeatTimers: [ControllerButton: DispatchSourceTimer] = [:]
@@ -271,6 +273,9 @@ extension MappingEngine {
 			let preservedHoldRepeatTimers = holdRepeatTimers.filter {
 				preservedHeldActionButtons.contains($0.key)
 			}
+			let preservedArmedReleaseActions = armedReleaseActions.filter {
+				preservedHeldActionButtons.contains($0.key)
+			}
 
 			let preservedOnScreenKeyboardButton = preservingUIOverlays ? onScreenKeyboardButton : nil
 			let preservedOnScreenKeyboardHoldMode = preservingUIOverlays && onScreenKeyboardHoldMode
@@ -301,6 +306,7 @@ extension MappingEngine {
 				cancelledButtons.formUnion(activeChordButtons)
 				cancelledButtons.formUnion(pendingSingleTap.keys)
 				cancelledButtons.formUnion(pendingReleaseActions.keys)
+				cancelledButtons.formUnion(armedReleaseActions.keys)
 				cancelledButtons.formUnion(longHoldTimers.keys)
 				cancelledButtons.formUnion(repeatTimers.keys)
 				cancelledButtons.formUnion(holdRepeatTimers.keys)
@@ -348,6 +354,9 @@ extension MappingEngine {
 
             pendingReleaseActions.values.forEach { $0.cancel() }
             pendingReleaseActions.removeAll()
+			// A boundary (disconnect, profile/layer switch) drops armed releases:
+			// firing them against a different routing state would be a stray action.
+			armedReleaseActions.removeAll()
 
             longHoldTimers.values.forEach { $0.cancel() }
             longHoldTimers.removeAll()
@@ -462,6 +471,7 @@ extension MappingEngine {
 
 			heldButtons = preservedHeldButtons
 			holdRepeatTimers = preservedHoldRepeatTimers
+			armedReleaseActions = preservedArmedReleaseActions
 
 			if preservingUIOverlays {
 				onScreenKeyboardButton = preservedOnScreenKeyboardButton

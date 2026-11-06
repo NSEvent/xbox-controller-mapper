@@ -4,6 +4,7 @@ enum InputEventType: String, Codable {
     case singlePress = "Press"
     case doubleTap = "Double Tap"
     case longPress = "Long Press"
+    case release = "Release"
     case chord = "Chord"
     case sequence = "Sequence"
     case gesture = "Gesture"

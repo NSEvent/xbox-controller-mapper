@@ -201,6 +201,10 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
     /// Optional alternate mapping for double tap
     var doubleTapMapping: DoubleTapMapping?
 
+    /// Optional action sent when the button is released. When set, the primary
+    /// action fires on press instead of release, so the two bracket the hold.
+    var releaseMapping: ReleaseMapping?
+
     /// Optional repeat configuration for holding the button
     var repeatMapping: RepeatMapping?
 
@@ -239,6 +243,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         modifiers: ModifierFlags = ModifierFlags(),
         longHoldMapping: LongHoldMapping? = nil,
         doubleTapMapping: DoubleTapMapping? = nil,
+        releaseMapping: ReleaseMapping? = nil,
         repeatMapping: RepeatMapping? = nil,
 		scrollActionSettings: ScrollActionSettings? = nil,
         isHoldModifier: Bool = false,
@@ -255,6 +260,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         self.modifiers = modifiers
         self.longHoldMapping = longHoldMapping
         self.doubleTapMapping = doubleTapMapping
+        self.releaseMapping = releaseMapping
         self.repeatMapping = repeatMapping
 		self.scrollActionSettings = scrollActionSettings
         self.isHoldModifier = isHoldModifier
@@ -269,7 +275,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
     }
 
     private enum CodingKeys: String, CodingKey {
-		case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, scrollActionSettings, isHoldModifier, holdRepeatEnabled, holdRepeatInterval, macroId, scriptId, systemCommand, midiControlChange, hint, hapticStyle
+		case keyCode, modifiers, longHoldMapping, doubleTapMapping, releaseMapping, repeatMapping, scrollActionSettings, isHoldModifier, holdRepeatEnabled, holdRepeatInterval, macroId, scriptId, systemCommand, midiControlChange, hint, hapticStyle
     }
 
     init(from decoder: Decoder) throws {
@@ -278,6 +284,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         modifiers = try container.decode(.modifiers, default: ModifierFlags())
         longHoldMapping = try container.decodeIfPresent(LongHoldMapping.self, forKey: .longHoldMapping)
         doubleTapMapping = try container.decodeIfPresent(DoubleTapMapping.self, forKey: .doubleTapMapping)
+        releaseMapping = try container.decodeIfPresent(ReleaseMapping.self, forKey: .releaseMapping)
         repeatMapping = try container.decodeIfPresent(RepeatMapping.self, forKey: .repeatMapping)
 		scrollActionSettings = try container.decodeIfPresent(ScrollActionSettings.self, forKey: .scrollActionSettings)
         isHoldModifier = try container.decode(.isHoldModifier, default: false)
@@ -351,6 +358,20 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
 		!isEmpty
 			|| longHoldMapping?.isEmpty == false
 			|| doubleTapMapping?.isEmpty == false
+			|| releaseMapping?.isEmpty == false
+	}
+
+	/// The release action the engine honors. Long hold, double tap and repeat
+	/// all decide what the press means only after it ends, which contradicts
+	/// firing the primary action at press time, so any of them disables the
+	/// release action. The editor prevents the combination; this guards
+	/// imported or hand-edited profiles.
+	var effectiveReleaseMapping: ReleaseMapping? {
+		guard let releaseMapping, !releaseMapping.isEmpty,
+			  longHoldMapping?.isEmpty ?? true,
+			  doubleTapMapping?.isEmpty ?? true,
+			  !(repeatMapping?.enabled ?? false) else { return nil }
+		return releaseMapping
 	}
 
     /// Compact description including alternate mappings (for UI)
@@ -367,6 +388,10 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
 
         if let doubleTap = doubleTapMapping, !doubleTap.isEmpty {
             parts.append("×2 " + doubleTap.displayString)
+        }
+
+        if let release = releaseMapping, !release.isEmpty {
+            parts.append("↑ " + release.displayString)
         }
 
         if let repeatConfig = repeatMapping, repeatConfig.enabled {
@@ -593,6 +618,90 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
 
     /// Returns a copy with all action fields cleared except the specified type.
     func clearingConflicts(keeping actionType: ActionType) -> DoubleTapMapping {
+        var copy = self
+        if actionType != .keyPress {
+            copy.keyCode = nil
+            copy.modifiers = ModifierFlags()
+        }
+        if actionType != .macro { copy.macroId = nil }
+        if actionType != .script { copy.scriptId = nil }
+        if actionType != .systemCommand { copy.systemCommand = nil }
+		if actionType != .midiControlChange { copy.midiControlChange = nil }
+        return copy
+    }
+}
+
+/// Action sent when the button is released (see `KeyMapping.releaseMapping`)
+struct ReleaseMapping: Codable, Equatable, ExecutableAction {
+    var keyCode: CGKeyCode?
+    var modifiers: ModifierFlags
+    var macroId: UUID?
+    var scriptId: UUID?
+    var systemCommand: SystemCommand?
+    var midiControlChange: MIDIControlChange?
+    var hint: String?
+    var hapticStyle: HapticStyle?
+
+    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), macroId: UUID? = nil, scriptId: UUID? = nil, systemCommand: SystemCommand? = nil, midiControlChange: MIDIControlChange? = nil, hint: String? = nil, hapticStyle: HapticStyle? = nil) {
+        self.keyCode = keyCode
+        self.modifiers = modifiers
+        self.macroId = macroId
+        self.scriptId = scriptId
+        self.systemCommand = systemCommand
+		self.midiControlChange = midiControlChange
+        self.hint = hint
+        self.hapticStyle = hapticStyle
+    }
+
+    private enum CodingKeys: String, CodingKey {
+		case keyCode, modifiers, macroId, scriptId, systemCommand, midiControlChange, hint, hapticStyle
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
+        modifiers = try container.decode(.modifiers, default: ModifierFlags())
+        macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
+        scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
+        systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
+		midiControlChange = try container.decodeIfPresent(MIDIControlChange.self, forKey: .midiControlChange)
+        hint = try container.decodeIfPresent(String.self, forKey: .hint)
+        hapticStyle = try container.decodeIfPresent(HapticStyle.self, forKey: .hapticStyle)
+    }
+
+    var displayString: String {
+        if let systemCommand = systemCommand {
+            return systemCommand.displayName
+        }
+        if macroId != nil {
+            return "Macro"
+        }
+        if scriptId != nil {
+            return "Script"
+        }
+		if let midiControlChange {
+			return midiControlChange.displayString
+		}
+        var parts: [String] = []
+        if modifiers.command { parts.append(ModifierFlags.label(for: modifiers.commandSide) + "⌘") }
+        if modifiers.option { parts.append(ModifierFlags.label(for: modifiers.optionSide) + "⌥") }
+        if modifiers.shift { parts.append(ModifierFlags.label(for: modifiers.shiftSide) + "⇧") }
+        if modifiers.control { parts.append(ModifierFlags.label(for: modifiers.controlSide) + "⌃") }
+        if let keyCode = keyCode {
+            parts.append(KeyCodeMapping.displayName(for: keyCode))
+        } else if parts.isEmpty {
+            return "None"
+        }
+        return parts.joined(separator: " + ")
+    }
+
+    var isEmpty: Bool {
+		keyCode == nil && !modifiers.hasAny && macroId == nil && scriptId == nil
+			&& systemCommand == nil && midiControlChange == nil
+    }
+
+    /// Returns a copy with all action fields cleared except the specified type.
+    func clearingConflicts(keeping actionType: ActionType) -> ReleaseMapping {
         var copy = self
         if actionType != .keyPress {
             copy.keyCode = nil

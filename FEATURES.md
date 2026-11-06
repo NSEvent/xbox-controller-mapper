@@ -12,6 +12,7 @@ This document lists all features for verification after refactoring.
 - [ ] Special action mappings (Mission Control, App Expose, etc.)
 - [ ] Long hold action (alternate action after holding button for threshold)
 - [ ] Double tap action (alternate action on quick double press)
+- [ ] Release action (primary fires on press, a second action on release; defaults to the same key for hold-to-switch toggles)
 - [ ] Repeat while held (repeats key at configurable rate)
 - [ ] Optional hint/description on any mapping
 

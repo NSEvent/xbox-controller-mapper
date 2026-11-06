@@ -176,7 +176,8 @@ struct MappingLabelView: View {
             } else {
                 labelRow(text: mapping.displayString, icon: holdIcon, color: holdColor, tooltip: nil)
             }
-        } else if (mapping.longHoldMapping?.isEmpty ?? true) && (mapping.doubleTapMapping?.isEmpty ?? true) {
+        } else if (mapping.longHoldMapping?.isEmpty ?? true) && (mapping.doubleTapMapping?.isEmpty ?? true)
+                    && (mapping.releaseMapping?.isEmpty ?? true) {
             Text("Unmapped")
                 .font(font)
                 .foregroundColor(.secondary)
@@ -206,6 +207,18 @@ struct MappingLabelView: View {
                 labelRow(text: macroName, icon: "2×", color: .cyan, tooltip: nil)
             } else {
                 labelRow(text: doubleTap.displayString, icon: "2×", color: .cyan, tooltip: nil)
+            }
+        }
+
+        if let release = mapping.releaseMapping, !release.isEmpty {
+            if let hint = release.hint, !hint.isEmpty {
+                labelRow(text: hint, icon: "↑", color: .indigo, tooltip: release.displayString)
+            } else if let macroId = release.macroId,
+                      let profile = profileManager.activeProfile,
+                      let macroName = profile.macroDisplayName(for: macroId) {
+                labelRow(text: macroName, icon: "↑", color: .indigo, tooltip: nil)
+            } else {
+                labelRow(text: release.displayString, icon: "↑", color: .indigo, tooltip: nil)
             }
         }
     }

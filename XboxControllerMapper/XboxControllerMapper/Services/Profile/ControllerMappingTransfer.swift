@@ -228,14 +228,19 @@ enum ControllerMappingTransfer {
 			doubleTap.scriptId = doubleTap.scriptId.map { scripts[$0] ?? $0 }
 			updated.doubleTapMapping = doubleTap
 		}
+		if var release = updated.releaseMapping {
+			release.macroId = release.macroId.map { macros[$0] ?? $0 }
+			release.scriptId = release.scriptId.map { scripts[$0] ?? $0 }
+			updated.releaseMapping = release
+		}
 		return updated
 	}
 
 	private static func referencedMacroIds(_ mapping: KeyMapping) -> [UUID] {
-		[mapping.macroId, mapping.longHoldMapping?.macroId, mapping.doubleTapMapping?.macroId].compactMap { $0 }
+		[mapping.macroId, mapping.longHoldMapping?.macroId, mapping.doubleTapMapping?.macroId, mapping.releaseMapping?.macroId].compactMap { $0 }
 	}
 
 	private static func referencedScriptIds(_ mapping: KeyMapping) -> [UUID] {
-		[mapping.scriptId, mapping.longHoldMapping?.scriptId, mapping.doubleTapMapping?.scriptId].compactMap { $0 }
+		[mapping.scriptId, mapping.longHoldMapping?.scriptId, mapping.doubleTapMapping?.scriptId, mapping.releaseMapping?.scriptId].compactMap { $0 }
 	}
 }

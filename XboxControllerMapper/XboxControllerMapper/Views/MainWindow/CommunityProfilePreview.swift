@@ -239,6 +239,16 @@ struct PreviewMappingRow: View {
 						color: .cyan
 					)
 				}
+
+				// Release
+				if let release = mapping.releaseMapping, !release.isEmpty {
+					PreviewMappingLabel(
+						text: release.hint ?? release.displayString,
+						shortcut: release.hint != nil ? release.displayString : nil,
+						icon: "↑",
+						color: .indigo
+					)
+				}
 			}
 
 			Spacer()

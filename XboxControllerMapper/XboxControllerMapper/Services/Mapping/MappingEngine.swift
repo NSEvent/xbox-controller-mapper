@@ -530,7 +530,8 @@ class MappingEngine: ObservableObject {
 	) -> Set<ControllerButton> {
 		guard let profile = state.activeProfile else { return [] }
 
-		return Set(state.heldButtons.compactMap { button, mapping in
+		let pressedMappings = state.heldButtons.merging(state.armedReleaseActions) { held, _ in held }
+		return Set(pressedMappings.compactMap { button, mapping in
 			let nextMapping = ButtonMappingResolutionPolicy.resolve(
 				button: button,
 				profile: profile,
@@ -1166,6 +1167,17 @@ class MappingEngine: ObservableObject {
 					return
 				}
 
+				if context.mapping.effectiveReleaseMapping != nil {
+					handlePressWithReleaseAction(
+						button,
+						mapping: context.mapping,
+						treatAsHold: context.shouldTreatAsHold,
+						lastTap: context.lastTap,
+						profile: profile
+					)
+					return
+				}
+
                 if context.shouldTreatAsHold {
                     handleHoldMapping(button, mapping: context.mapping, lastTap: context.lastTap, profile: profile)
                     return
@@ -1264,6 +1276,54 @@ class MappingEngine: ObservableObject {
         inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.feedbackString, isHeld: true)
     }
 
+    /// Fires the primary action at press time and arms the release action, so
+    /// the pair brackets the physical hold (e.g. a toggle shortcut sent on both
+    /// edges acts as hold-to-switch). Hold-path mappings keep their held
+    /// semantics; everything else taps immediately instead of on release.
+    nonisolated private func handlePressWithReleaseAction(
+        _ button: ControllerButton,
+        mapping: KeyMapping,
+        treatAsHold: Bool,
+        lastTap: CFAbsoluteTime?,
+        profile: Profile
+    ) {
+        state.lock.withLock {
+            state.armedReleaseActions[button] = mapping
+        }
+
+        if treatAsHold {
+            handleHoldMapping(button, mapping: mapping, lastTap: lastTap, profile: profile)
+            return
+        }
+
+        guard !mapping.isEmpty else { return }
+        LatencyDiagnostics.mark("engine.pressWithRelease \(button.rawValue) \(mapping.feedbackString)")
+        mappingExecutor.executeAction(mapping, for: button, profile: profile)
+        playActionHaptic(style: mapping.hapticStyle)
+    }
+
+    /// Completes a press armed by `handlePressWithReleaseAction`: ends any held
+    /// primary action, then runs the release action exactly once.
+    nonisolated private func handleArmedRelease(_ button: ControllerButton, pressedMapping: KeyMapping) {
+        if case .heldMapping(let heldMapping)? = cleanupReleaseTimers(for: button) {
+            stopHeldAction(heldMapping)
+            inputLogService?.dismissHeldFeedback(action: heldMapping.feedbackString)
+        }
+
+        guard let releaseMapping = pressedMapping.effectiveReleaseMapping,
+              let profile = state.lock.withLock({ () -> Profile? in
+                  guard state.isEnabled, !state.isLocked else { return nil }
+                  return state.activeProfile
+              }) else { return }
+
+        if handleSpecialActionIntercept(keyCode: releaseMapping.keyCode, buttons: [button], logType: .release) {
+            playActionHaptic(style: releaseMapping.hapticStyle)
+            return
+        }
+        mappingExecutor.executeAction(releaseMapping, for: button, profile: profile, logType: .release)
+        playActionHaptic(style: releaseMapping.hapticStyle)
+    }
+
     /// Toggles the controller lock state
     nonisolated func performLockToggle() -> Bool {
 		let cleanup: (heldMappings: [KeyMapping], leftKeys: Set<CGKeyCode>, rightKeys: Set<CGKeyCode>, directionButtons: Set<ControllerButton>)?
@@ -1294,6 +1354,7 @@ class MappingEngine: ObservableObject {
 			state.physicalTapPressOwners.removeAll()
             state.pendingReleaseActions.values.forEach { $0.cancel() }
             state.pendingReleaseActions.removeAll()
+			state.armedReleaseActions.removeAll()
             state.longHoldTimers.values.forEach { $0.cancel() }
             state.longHoldTimers.removeAll()
             state.longHoldTriggered.removeAll()
@@ -1450,6 +1511,7 @@ class MappingEngine: ObservableObject {
 				state.heldButtons[resolvedButtonForState] != nil
 					|| state.pendingSingleTap[resolvedButtonForState] != nil
 					|| state.pendingReleaseActions[resolvedButtonForState] != nil
+					|| state.armedReleaseActions[resolvedButtonForState] != nil
 					|| state.longHoldTimers[resolvedButtonForState] != nil
 					|| state.repeatTimers[resolvedButtonForState] != nil
 					|| state.holdRepeatTimers[resolvedButtonForState] != nil
@@ -1495,6 +1557,11 @@ class MappingEngine: ObservableObject {
             return false
         }
         if consumed { return }
+
+		if let pressedMapping = state.lock.withLock({ state.armedReleaseActions.removeValue(forKey: button) }) {
+			handleArmedRelease(button, pressedMapping: pressedMapping)
+			return
+		}
 
         // Layer Activator Release — only deactivate if this button actually activated a layer
         // (it might have been remapped as a regular button within another active layer)

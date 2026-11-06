@@ -144,6 +144,7 @@ private struct LogEntryView: View, Equatable {
         case .singlePress: return .secondary
         case .doubleTap: return .orange
         case .longPress: return .purple
+        case .release: return .indigo
         case .chord: return .blue
         case .sequence: return .cyan
         case .webhookSuccess: return .green

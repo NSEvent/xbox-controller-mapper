@@ -75,7 +75,10 @@ enum ButtonInteractionFlowPolicy {
 			  !KeyCodeMapping.isTapOnlyMediaKey(keyCode),
 			  mapping.longHoldMapping?.isEmpty ?? true,
 			  mapping.doubleTapMapping?.isEmpty ?? true,
-			  !(mapping.repeatMapping?.enabled ?? false) else {
+			  !(mapping.repeatMapping?.enabled ?? false),
+			  // A release action taps the primary at press; holding it down
+			  // until release would make the pair overlap.
+			  mapping.effectiveReleaseMapping == nil else {
 			return false
 		}
 		return true

@@ -151,8 +151,8 @@ extension Profile {
 
 extension KeyMapping {
     /// Single source of truth for walking a KeyMapping's executable surface:
-    /// the primary `systemCommand` plus the optional long-hold and double-tap
-    /// variants. Both base profile mappings and Layer mappings call this, so
+    /// the primary `systemCommand` plus the optional long-hold, double-tap and
+    /// release variants. Both base profile mappings and Layer mappings call this, so
     /// the variants can never silently fall out of audit coverage.
     func accept<V: ProfileSurfaceVisitor>(_ visitor: inout V, context: String) {
         visitor.visit(action: self, context: context)
@@ -169,6 +169,12 @@ extension KeyMapping {
             visitor.visit(action: doubleTap, context: "\(context) (double tap)")
             if let command = doubleTap.systemCommand {
                 visitor.visit(systemCommand: command, context: "\(context) (double tap)")
+            }
+        }
+        if let release = releaseMapping {
+            visitor.visit(action: release, context: "\(context) (release)")
+            if let command = release.systemCommand {
+                visitor.visit(systemCommand: command, context: "\(context) (release)")
             }
         }
     }

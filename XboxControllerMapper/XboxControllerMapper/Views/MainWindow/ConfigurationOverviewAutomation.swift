@@ -103,6 +103,10 @@ extension ConfigurationOverviewBuilder {
 
 	static func buttonActionName(_ mapping: KeyMapping, profile: Profile) -> String {
 		if !mapping.isEmpty { return actionName(mapping, profile: profile) }
+		if (mapping.longHoldMapping?.isEmpty ?? true), (mapping.doubleTapMapping?.isEmpty ?? true),
+		   let release = mapping.releaseMapping, !release.isEmpty {
+			return String(format: String(localized: "Release only: %@"), actionName(release, profile: profile))
+		}
 		let hold = mapping.longHoldMapping.flatMap { $0.isEmpty ? nil : actionName($0, profile: profile) }
 		let doubleTap = mapping.doubleTapMapping.flatMap { $0.isEmpty ? nil : actionName($0, profile: profile) }
 		switch (hold, doubleTap) {
@@ -145,6 +149,12 @@ extension ConfigurationOverviewBuilder {
 			let underlying = underlyingActionName(doubleTap, profile: profile)
 			let value = action == underlying ? action : "\(action) (\(underlying))"
 			details.append(String(format: String(localized: "Double tap: %@"), value))
+		}
+		if let release = mapping.releaseMapping, !release.isEmpty {
+			let action = actionName(release, profile: profile)
+			let underlying = underlyingActionName(release, profile: profile)
+			let value = action == underlying ? action : "\(action) (\(underlying))"
+			details.append(String(format: String(localized: "Release: %@"), value))
 		}
 		if let repeatMapping = mapping.repeatMapping, repeatMapping.enabled {
 			details.append(String(format: String(localized: "Repeat: %lld/s"), Int(repeatMapping.ratePerSecond)))

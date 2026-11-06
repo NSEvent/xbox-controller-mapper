@@ -335,7 +335,9 @@ struct BindingAnalysisEngine {
                   let button = buttonFromActionKey(entry.actionKey),
                   let mapping = profile.buttonMappings[button],
                   !mapping.isEmpty,
-                  mapping.longHoldMapping == nil || mapping.longHoldMapping?.isEmpty == true else { continue }
+                  mapping.longHoldMapping == nil || mapping.longHoldMapping?.isEmpty == true,
+                  // Adding a long hold would silently disable the release action.
+                  mapping.releaseMapping?.isEmpty ?? true else { continue }
 
             let priority = entry.waste * Double(entry.count) * 0.5 // Lower priority than swaps
 
@@ -433,6 +435,11 @@ struct BindingAnalysisEngine {
         case "Double Tap":
             if let dt = mapping.doubleTapMapping {
                 return dt.hint ?? dt.displayString
+            }
+            return mapping.hint ?? mapping.displayString
+        case "Release":
+            if let release = mapping.releaseMapping {
+                return release.hint ?? release.displayString
             }
             return mapping.hint ?? mapping.displayString
         default:

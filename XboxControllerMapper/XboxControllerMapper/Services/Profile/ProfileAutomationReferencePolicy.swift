@@ -140,6 +140,10 @@ enum ProfileAutomationReferencePolicy {
 			clearReference(in: &doubleTap, id: id, kind: kind)
 			updated.doubleTapMapping = doubleTap.isEmpty ? nil : doubleTap
 		}
+		if var release = updated.releaseMapping {
+			clearReference(in: &release, id: id, kind: kind)
+			updated.releaseMapping = release.isEmpty ? nil : release
+		}
 		return updated
 	}
 
@@ -184,6 +188,11 @@ enum ProfileAutomationReferencePolicy {
 			removeReferenceOnly(from: &doubleTap, kind: kind)
 			updated.doubleTapMapping = doubleTap.isEmpty ? nil : doubleTap
 		}
+		if var release = updated.releaseMapping,
+		   matches(release, id: id, kind: kind) {
+			removeReferenceOnly(from: &release, kind: kind)
+			updated.releaseMapping = release.isEmpty ? nil : release
+		}
 		return updated
 	}
 
@@ -224,6 +233,21 @@ enum ProfileAutomationReferencePolicy {
 
 	private static func clearReference(
 		in action: inout DoubleTapMapping,
+		id: UUID,
+		kind: ProfileAutomationReferenceKind
+	) {
+		guard matches(action, id: id, kind: kind) else { return }
+		if referenceIsEffective(action, id: id, kind: kind) {
+			action = action.clearingConflicts(keeping: .none)
+			action.hint = nil
+			action.hapticStyle = nil
+		} else {
+			removeReferenceOnly(from: &action, kind: kind)
+		}
+	}
+
+	private static func clearReference(
+		in action: inout ReleaseMapping,
 		id: UUID,
 		kind: ProfileAutomationReferenceKind
 	) {
@@ -337,6 +361,13 @@ enum ProfileAutomationReferencePolicy {
 		}
 	}
 
+	private static func removeReferenceOnly(from action: inout ReleaseMapping, kind: ProfileAutomationReferenceKind) {
+		switch kind {
+		case .macro: action.macroId = nil
+		case .script: action.scriptId = nil
+		}
+	}
+
 	private static func removeReferenceOnly(from action: inout ChordMapping, kind: ProfileAutomationReferenceKind) {
 		switch kind {
 		case .macro: action.macroId = nil
@@ -404,6 +435,9 @@ private struct UsageIndexCollector: ProfileSurfaceVisitor {
 		}
 		if let doubleTap = mapping.doubleTapMapping {
 			collect(doubleTap, context: "\(context) (double tap)")
+		}
+		if let release = mapping.releaseMapping {
+			collect(release, context: "\(context) (release)")
 		}
 	}
 

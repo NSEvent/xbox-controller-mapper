@@ -330,6 +330,8 @@ struct ActionFeedbackView: View {
             return ("2×", .cyan)
         case .longPress:
             return ("⏱", .orange)
+        case .release:
+            return ("↑", .indigo)
         case .chord:
             return ("⌘", .blue)
         case .sequence:

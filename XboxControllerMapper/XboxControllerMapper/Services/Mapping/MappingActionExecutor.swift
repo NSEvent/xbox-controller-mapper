@@ -74,6 +74,7 @@ struct MappingExecutor {
         switch logType {
         case .longPress: pressType = .longHold
         case .doubleTap: pressType = .doubleTap
+        case .release: pressType = .release
         default: pressType = .press
         }
         let command = commandFactory.makeCommand(

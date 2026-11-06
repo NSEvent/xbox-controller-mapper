@@ -78,6 +78,7 @@ KeyMapping (CUSTOM decoder - see KeyMapping.swift)
 ├── modifiers: ModifierFlags                     decodeIfPresent ?? ModifierFlags()
 ├── longHoldMapping: LongHoldMapping?            decodeIfPresent (auto nil)
 ├── doubleTapMapping: DoubleTapMapping?          decodeIfPresent (auto nil)
+├── releaseMapping: ReleaseMapping?              decodeIfPresent (auto nil)
 ├── repeatMapping: RepeatMapping?                decodeIfPresent (auto nil)
 ├── isHoldModifier: Bool                         decodeIfPresent ?? false
 ├── holdRepeatEnabled: Bool                      decodeIfPresent ?? false
@@ -95,6 +96,14 @@ DoubleTapMapping (CUSTOM decoder - see KeyMapping.swift)
 ├── modifiers: ModifierFlags                     decodeIfPresent ?? ModifierFlags()
 ├── threshold: TimeInterval                      decodeIfPresent ?? 0.3
 └── hint: String?                                decodeIfPresent (auto nil)
+
+ReleaseMapping (CUSTOM decoder - see KeyMapping.swift)
+├── keyCode: CGKeyCode?                          decodeIfPresent (auto nil)
+├── modifiers: ModifierFlags                     decodeIfPresent ?? ModifierFlags()
+├── macroId / systemCommand / midiControlChange  decodeIfPresent (auto nil)
+└── hint: String?                                decodeIfPresent (auto nil)
+    Fires when the button is released; the primary then fires on press.
+    Ignored while long hold, double tap, or repeat is set (effectiveReleaseMapping).
 
 RepeatMapping (CUSTOM decoder - see KeyMapping.swift)
 ├── enabled: Bool                                decodeIfPresent ?? false

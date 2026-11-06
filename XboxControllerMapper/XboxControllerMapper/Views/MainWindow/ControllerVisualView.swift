@@ -1378,6 +1378,9 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         if let doubleTap = mapping.doubleTapMapping, !doubleTap.isEmpty {
             badges.append(CompactActionBadge(label: "2×", color: .cyan))
         }
+        if let release = mapping.releaseMapping, !release.isEmpty {
+            badges.append(CompactActionBadge(label: "↑", color: .indigo))
+        }
         if let repeatMapping = mapping.repeatMapping, repeatMapping.enabled {
             badges.append(CompactActionBadge(label: "↻", color: .green))
         }

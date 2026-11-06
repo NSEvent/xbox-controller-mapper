@@ -23,6 +23,7 @@ struct ButtonMappingSheet: View {
     @State private var primaryState = MappingEditorState()
     @State private var longHoldState = MappingEditorState()
     @State private var doubleTapState = MappingEditorState()
+    @State private var releaseState = MappingEditorState()
 
     // MARK: - Sheet-level state
 
@@ -31,6 +32,7 @@ struct ButtonMappingSheet: View {
     @State private var longHoldThreshold: Double = 0.5
     @State private var enableDoubleTap = false
     @State private var doubleTapThreshold: Double = 0.4
+    @State private var enableRelease = false
     @State private var enableRepeat = false
     @State private var repeatRate: Double = 5.0  // Actions per second
     @State private var enableHoldRepeat = false
@@ -52,10 +54,12 @@ struct ButtonMappingSheet: View {
 
     private var showingAnyKeyboard: Bool {
         primaryState.showingKeyboard || longHoldState.showingKeyboard || doubleTapState.showingKeyboard
+            || releaseState.showingKeyboard
     }
 
     private var showingAnyMouse: Bool {
         primaryState.showingMouse || longHoldState.showingMouse || doubleTapState.showingMouse
+            || releaseState.showingMouse
     }
 
     /// Check if the primary action is a mouse click - disables double tap/long hold
@@ -181,6 +185,7 @@ struct ButtonMappingSheet: View {
                             primaryMappingSection
                             longHoldSection
                             doubleTapSection
+                            releaseSection
                         }
 
                         // Layer activator section at the bottom (only show when editing base layer, not layer mappings)
@@ -202,9 +207,11 @@ struct ButtonMappingSheet: View {
         .animation(.easeInOut(duration: 0.2), value: primaryState.showingKeyboard)
         .animation(.easeInOut(duration: 0.2), value: longHoldState.showingKeyboard)
         .animation(.easeInOut(duration: 0.2), value: doubleTapState.showingKeyboard)
+        .animation(.easeInOut(duration: 0.2), value: releaseState.showingKeyboard)
         .animation(.easeInOut(duration: 0.2), value: primaryState.showingMouse)
         .animation(.easeInOut(duration: 0.2), value: longHoldState.showingMouse)
         .animation(.easeInOut(duration: 0.2), value: doubleTapState.showingMouse)
+        .animation(.easeInOut(duration: 0.2), value: releaseState.showingMouse)
         .animation(.easeInOut(duration: 0.2), value: primaryState.mappingType)
         .onAppear {
             loadCurrentMapping()
@@ -230,6 +237,11 @@ struct ButtonMappingSheet: View {
         .sheet(isPresented: $doubleTapState.showingMacroCreation) {
             MacroEditorSheet(macro: nil, onSave: { newMacro in
                 doubleTapState.selectedMacroId = newMacro.id
+            })
+        }
+        .sheet(isPresented: $releaseState.showingMacroCreation) {
+            MacroEditorSheet(macro: nil, onSave: { newMacro in
+                releaseState.selectedMacroId = newMacro.id
             })
         }
         .sheet(isPresented: $primaryState.showingScriptCreation) {
@@ -476,6 +488,7 @@ struct ButtonMappingSheet: View {
 					enableLongHold = false
 					enableDoubleTap = false
 					enableRepeat = false
+					enableRelease = false
 					longHoldState.keyCode = nil
 					longHoldState.modifiers = ModifierFlags()
 					doubleTapState.keyCode = nil
@@ -500,10 +513,11 @@ struct ButtonMappingSheet: View {
                     if !userHasInteractedWithHold {
                         isHoldModifier = code != KeyCodeMapping.showLaserPointer
                     }
-                    // Clear long hold, double tap, and repeat
+                    // Clear long hold, double tap, repeat, and release
                     enableLongHold = false
                     enableDoubleTap = false
                     enableRepeat = false
+                    enableRelease = false
                     longHoldState.keyCode = nil
                     longHoldState.modifiers = ModifierFlags()
                     doubleTapState.keyCode = nil
@@ -658,7 +672,8 @@ struct ButtonMappingSheet: View {
 
     /// Whether long hold should be disabled (mouse click, special action, or hold modifier enabled)
     private var longHoldDisabled: Bool {
-        primaryDisablesAdvancedFeatures || (primaryState.mappingType == .singleKey && (isHoldModifier || enableRepeat))
+        primaryDisablesAdvancedFeatures || enableRelease
+            || (primaryState.mappingType == .singleKey && (isHoldModifier || enableRepeat))
     }
 
     private var longHoldSection: some View {
@@ -688,6 +703,8 @@ struct ButtonMappingSheet: View {
                 .padding(12)
                 .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
                 .cornerRadius(8)
+            } else if enableRelease {
+                releaseConflictNote("Long hold")
             } else if primaryState.mappingType == .singleKey && isHoldModifier {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle")
@@ -766,11 +783,11 @@ struct ButtonMappingSheet: View {
                     .font(.headline)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
-                    .disabled(primaryDisablesAdvancedFeatures)
+                    .disabled(doubleTapDisabled)
 
                 Spacer()
 
-                if enableDoubleTap && !primaryDisablesAdvancedFeatures && doubleTapState.mappingType == .singleKey {
+                if enableDoubleTap && !doubleTapDisabled && doubleTapState.mappingType == .singleKey {
                     visualPickerButtons(for: $doubleTapState, compact: true)
                 }
             }
@@ -786,6 +803,8 @@ struct ButtonMappingSheet: View {
                 .padding(12)
                 .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
                 .cornerRadius(8)
+            } else if enableRelease {
+                releaseConflictNote("Double tap")
             } else if enableDoubleTap {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
@@ -837,6 +856,144 @@ struct ButtonMappingSheet: View {
         .cornerRadius(8)
     }
 
+    // MARK: - Release Section
+
+    /// Double tap is unavailable for special primaries and alongside a release action.
+    private var doubleTapDisabled: Bool {
+        primaryDisablesAdvancedFeatures || enableRelease
+    }
+
+    /// Long hold, double tap and repeat all resolve the press only after it
+    /// ends, which contradicts sending the primary action at press time.
+    private var releaseBlockedBy: String? {
+        if enableLongHold && !longHoldDisabled { return "long hold" }
+        if enableDoubleTap && !doubleTapDisabled { return "double tap" }
+        if enableRepeat { return "repeat" }
+        return nil
+    }
+
+    private var releaseDisabled: Bool {
+        primaryDisablesAdvancedFeatures || releaseBlockedBy != nil
+    }
+
+    private func releaseConflictNote(_ feature: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "info.circle")
+                .foregroundColor(.secondary)
+            Text("\(feature) is not available when a release action is enabled.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+        .cornerRadius(8)
+    }
+
+    /// Seeds the release action with the primary action so the common case
+    /// (a toggle shortcut sent on press and again on release) is one click.
+    private func seedReleaseFromPrimary() {
+        guard releaseState.keyCode == nil, !releaseState.modifiers.hasAny,
+              releaseState.selectedMacroId == nil else { return }
+        switch primaryState.mappingType {
+        case .singleKey:
+            releaseState.mappingType = .singleKey
+            releaseState.keyCode = primaryState.keyCode
+            releaseState.modifiers = primaryState.modifiers
+        case .macro:
+            releaseState.mappingType = .macro
+            releaseState.selectedMacroId = primaryState.selectedMacroId
+        case .midiControlChange:
+            releaseState.mappingType = .midiControlChange
+            releaseState.midiControlChange = primaryState.midiControlChange
+        case .systemCommand, .script:
+            releaseState.mappingType = .singleKey
+        }
+    }
+
+    private var releaseSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Toggle("Enable Release Action", isOn: Binding(
+                    get: { enableRelease },
+                    set: { newValue in
+                        enableRelease = newValue
+                        if newValue { seedReleaseFromPrimary() }
+                    }
+                ))
+                .font(.headline)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .disabled(releaseDisabled)
+
+                Spacer()
+
+                if enableRelease && !releaseDisabled && releaseState.mappingType == .singleKey {
+                    visualPickerButtons(for: $releaseState, compact: true)
+                }
+            }
+
+            if primaryDisablesAdvancedFeatures {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.secondary)
+                    Text("A release action is not available for \(primaryDisabledActionDescription).")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(12)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                .cornerRadius(8)
+            } else if let blocker = releaseBlockedBy {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.secondary)
+                    Text("A release action is not available when \(blocker) is enabled.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(12)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                .cornerRadius(8)
+            } else if enableRelease {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("The primary action fires when the button is pressed, and this action fires when it is released. Use the same key to turn a toggle shortcut into hold-to-switch.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Picker("", selection: $releaseState.mappingType) {
+                        Text("Key").tag(MappingEditorState.MappingType.singleKey)
+                        Text("Macro").tag(MappingEditorState.MappingType.macro)
+                        Text("System").tag(MappingEditorState.MappingType.systemCommand)
+						Text("MIDI").tag(MappingEditorState.MappingType.midiControlChange)
+                    }
+                    .pickerStyle(.segmented)
+					.frame(width: 300)
+
+                    ActionMappingEditor(state: $releaseState, variant: .release)
+
+                    HStack {
+                        Text("Hint:")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        TextField("e.g. Back to Brush, Stop Recording...", text: $releaseState.hint)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+                    }
+
+                    HapticStylePicker(hapticStyle: $releaseState.hapticStyle)
+                }
+                .padding(12)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .cornerRadius(8)
+            }
+        }
+        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(enableRelease ? 1.0 : 0.58))
+        .cornerRadius(8)
+    }
+
     // MARK: - Repeat Content
 
     @ViewBuilder
@@ -859,7 +1016,7 @@ struct ButtonMappingSheet: View {
             }
         ))
         .font(.caption)
-        .disabled(primaryDisablesAdvancedFeatures || isHoldModifier)
+        .disabled(primaryDisablesAdvancedFeatures || isHoldModifier || enableRelease)
 
         if primaryDisablesAdvancedFeatures {
             HStack(spacing: 8) {
@@ -874,6 +1031,14 @@ struct ButtonMappingSheet: View {
                 Image(systemName: "info.circle")
                     .foregroundColor(.secondary)
                 Text("Repeat is not available when \"Hold action\" is enabled.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        } else if enableRelease {
+            HStack(spacing: 8) {
+                Image(systemName: "info.circle")
+                    .foregroundColor(.secondary)
+                Text("Repeat is not available when a release action is enabled.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -1032,6 +1197,26 @@ struct ButtonMappingSheet: View {
                 }
             }
 
+            if let release = existingMapping.releaseMapping {
+                enableRelease = true
+                releaseState.hint = release.hint ?? ""
+                releaseState.hapticStyle = release.hapticStyle
+                if let systemCommand = release.systemCommand {
+                    releaseState.mappingType = .systemCommand
+                    releaseState.loadSystemCommand(systemCommand)
+                } else if let macroId = release.macroId {
+                    releaseState.mappingType = .macro
+                    releaseState.selectedMacroId = macroId
+				} else if let midiControlChange = release.midiControlChange {
+					releaseState.mappingType = .midiControlChange
+					releaseState.midiControlChange = midiControlChange
+                } else {
+                    releaseState.mappingType = .singleKey
+                    releaseState.keyCode = release.keyCode
+                    releaseState.modifiers = release.modifiers
+                }
+            }
+
             if let repeatConfig = existingMapping.repeatMapping, repeatConfig.enabled {
                 enableRepeat = true
                 repeatRate = repeatConfig.ratePerSecond
@@ -1134,7 +1319,7 @@ struct ButtonMappingSheet: View {
             }
         }
 
-        if enableDoubleTap && !primaryDisablesAdvancedFeatures {
+        if enableDoubleTap && !doubleTapDisabled {
             let doubleTapValid: Bool
             switch doubleTapState.mappingType {
             case .singleKey:
@@ -1158,6 +1343,33 @@ struct ButtonMappingSheet: View {
 					midiControlChange: doubleTapState.mappingType == .midiControlChange ? doubleTapState.midiControlChange : nil,
                     hint: doubleTapState.hint.isEmpty ? nil : doubleTapState.hint,
                     hapticStyle: doubleTapState.hapticStyle
+                )
+            }
+        }
+
+        if enableRelease && !releaseDisabled {
+            let releaseValid: Bool
+            switch releaseState.mappingType {
+            case .singleKey:
+                releaseValid = releaseState.keyCode != nil || releaseState.modifiers.hasAny
+            case .macro:
+                releaseValid = releaseState.selectedMacroId != nil
+            case .systemCommand:
+                releaseValid = releaseState.buildSystemCommand() != nil
+            case .script:
+                releaseValid = false
+			case .midiControlChange:
+				releaseValid = true
+            }
+            if releaseValid {
+                newMapping.releaseMapping = ReleaseMapping(
+                    keyCode: releaseState.mappingType == .singleKey ? releaseState.keyCode : nil,
+                    modifiers: releaseState.mappingType == .singleKey ? releaseState.modifiers : ModifierFlags(),
+                    macroId: releaseState.mappingType == .macro ? releaseState.selectedMacroId : nil,
+                    systemCommand: releaseState.mappingType == .systemCommand ? releaseState.buildSystemCommand() : nil,
+					midiControlChange: releaseState.mappingType == .midiControlChange ? releaseState.midiControlChange : nil,
+                    hint: releaseState.hint.isEmpty ? nil : releaseState.hint,
+                    hapticStyle: releaseState.hapticStyle
                 )
             }
         }

@@ -988,6 +988,7 @@ extension Profile {
         return existing.isEmpty &&
                (existing.longHoldMapping?.isEmpty ?? true) &&
                (existing.doubleTapMapping?.isEmpty ?? true) &&
+               (existing.releaseMapping?.isEmpty ?? true) &&
                !(existing.repeatMapping?.enabled ?? false) &&
                !existing.holdRepeatEnabled &&
                existing.hapticStyle == nil

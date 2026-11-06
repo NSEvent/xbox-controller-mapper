@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A reusable view that edits a single MappingEditorState.
-/// Used for the primary, long hold, and double tap mapping sections.
+/// Used for the primary, long hold, double tap, and release mapping sections.
 struct ActionMappingEditor: View {
     @Binding var state: MappingEditorState
     @EnvironmentObject var profileManager: ProfileManager
@@ -17,6 +17,16 @@ struct ActionMappingEditor: View {
         case primary
         case longHold
         case doubleTap
+        case release
+    }
+
+    private var variantSelectionLabel: String {
+        switch variant {
+        case .primary: return "Selected:"
+        case .longHold: return "Long Hold Action:"
+        case .doubleTap: return "Double Tap Action:"
+        case .release: return "Release Action:"
+        }
     }
 
     /// Whether to show the full system command categories (webhook/OBS) - only for primary
@@ -120,7 +130,7 @@ struct ActionMappingEditor: View {
     private var singleKeyContent: some View {
         // Current selection display
         HStack {
-            Text(variant == .primary ? "Selected:" : "\(variant == .longHold ? "Long Hold" : "Double Tap") Action:")
+            Text(variantSelectionLabel)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
 
