@@ -1329,6 +1329,8 @@ class MappingEngine: ObservableObject {
             state.directoryNavigatorButton = nil
             state.directoryNavigatorHoldMode = false
             state.commandWheelActive = false
+            state.commandWheelButton = nil
+            state.commandWheelHoldMode = false
             state.wiimotePointerButtons.removeAll()
             state.wiimotePointerToggledOn = false
 
@@ -1362,6 +1364,7 @@ class MappingEngine: ObservableObject {
                 LaserPointerOverlay.shared.hide()
                 OnScreenKeyboardManager.shared.hide()
                 DirectoryNavigatorManager.shared.hide()
+                CommandWheelManager.shared.hide()
             }
         }
 
@@ -1553,6 +1556,13 @@ class MappingEngine: ObservableObject {
             switch button {
             case .dpadUp, .dpadDown, .dpadLeft, .dpadRight:
                 stopDpadNavigationRepeat(button)
+                // The press may have started a held mapping or long-hold timer
+                // before the overlay appeared; release it so nothing stays down.
+                if case .heldMapping(let heldMapping)? = cleanupReleaseTimers(for: button) {
+                    stopHeldAction(heldMapping)
+                    inputLogService?.dismissHeldFeedback(action: heldMapping.feedbackString)
+                }
+                state.lock.withLock { _ = state.longHoldTriggered.remove(button) }
                 return
             default:
                 break
