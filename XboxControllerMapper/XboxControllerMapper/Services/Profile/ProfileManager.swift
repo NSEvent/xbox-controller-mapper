@@ -273,12 +273,23 @@ class ProfileManager: ObservableObject {
         case .createAndActivateDefault:
             let defaultProfile = Profile.createDefault()
             profiles.append(defaultProfile)
-            setActiveProfile(defaultProfile)
+            activateBootstrapProfile(defaultProfile)
         case .activateProfile(let profileId):
             guard let profile = profiles.first(where: { $0.id == profileId }) else { return }
-            setActiveProfile(profile)
+            activateBootstrapProfile(profile)
         case .none:
             break
+        }
+    }
+
+    /// Bootstrap selection only persists when the config loaded. After a load
+    /// failure the default profile lives in memory so the app stays usable, but
+    /// it must not count as user work that unlocks overwriting the unreadable file.
+    private func activateBootstrapProfile(_ profile: Profile) {
+        if loadSucceeded {
+            setActiveProfile(profile)
+        } else {
+            applyActiveProfile(profile, isAutomatic: false)
         }
     }
     
@@ -390,6 +401,11 @@ class ProfileManager: ObservableObject {
     }
 
 	func setActiveProfile(_ profile: Profile, isAutomatic: Bool = false) {
+		applyActiveProfile(profile, isAutomatic: isAutomatic)
+		saveConfiguration()
+	}
+
+	private func applyActiveProfile(_ profile: Profile, isAutomatic: Bool) {
         if !profiles.contains(where: { $0.id == profile.id }) {
             profiles.append(profile)
         }
@@ -409,7 +425,6 @@ class ProfileManager: ObservableObject {
         // downstream reader that also reads activeProfileId sees the new value.
         activeProfileId = profile.id
         activeProfile = profile
-        saveConfiguration()
     }
 
     func setDefaultProfile(_ profile: Profile) {
@@ -590,8 +605,24 @@ class ProfileManager: ObservableObject {
         } catch {
             NSLog("[ProfileManager] ⚠️ Configuration load failed: \(error)")
             configLoadError = error.localizedDescription
+            preserveUnreadableConfig(at: urlToLoad)
             // loadSucceeded stays false — saves will be blocked until in-memory state is validated.
             // See saveConfiguration() for the recovery logic.
+        }
+    }
+
+    /// Keeps the exact bytes of a config that failed to load outside the
+    /// rotating backups, so later saves can never prune or replace it.
+    private func preserveUnreadableConfig(at url: URL) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss-SSS"
+        let preservedURL = configURL.deletingLastPathComponent()
+            .appendingPathComponent("config.json.load-failed-\(formatter.string(from: Date()))")
+        do {
+            try AtomicFileWriter.copyResolvedItem(from: url, to: preservedURL, fileManager: fileManager)
+            NSLog("[ProfileManager] Preserved unreadable config at %@", preservedURL.path)
+        } catch {
+            NSLog("[ProfileManager] ⚠️ Failed to preserve unreadable config: %@", error.localizedDescription)
         }
     }
 
