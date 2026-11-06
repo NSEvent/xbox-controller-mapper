@@ -243,6 +243,19 @@ final class TypingBufferTests: XCTestCase {
     /// Simulates an on-screen keyboard key press (calls the internal handleKeyPress path
     /// via activateHighlightedItem with a positioned key, or directly via the onKeyPress callback).
     /// Since handleKeyPress is private, we use the public keyboard activation path.
+    // MARK: - Hide Races
+
+    /// A controller key press queued just before the keyboard hides must not
+    /// repopulate the buffer (and re-show its panel) after the hide.
+    func testControllerKeyPressQueuedBeforeHideIsDropped() {
+        manager.show()
+        manager.notifyControllerKeyPress(keyCode: CGKeyCode(kVK_ANSI_A), modifiers: [])
+        manager.hide()
+        drainMainQueue()
+        XCTAssertEqual(manager.typingBuffer, "")
+        XCTAssertFalse(manager.isBufferPanelVisibleForTesting)
+    }
+
     private func simulateKeyPress(keyCode: CGKeyCode, modifiers: ModifierFlags = ModifierFlags()) {
         // Use the test-accessible method that mirrors on-screen keyboard press
         manager.testHandleKeyPress(keyCode: keyCode, modifiers: modifiers)

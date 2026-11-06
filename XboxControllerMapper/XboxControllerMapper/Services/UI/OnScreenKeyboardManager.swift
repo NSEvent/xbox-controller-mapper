@@ -1208,6 +1208,8 @@ class OnScreenKeyboardManager: ObservableObject {
             control: modifiers.contains(.maskControl)
         )
         DispatchQueue.main.async {
+            // The keyboard may have hidden after the off-main check above.
+            guard self.isVisible else { return }
             self.updateTypingBuffer(keyCode: keyCode, modifiers: mods)
         }
     }
@@ -1599,6 +1601,8 @@ class OnScreenKeyboardManager: ObservableObject {
     // MARK: - Test Support
 
     #if DEBUG
+    var isBufferPanelVisibleForTesting: Bool { bufferPanel?.isVisible ?? false }
+
     /// Exposes handleKeyPress for unit tests (mirrors on-screen keyboard key press path)
     func testHandleKeyPress(keyCode: CGKeyCode, modifiers: ModifierFlags) {
         handleKeyPress(keyCode: keyCode, modifiers: modifiers)
