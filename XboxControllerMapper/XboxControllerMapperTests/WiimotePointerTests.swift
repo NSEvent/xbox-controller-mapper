@@ -59,25 +59,151 @@ final class WiimotePointerTests: XCTestCase {
         XCTAssertNil(result?.wiimoteIRPoints)
     }
 
-    func testReacquiringSensorBarReanchorsWithoutCursorJump() {
-        let filter = WiimotePointerState()
-        XCTAssertNil(filter.advance(target: CGPoint(x: 100, y: 200), baseAlpha: 0.25, blobCount: 2, at: 10))
-        XCTAssertNotNil(filter.advance(target: CGPoint(x: 110, y: 210), baseAlpha: 0.25, blobCount: 2, at: 10.01))
-        XCTAssertNil(filter.advance(target: CGPoint(x: 800, y: 600), baseAlpha: 0.25, blobCount: 2, at: 11))
-        let delta = filter.advance(target: CGPoint(x: 801, y: 601), baseAlpha: 0.25, blobCount: 2, at: 11.01)
-        XCTAssertLessThan(abs(delta?.x ?? 100), 1)
-        XCTAssertLessThan(abs(delta?.y ?? 100), 1)
+    func testIRReportDropsOutOfFieldAndZeroFilledSlots() {
+        // Valid (300, 400); zero-filled slot; Y = 1000 (outside 768); empty.
+        let bytes: [UInt8] = [0x33, 0, 0, 128, 128, 154,
+                             44, 144, 0x55, 0, 0, 0,
+                             0xE8, 0xE8, 0xC5, 255, 255, 255]
+        let result = bytes.withUnsafeBufferPointer {
+            WiimoteHIDParser().parse(reportID: 0x33, report: $0.baseAddress!, length: $0.count)
+        }
+        XCTAssertEqual(result?.wiimoteIRPoints, [WiimoteIRPoint(x: 300, y: 400, size: 5)])
     }
 
-    func testBriefDropoutRetainsTrackingButBlobCountChangeReanchors() {
-        let filter = WiimotePointerState()
-        _ = filter.advance(target: .zero, baseAlpha: 0.25, blobCount: 2, at: 10)
-        XCTAssertTrue(filter.irSeenRecently(now: 10.1, grace: 0.4))
-        XCTAssertNotNil(filter.advance(target: CGPoint(x: 5, y: 0), baseAlpha: 0.25, blobCount: 2, at: 10.1))
-        XCTAssertNil(filter.advance(target: CGPoint(x: 200, y: 0), baseAlpha: 0.25, blobCount: 1, at: 10.2))
-        filter.reset()
-        XCTAssertFalse(filter.irSeenRecently(now: 10.3, grace: 0.4))
-        XCTAssertNil(filter.advance(target: .zero, baseAlpha: 0.25, blobCount: 1, at: 10.3))
+    func testAckReportDecodesAnsweredReportAndResult() {
+        let bytes: [UInt8] = [0x22, 0, 8, 0x16, 0x03]
+        let result = bytes.withUnsafeBufferPointer {
+            WiimoteHIDParser().parse(reportID: 0x22, report: $0.baseAddress!, length: $0.count)
+        }
+        XCTAssertEqual(result?.wiimoteAckReportID, 0x16)
+        XCTAssertEqual(result?.wiimoteAckError, 0x03)
+        XCTAssertNil(result?.wiimoteButtons)
+    }
+
+    // MARK: IR tracking (1024×768 screen at 1× gain: 1 camera px = 1 screen px)
+
+    private let screen = CGRect(x: 0, y: 0, width: 1024, height: 768)
+    private let start = CGPoint(x: 500, y: 400)
+
+    private struct Rig {
+        var tracker = WiimoteIRTracker()
+        var cursor: CGPoint
+        var time: TimeInterval = 10
+        let screen: CGRect
+        let gain: CGFloat
+
+        /// Feed the same blobs for `reports` reports (100 Hz) so smoothing settles.
+        mutating func feed(_ points: [CGPoint], reports: Int = 80) {
+            let start = cursor
+            for _ in 0..<reports {
+                time += 0.01
+                if let delta = tracker.update(
+                    blobs: points.map { WiimoteIRTracker.Blob(point: $0, size: 4) },
+                    at: time, baseAlpha: 0.25, gain: gain, bounds: screen,
+                    currentCursor: { start }
+                ) {
+                    cursor.x += delta.x
+                    cursor.y += delta.y
+                }
+            }
+        }
+    }
+
+    private func rig(gain: CGFloat = 1) -> Rig { Rig(cursor: start, screen: screen, gain: gain) }
+
+    private func assertCursor(_ rig: Rig, _ x: CGFloat, _ y: CGFloat, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual(rig.cursor.x, x, accuracy: 0.5, file: file, line: line)
+        XCTAssertEqual(rig.cursor.y, y, accuracy: 0.5, file: file, line: line)
+    }
+
+    private func bar(midX: CGFloat, midY: CGFloat, halfWidth: CGFloat = 100) -> [CGPoint] {
+        [CGPoint(x: midX - halfWidth, y: midY), CGPoint(x: midX + halfWidth, y: midY)]
+    }
+
+    func testIRAimIsMirroredAndAbsoluteThroughEdgeClamping() {
+        var r = rig(gain: 2)
+        r.feed(bar(midX: 512, midY: 384))
+        assertCursor(r, 500, 400)
+        // Pointing right moves the bar image left; pointing down moves it down.
+        r.feed(bar(midX: 462, midY: 404))
+        assertCursor(r, 600, 440)
+        // Far past the left edge clamps there...
+        r.feed(bar(midX: 900, midY: 384))
+        assertCursor(r, 0, 400)
+        // ...and aiming back at the start returns to the exact start pixel.
+        r.feed(bar(midX: 512, midY: 384))
+        assertCursor(r, 500, 400)
+    }
+
+    func testOneBarEndDroppingOutNeitherMovesNorStallsTheCursor() {
+        var r = rig()
+        let full = bar(midX: 512, midY: 384)
+        r.feed(full)
+        r.feed([full[0]])
+        assertCursor(r, 500, 400)
+        r.feed([full[1]])
+        assertCursor(r, 500, 400)
+        // Pitching with only one end visible still tracks vertically.
+        r.feed([CGPoint(x: full[0].x, y: full[0].y + 120)])
+        assertCursor(r, 500, 520)
+        r.feed(bar(midX: 512, midY: 504))
+        assertCursor(r, 500, 520)
+    }
+
+    func testRollingTheRemoteDoesNotMoveTheCursor() {
+        var r = rig()
+        let level = bar(midX: 612, midY: 484)
+        r.feed(level)
+        let angle = CGFloat.pi / 6
+        let center = WiimoteIRTracker.cameraCenter
+        let rolled = level.map { p -> CGPoint in
+            let vx = p.x - center.x, vy = p.y - center.y
+            return CGPoint(x: center.x + vx * cos(angle) - vy * sin(angle),
+                           y: center.y + vx * sin(angle) + vy * cos(angle))
+        }
+        r.feed(rolled)
+        assertCursor(r, 500, 400)
+    }
+
+    func testStrayLightAndSplitBarEndDoNotHijackTheMidpoint() {
+        var r = rig()
+        let full = bar(midX: 512, midY: 384)
+        r.feed(full)
+        r.feed(full + [CGPoint(x: 300, y: 650)])
+        assertCursor(r, 500, 400)
+        r.feed(full + [CGPoint(x: full[0].x + 6, y: full[0].y + 2)])
+        assertCursor(r, 500, 400)
+    }
+
+    func testLoneBlobAnchorHandsOffToTheBarWithoutJumping() {
+        var r = rig()
+        r.feed([CGPoint(x: 412, y: 384)])
+        r.feed(bar(midX: 512, midY: 384))
+        assertCursor(r, 500, 400)
+        r.feed(bar(midX: 412, midY: 384))
+        assertCursor(r, 600, 400)
+    }
+
+    func testReacquiringAfterDropoutSnapsToTheAbsoluteAim() {
+        var r = rig()
+        r.feed(bar(midX: 512, midY: 384))
+        r.time += 1.0
+        r.feed(bar(midX: 462, midY: 384), reports: 1)
+        assertCursor(r, 550, 400)
+    }
+
+    func testTiltSteersOnlyBeforeTheSensorBarIsFirstSeen() {
+        let state = WiimotePointerState()
+        state.reset(at: 10)
+        XCTAssertTrue(state.tiltAllowed(irEnabled: false, now: 10))
+        XCTAssertFalse(state.tiltAllowed(irEnabled: true, now: 10.5), "camera still initializing")
+        XCTAssertTrue(state.tiltAllowed(irEnabled: true, now: 11.1), "no sensor bar at all")
+        _ = state.irDelta(points: [WiimoteIRPoint(x: 400, y: 300, size: 3)], baseAlpha: 0.25, gain: 1,
+                          at: 11.2, bounds: screen, currentCursor: { CGPoint(x: 500, y: 400) })
+        XCTAssertFalse(state.tiltAllowed(irEnabled: true, now: 30), "IR lost: hold, never tilt")
+        XCTAssertTrue(state.tiltAllowed(irEnabled: false, now: 30))
+        state.reset(at: 40)
+        XCTAssertTrue(state.tiltAllowed(irEnabled: true, now: 41.1))
     }
 
     func testPairingOnlyRecognizesNintendoWiiRemotes() {

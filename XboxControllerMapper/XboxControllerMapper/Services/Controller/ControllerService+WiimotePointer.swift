@@ -3,13 +3,13 @@ import CoreGraphics
 import GameController
 import IOKit.hid
 
-/// Serial queue for pointer mode transitions (engage's ~140ms IR init and
+/// Serial queue for pointer mode transitions (engage's ~0.5s paced IR init and
 /// disengage's teardown must never interleave), with a generation counter so
 /// a superseded engage aborts between writes instead of finishing late and
 /// leaving the remote streaming while disengaged.
-private let wiimotePointerModeQueue = DispatchQueue(label: "com.controllerkeys.wiimote-pointer-mode", qos: .userInitiated)
+nonisolated private let wiimotePointerModeQueue = DispatchQueue(label: "com.controllerkeys.wiimote-pointer-mode", qos: .userInitiated)
 
-private final class WiimoteModeGeneration: @unchecked Sendable {
+nonisolated private final class WiimoteModeGeneration: @unchecked Sendable {
     private let lock = NSLock()
     private var value = 0
 
@@ -27,81 +27,114 @@ private final class WiimoteModeGeneration: @unchecked Sendable {
     }
 }
 
-private let wiimoteModeGeneration = WiimoteModeGeneration()
+nonisolated private let wiimoteModeGeneration = WiimoteModeGeneration()
 
-/// Smoothed IR pointer state, shared between HID-thread reports.
-final class WiimotePointerState: @unchecked Sendable {
+/// Matches 0x22 acknowledgements (delivered on the HID thread) to the
+/// output report the pointer-mode queue is waiting on, so camera bring-up
+/// can confirm each write instead of hoping it landed.
+nonisolated final class WiimoteAckWaiter: @unchecked Sendable {
     private let lock = NSLock()
-    private var smoothed: CGPoint?
-    private var lastIRSample: TimeInterval = 0
-    private var lastBlobCount = 0
+    private let signal = DispatchSemaphore(value: 0)
+    private var device: IOHIDDevice?
+    private var reportID: UInt8?
+    private var errorCode: UInt8?
+
+    func arm(device: IOHIDDevice, reportID: UInt8) {
+        // Drain a stale signal from an ack that matched as a wait timed out.
+        while signal.wait(timeout: .now()) == .success {}
+        lock.withLock {
+            self.device = device
+            self.reportID = reportID
+            errorCode = nil
+        }
+    }
+
+    func deliver(device: IOHIDDevice, reportID: UInt8, errorCode: UInt8) {
+        let matched = lock.withLock { () -> Bool in
+            guard self.reportID == reportID, self.device == device else { return false }
+            self.reportID = nil
+            self.device = nil
+            self.errorCode = errorCode
+            return true
+        }
+        if matched { signal.signal() }
+    }
+
+    /// The acknowledged result code, or nil if no ack arrived in time.
+    func wait(timeout: TimeInterval) -> UInt8? {
+        if signal.wait(timeout: .now() + timeout) == .timedOut {
+            lock.withLock {
+                reportID = nil
+                device = nil
+            }
+            return nil
+        }
+        return lock.withLock { errorCode }
+    }
+}
+
+nonisolated private let wiimoteAckWaiter = WiimoteAckWaiter()
+
+/// IR pointer state for the current pointer session, shared between
+/// HID-thread reports.
+nonisolated final class WiimotePointerState: @unchecked Sendable {
+    /// With IR aiming on, tilt may steer only if the sensor bar hasn't been
+    /// seen by this long after engaging (camera bring-up takes ~0.5s). Once
+    /// IR has been seen, losing it holds the cursor — tilt never takes over.
+    static let tiltSettleInterval: TimeInterval = 1.0
+
+    private let lock = NSLock()
+    private var tracker = WiimoteIRTracker()
+    private var sessionStart: TimeInterval = 0
     private var cachedScreenBounds: CGRect?
 
-    /// Main-display bounds, cached per pointer session (refreshed on reset —
-    /// engage/disengage/IR-loss) so the ~100 Hz IR path doesn't query
+    /// Cursor delta for one report's IR blobs (nil = don't move). Screen
+    /// bounds are cached per session so the ~100 Hz path doesn't query
     /// CoreGraphics per report.
-    func screenBounds() -> CGRect {
+    func irDelta(
+        points: [WiimoteIRPoint],
+        baseAlpha: CGFloat,
+        gain: CGFloat,
+        at time: TimeInterval = ProcessInfo.processInfo.systemUptime,
+        bounds: CGRect? = nil,
+        currentCursor: (() -> CGPoint)? = nil
+    ) -> CGPoint? {
         lock.lock()
         defer { lock.unlock() }
-        if let cachedScreenBounds { return cachedScreenBounds }
-        let bounds = CGDisplayBounds(CGMainDisplayID())
-        cachedScreenBounds = bounds
-        return bounds
-    }
-
-    /// Whether IR was seen within `grace` seconds — candle flicker drops
-    /// blobs for a frame or two, and falling straight back to tilt while the
-    /// remote is pitched yanks the cursor.
-    func irSeenRecently(now: TimeInterval, grace: TimeInterval) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return now - lastIRSample < grace
-    }
-
-    /// Exponentially smooth toward `target` and return the delta from the
-    /// previous smoothed position (nil delta on the first sample after reset).
-    /// Speed-adaptive (One-Euro-style): a slow or still hand gets heavy
-    /// smoothing so candle flicker parks the cursor, while fast sweeps raise
-    /// the blend factor and stay responsive.
-    func advance(target: CGPoint, baseAlpha: CGFloat, blobCount: Int, at time: TimeInterval = ProcessInfo.processInfo.systemUptime) -> CGPoint? {
-        lock.lock()
-        defer { lock.unlock() }
-        let reacquired = time - lastIRSample >= 0.4
-        lastIRSample = time
-        // 2↔1 blob transitions shift the reference frame by half the blob
-        // separation; re-anchor without emitting a delta so the cursor pauses
-        // for a report instead of lurching (the adaptive alpha would amplify
-        // the false jump).
-        if blobCount != lastBlobCount || reacquired {
-            lastBlobCount = blobCount
-            smoothed = target
-            return nil
+        let screen = bounds ?? cachedScreenBounds ?? CGDisplayBounds(CGMainDisplayID())
+        cachedScreenBounds = screen
+        let blobs = points.map {
+            WiimoteIRTracker.Blob(point: CGPoint(x: CGFloat($0.x), y: CGFloat($0.y)), size: $0.size)
         }
-        guard let previous = smoothed else {
-            smoothed = target
-            return nil
-        }
-        let distance = hypot(target.x - previous.x, target.y - previous.y)
-        let alpha = min(0.85, baseAlpha + distance * 0.015)
-        let next = CGPoint(
-            x: previous.x + (target.x - previous.x) * alpha,
-            y: previous.y + (target.y - previous.y) * alpha
+        return tracker.update(
+            blobs: blobs,
+            at: time,
+            baseAlpha: baseAlpha,
+            gain: gain,
+            bounds: screen,
+            currentCursor: currentCursor ?? {
+                CGEvent(source: nil)?.location ?? CGPoint(x: screen.midX, y: screen.midY)
+            }
         )
-        smoothed = next
-        return CGPoint(x: next.x - previous.x, y: next.y - previous.y)
     }
 
-    func reset() {
+    func tiltAllowed(irEnabled: Bool, now: TimeInterval) -> Bool {
+        guard irEnabled else { return true }
         lock.lock()
-        smoothed = nil
-        lastIRSample = 0
-        lastBlobCount = 0
+        defer { lock.unlock() }
+        return !tracker.hasSeenIR && now - sessionStart >= Self.tiltSettleInterval
+    }
+
+    func reset(at time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+        lock.lock()
+        tracker = WiimoteIRTracker()
+        sessionStart = time
         cachedScreenBounds = nil
         lock.unlock()
     }
 }
 
-private let wiimotePointerState = WiimotePointerState()
+nonisolated private let wiimotePointerState = WiimotePointerState()
 
 @MainActor
 extension ControllerService {
@@ -130,34 +163,17 @@ extension ControllerService {
         return CGFloat(g < 0 ? -speed : speed)
     }
 
-    /// Absolute-style IR aiming, delivered as relative moves through the
-    /// MAPPING ENGINE's simulator (so held mapped clicks turn moves into
-    /// drags): smooth the midpoint of the visible blobs and scale
-    /// camera-space deltas (1024×768) to screen scale, camera axes mirrored
-    /// (pointing right moves the blob image left).
-    nonisolated private func moveWiimotePointerByIR(_ points: [WiimoteIRPoint]) {
-        let blobCount = min(points.count, 2)
-        let mx: CGFloat
-        let my: CGFloat
-        if points.count >= 2 {
-            mx = CGFloat(points[0].x + points[1].x) / 2
-            my = CGFloat(points[0].y + points[1].y) / 2
-        } else {
-            mx = CGFloat(points[0].x)
-            my = CGFloat(points[0].y)
-        }
-        let alpha = CGFloat(Self.wiimoteTuning(Config.wiimoteIRSmoothingKey, default: 0.25))
-        guard let delta = wiimotePointerState.advance(
-            target: CGPoint(x: mx, y: my),
-            baseAlpha: alpha,
-            blobCount: blobCount
+    /// IR aiming (see WiimoteIRTracker), delivered as moves through the
+    /// MAPPING ENGINE's simulator so held mapped clicks turn them into drags.
+    nonisolated private func moveWiimotePointerByIR(_ points: [WiimoteIRPoint], at time: TimeInterval) {
+        guard let delta = wiimotePointerState.irDelta(
+            points: points,
+            baseAlpha: CGFloat(Self.wiimoteTuning(Config.wiimoteIRSmoothingKey, default: 0.25)),
+            gain: CGFloat(Self.wiimoteTuning(Config.wiimoteIRSpeedKey, default: 1.0)),
+            at: time
         ) else { return }
-        let gain = CGFloat(Self.wiimoteTuning(Config.wiimoteIRSpeedKey, default: 1.0))
-        let bounds = wiimotePointerState.screenBounds()
-        let dx = -delta.x * (bounds.width / 1024.0) * gain
-        let dy = delta.y * (bounds.height / 768.0) * gain
-        if abs(dx) > 0.01 || abs(dy) > 0.01 {
-            wiimotePointerSimulator?.moveMouse(dx: dx, dy: dy)
+        if abs(delta.x) > 0.01 || abs(delta.y) > 0.01 {
+            wiimotePointerSimulator?.moveMouse(dx: delta.x, dy: delta.y)
         }
     }
 
@@ -175,10 +191,10 @@ extension ControllerService {
 
     /// Switch the remote between on-change core buttons (0x30) and continuous
     /// buttons+accel+IR (0x33). Streaming runs only while the pointer is
-    /// engaged. Engaging also runs the IR camera init sequence so the pointer
-    /// can use absolute IR aiming when IR sources are visible, falling back
-    /// to tilt when they aren't. Targets the pointer's session device (the
-    /// active one), not merely the first registration.
+    /// engaged. Engaging also runs the IR camera init sequence and starts a
+    /// fresh pointer session (the next IR fix re-anchors aiming). Targets the
+    /// pointer's session device (the active one), not merely the first
+    /// registration.
     func setWiimoteMotionReporting(_ enabled: Bool) {
         wiimotePointerState.reset()
         guard let device = wiimoteHIDActiveDevice ?? wiimoteHIDRegistrations.first?.device else {
@@ -200,40 +216,85 @@ extension ControllerService {
             if engaged {
                 Self.initializeWiimoteIRCamera(device, generation: generation)
             } else {
-                Self.sendWiimoteReport(device, [0x12, 0x00, 0x30])
-                // Power the IR camera back down (battery).
-                Self.sendWiimoteReport(device, [0x13, 0x00])
-                Self.sendWiimoteReport(device, [0x1A, 0x00])
+                // Buttons-only reporting, then power the IR camera back down
+                // (battery) — paced like bring-up, since back-to-back writes
+                // get dropped and can leave the camera half powered.
+                var session = WiimoteWriteSession(device: device, generation: generation)
+                _ = session.send([0x12, 0x00, 0x30], awaitAck: false)
+                    && session.send([0x13, 0x02])
+                    && session.send([0x1A, 0x02])
             }
         }
     }
 
-    /// WiiBrew IR camera bring-up (Marcan sensitivity, extended-format mode 3).
-    /// Runs on the serial mode queue with small gaps between writes — the
-    /// camera's register interface drops back-to-back writes — aborting
+    /// WiiBrew IR camera bring-up, as the Wii itself does it (0x06 = enable
+    /// + request ack; 0x01 then 0x08 to 0xB00030), with inio's high-
+    /// sensitivity blocks so a sensor bar viewed off-axis (pitched up or
+    /// down) stays bright enough to track, in extended-format mode 3.
+    ///
+    /// WiiBrew: bring-up lands in a random state (camera on but silent, or
+    /// half sensitivity) unless every write is ≥50ms apart — the old 20ms
+    /// pacing intermittently produced a dim, flickering camera. Each write is
+    /// also confirmed by its 0x22 ack and retried on an error result. Aborts
     /// between steps if a newer mode transition superseded this one.
     nonisolated private static func initializeWiimoteIRCamera(_ device: IOHIDDevice, generation: Int) {
-        func step(_ body: () -> Void) -> Bool {
-            guard wiimoteModeGeneration.isCurrent(generation) else { return false }
-            body()
-            usleep(20_000)
-            return true
-        }
-        guard step({ sendWiimoteReport(device, [0x13, 0x04]) }),          // IR clock enable 1
-              step({ sendWiimoteReport(device, [0x1A, 0x04]) }),          // IR clock enable 2
-              step({ writeWiimoteRegister(device, address: 0xB0_0030, data: [0x01]) }),
-              step({ writeWiimoteRegister(device, address: 0xB0_0000,
-                                          data: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x90, 0x00, 0x41]) }),
-              step({ writeWiimoteRegister(device, address: 0xB0_001A, data: [0x40, 0x00]) }),
-              step({ writeWiimoteRegister(device, address: 0xB0_0033, data: [0x03]) }),  // extended mode
-              step({ writeWiimoteRegister(device, address: 0xB0_0030, data: [0x08]) }),
+        var session = WiimoteWriteSession(device: device, generation: generation)
+        guard session.send([0x13, 0x06]),                                 // IR pixel clock
+              session.send([0x1A, 0x06]),                                 // IR logic
+              session.send(registerWrite(0xB0_0030, [0x01])),
+              session.send(registerWrite(0xB0_0000, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x90, 0x00, 0x41])),
+              session.send(registerWrite(0xB0_001A, [0x40, 0x00])),
+              session.send(registerWrite(0xB0_0033, [0x03])),              // extended mode
+              session.send(registerWrite(0xB0_0030, [0x08])),
               wiimoteModeGeneration.isCurrent(generation) else { return }
         sendWiimoteReport(device, [0x12, 0x04, 0x33])                     // continuous buttons+accel+IR
+        NSLog("[ControllerKeys] Wii Remote IR camera ready (%d write retries%@)",
+              session.retries, session.acksAvailable ? "" : ", acks unavailable")
     }
 
-    /// Write to the Wiimote's control registers: report 0x16, 0x04 = register
-    /// space, 3-byte big-endian address, size byte, 16 data bytes (padded).
-    nonisolated private static func writeWiimoteRegister(_ device: IOHIDDevice, address: UInt32, data: [UInt8]) {
+    /// Paced, ack-confirmed output-report writes for one mode transition.
+    nonisolated private struct WiimoteWriteSession {
+        static let stepGap: useconds_t = 55_000
+        static let ackTimeout: TimeInterval = 0.12
+        static let maxAttempts = 3
+
+        let device: IOHIDDevice
+        let generation: Int
+        /// Cleared after a register-write ack times out — acks aren't
+        /// arriving, so later steps fall back to pacing alone rather than
+        /// stalling on every write.
+        var acksAvailable = true
+        var retries = 0
+
+        /// Send `bytes`, wait for its ack (retrying on an error result), then
+        /// pause before the next write. False once superseded.
+        mutating func send(_ bytes: [UInt8], awaitAck: Bool = true) -> Bool {
+            for attempt in 1...Self.maxAttempts {
+                guard wiimoteModeGeneration.isCurrent(generation) else { return false }
+                let waiting = awaitAck && acksAvailable
+                if waiting { wiimoteAckWaiter.arm(device: device, reportID: bytes[0]) }
+                ControllerService.sendWiimoteReport(device, bytes)
+                let result = waiting ? wiimoteAckWaiter.wait(timeout: Self.ackTimeout) : 0
+                usleep(Self.stepGap)
+                guard let result else {
+                    // Register writes (0x16) are always acked, so a missing
+                    // one means acks aren't reaching us at all; 0x13/0x1A
+                    // acks are only requested, so one going missing doesn't.
+                    if bytes[0] == 0x16 { acksAvailable = false }
+                    NSLog("[ControllerKeys] Wii Remote 0x%02X not acknowledged; continuing on pacing", bytes[0])
+                    return true
+                }
+                if result == 0 { return true }
+                NSLog("[ControllerKeys] Wii Remote 0x%02X rejected (error 0x%02X, attempt %d)", bytes[0], result, attempt)
+                retries += 1
+            }
+            return true
+        }
+    }
+
+    /// Report 0x16 register write: 0x04 = register space, 3-byte big-endian
+    /// address, size byte, 16 data bytes (padded). Always acknowledged.
+    nonisolated private static func registerWrite(_ address: UInt32, _ data: [UInt8]) -> [UInt8] {
         var bytes: [UInt8] = [
             0x16, 0x04,
             UInt8((address >> 16) & 0xFF), UInt8((address >> 8) & 0xFF), UInt8(address & 0xFF),
@@ -241,7 +302,7 @@ extension ControllerService {
         ]
         bytes += data
         bytes += [UInt8](repeating: 0, count: 16 - data.count)
-        sendWiimoteReport(device, bytes)
+        return bytes
     }
 
     /// Thread-agnostic output-report send (ID repeated as the buffer's first
@@ -268,14 +329,22 @@ extension ControllerService {
             length: length
         ) else { return }
 
+        if let ackReportID = parsed.wiimoteAckReportID {
+            wiimoteAckWaiter.deliver(device: device, reportID: ackReportID, errorCode: parsed.wiimoteAckError ?? 0)
+            return
+        }
+
         // Status reports (0x20) HALT all further data reporting until the
         // host re-sends the reporting mode (WiiBrew) — re-assert it for the
-        // interface that delivered the report, per the engagement state.
-        let statusEngaged: Bool? = reportID == 0x20
-            ? storage.lock.withLock { storage.wiimotePointerEngaged }
-            : nil
-        if let statusEngaged {
-            Self.sendWiimoteReport(device, statusEngaged ? [0x12, 0x04, 0x33] : [0x12, 0x00, 0x30])
+        // interface that delivered the report. Queued behind any in-flight
+        // camera bring-up so it can't land between its register writes, and
+        // reads the engagement state when it runs.
+        if reportID == 0x20 {
+            wiimotePointerModeQueue.async { [weak self] in
+                guard let self else { return }
+                let engaged = self.storage.lock.withLock { self.storage.wiimotePointerEngaged }
+                Self.sendWiimoteReport(device, engaged ? [0x12, 0x04, 0x33] : [0x12, 0x00, 0x30])
+            }
         }
 
         if let level = parsed.wiimoteBatteryLevel {
@@ -300,24 +369,21 @@ extension ControllerService {
             return (storage.wiimotePointerEngaged, diff)
         }
 
-        // Pointer: while the mapped "Pointer (Hold)" action is engaged, IR
-        // aiming drives the cursor when the camera sees IR sources (sensor
-        // bar / candles); otherwise gravity tilt drives pointer velocity.
-        // Signs assume the pointing grip — face-up, IR end toward the screen.
+        // Pointer: while the mapped pointer action is engaged, IR aiming
+        // drives the cursor when the camera sees the sensor bar. With IR on,
+        // losing the bar holds the cursor still — tilt steers only if the bar
+        // hasn't been seen at all this session. Signs assume the pointing
+        // grip — face-up, IR end toward the screen.
         if pointerEngaged {
             let irEnabled = Self.wiimoteFlag(Config.wiimoteIREnabledKey)
             let tiltEnabled = Self.wiimoteFlag(Config.wiimoteTiltEnabledKey)
             let now = ProcessInfo.processInfo.systemUptime
 
             if irEnabled, let ir = parsed.wiimoteIRPoints, !ir.isEmpty {
-                moveWiimotePointerByIR(ir)
+                moveWiimotePointerByIR(ir, at: now)
             } else if tiltEnabled,
-                      // Grace period: candle flicker can drop blobs for a few
-                      // frames; don't let tilt yank a pitched remote's cursor
-                      // until IR has been gone for a beat.
-                      !(irEnabled && wiimotePointerState.irSeenRecently(now: now, grace: 0.4)),
+                      wiimotePointerState.tiltAllowed(irEnabled: irEnabled, now: now),
                       let ax = parsed.wiimoteAccelX, let ay = parsed.wiimoteAccelY {
-                wiimotePointerState.reset()
                 let deadzone = Float(Self.wiimoteTuning(Config.wiimoteTiltDeadzoneKey, default: 0.12))
                 let dx = Self.wiimoteTiltVelocity(
                     ax,

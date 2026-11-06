@@ -141,6 +141,13 @@ struct WiimoteHIDParser: HIDReportParser {
             return result
         case (0x30...0x37, let len) where len >= 3:
             return HIDReportParseResult(wiimoteButtons: Self.buttons(report))
+        case (0x22, let len) where len >= 5:
+            // Acknowledgement: [0x22, BB1, BB2, output report ID, error].
+            // Buttons are left nil — acks only answer the mode queue.
+            var result = HIDReportParseResult()
+            result.wiimoteAckReportID = report[3]
+            result.wiimoteAckError = report[4]
+            return result
         case (0x20, let len) where len >= 7:
             var result = HIDReportParseResult(wiimoteButtons: Self.buttons(report))
             result.wiimoteBatteryLevel = min(1.0, Float(report[6]) / Self.batteryFullScale)
@@ -161,6 +168,8 @@ struct WiimoteHIDParser: HIDReportParser {
 
     /// Extended IR format: per blob, byte0 = X<7:0>, byte1 = Y<7:0>,
     /// byte2 = Y<9:8><<6 | X<9:8><<4 | size. An unseen blob slot is 0xFF-filled.
+    /// Slots outside the 1024×768 field, or zero-filled (a camera that
+    /// hasn't finished initializing), are dropped rather than aimed at.
     private static func irPoints(_ report: UnsafePointer<UInt8>, offset: Int) -> [WiimoteIRPoint] {
         var points: [WiimoteIRPoint] = []
         for i in 0..<4 {
@@ -168,9 +177,12 @@ struct WiimoteHIDParser: HIDReportParser {
             let b1 = report[offset + i * 3 + 1]
             let b2 = report[offset + i * 3 + 2]
             if b0 == 0xFF && b1 == 0xFF && b2 == 0xFF { continue }
+            if b0 == 0 && b1 == 0 && b2 == 0 { continue }
+            let y = Int(b1) | ((Int(b2) & 0xC0) << 2)
+            guard y < 768 else { continue }
             points.append(WiimoteIRPoint(
                 x: Int(b0) | ((Int(b2) & 0x30) << 4),
-                y: Int(b1) | ((Int(b2) & 0xC0) << 2),
+                y: y,
                 size: Int(b2) & 0x0F
             ))
         }

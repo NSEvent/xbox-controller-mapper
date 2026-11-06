@@ -211,8 +211,9 @@ final class HIDReportParserTests: XCTestCase {
     func testWiimote_ShortAndUnknownReportsReturnNil() {
         XCTAssertNil(parse(WiimoteHIDParser(), reportID: 0x30, bytes: [0x30, 0x00]))
         XCTAssertNil(parse(WiimoteHIDParser(), reportID: 0x20, bytes: [0x20, 0x00, 0x00, 0x00, 0x00, 0x00]))
-        // Acknowledgement report 0x22 carries no state we consume.
-        XCTAssertNil(parse(WiimoteHIDParser(), reportID: 0x22, bytes: [0x22, 0x00, 0x00, 0x00, 0x01]))
+        // A truncated 0x22 acknowledgement has no result byte.
+        XCTAssertNil(parse(WiimoteHIDParser(), reportID: 0x22, bytes: [0x22, 0x00, 0x00, 0x16]))
+        XCTAssertNil(parse(WiimoteHIDParser(), reportID: 0x25, bytes: [0x25, 0x00, 0x00, 0x00, 0x01]))
     }
 
     // MARK: - Nintendo

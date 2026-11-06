@@ -38,6 +38,10 @@ struct HIDReportParseResult: Equatable {
     /// Tracked IR camera blobs from the 0x33 report (camera field 1024×768).
     /// Nil when the report carries no IR data; empty when no blobs are seen.
     var wiimoteIRPoints: [WiimoteIRPoint]? = nil
+    /// Wii Remote 0x22 acknowledgement: the output report it answers and
+    /// its result code (0 = success).
+    var wiimoteAckReportID: UInt8? = nil
+    var wiimoteAckError: UInt8? = nil
 }
 
 /// One tracked IR blob from the Wii Remote camera.

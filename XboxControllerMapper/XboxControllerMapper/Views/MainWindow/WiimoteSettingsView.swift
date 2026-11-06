@@ -53,7 +53,7 @@ struct WiimoteSettingsView: View {
 
 			Section("Pointer — Tilt") {
 				Toggle("Tilt steering (accelerometer)", isOn: $tiltEnabled)
-					.help("Move the pointer by tilting the remote. Turn off for sensor-bar-only aiming. Losing sight of the bar then stops the pointer.")
+					.help("Move the pointer by tilting the remote. With IR aiming on, tilt steers only until the sensor bar is first seen; after that, losing the bar holds the pointer still.")
 				SliderRow(
 					label: "Side-to-side speed",
 					value: $tiltRollSpeed,
@@ -84,7 +84,7 @@ struct WiimoteSettingsView: View {
 					label: "Speed",
 					value: $irSpeed,
 					range: 0.25...3.0,
-					description: "Multiplier on IR aiming movement.",
+					description: "How far the cursor travels per degree of aim. 1× maps the camera's full view to the screen.",
 					specifier: "%.2f×"
 				)
 				SliderRow(
@@ -93,7 +93,7 @@ struct WiimoteSettingsView: View {
 					range: 0.10...0.90,
 					description: "Base smoothing — lower = steadier aim (smoothing auto-lightens during fast sweeps). Raise only if aiming feels laggy."
 				)
-				Text("Map B to Pointer (Toggle), then press B once to aim and again to stop. Power the sensor bar and place it above or below your display. Turn Tilt steering off for sensor-bar-only aiming. Movement is relative: toggle pointing off to recenter your hand.")
+				Text("Map B to Pointer (Toggle), then press B once to aim and again to stop. Power the sensor bar and place it above or below your display. Aim locks to where the cursor is when the bar is first seen, so pointing back at a spot always returns the cursor there. If the bar drops out of view, the cursor holds still. Toggle off and on to recenter.")
 					.font(.system(size: 11))
 					.foregroundStyle(.tertiary)
 					.fixedSize(horizontal: false, vertical: true)
