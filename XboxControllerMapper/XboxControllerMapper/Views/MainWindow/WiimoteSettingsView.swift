@@ -24,7 +24,7 @@ struct WiimoteSettingsView: View {
 						.fixedSize(horizontal: false, vertical: true)
 
 					HStack(spacing: 12) {
-						Button(pairingService.isBusy ? "Scanning…" : "Pair Wii Remote") {
+						Button(pairingService.isBusy ? "Connecting…" : "Pair Wii Remote") {
 							pairingService.startPairing()
 						}
 						.disabled(pairingService.isBusy)

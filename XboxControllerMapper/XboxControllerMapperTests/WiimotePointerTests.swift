@@ -3,6 +3,39 @@ import CoreGraphics
 @testable import ControllerKeys
 
 final class WiimotePointerTests: XCTestCase {
+	func testHIDConnectWaitsForPairingDisconnectThenRetriesWithoutInputDevice() {
+		var attempt = WiimoteHIDConnectionAttempt(startedAt: 10)
+		XCTAssertEqual(attempt.advance(at: 10, hasHIDDevice: false), .wait)
+		XCTAssertEqual(attempt.advance(at: 10.49, hasHIDDevice: false), .wait)
+		XCTAssertEqual(attempt.advance(at: 10.5, hasHIDDevice: false), .request)
+		XCTAssertEqual(attempt.advance(at: 12.49, hasHIDDevice: false), .wait)
+		XCTAssertEqual(attempt.advance(at: 12.5, hasHIDDevice: false), .request)
+	}
+
+	func testHIDConnectRequiresStableInputAttachment() {
+		var attempt = WiimoteHIDConnectionAttempt(startedAt: 10)
+		XCTAssertEqual(attempt.advance(at: 10.1, hasHIDDevice: true), .wait)
+		XCTAssertEqual(attempt.advance(at: 10.5, hasHIDDevice: true), .wait)
+		XCTAssertEqual(attempt.advance(at: 11, hasHIDDevice: false), .request)
+		XCTAssertEqual(attempt.advance(at: 11.25, hasHIDDevice: true), .wait)
+		XCTAssertEqual(attempt.advance(at: 11.75, hasHIDDevice: true), .wait)
+		XCTAssertEqual(attempt.advance(at: 12, hasHIDDevice: true), .connected)
+		XCTAssertEqual(attempt.advance(at: 12.25, hasHIDDevice: false), .connected)
+	}
+
+	func testHIDConnectStopsRetryingAtDeadline() {
+		var attempt = WiimoteHIDConnectionAttempt(startedAt: 10)
+		XCTAssertEqual(attempt.advance(at: 10.5, hasHIDDevice: false), .request)
+		XCTAssertEqual(attempt.advance(at: 25, hasHIDDevice: false), .timedOut)
+		XCTAssertEqual(attempt.advance(at: 30, hasHIDDevice: true), .timedOut)
+	}
+
+	func testHIDConnectDoesNotMistakeLastMomentTransientAttachmentForSuccess() {
+		var attempt = WiimoteHIDConnectionAttempt(startedAt: 10)
+		XCTAssertEqual(attempt.advance(at: 24.75, hasHIDDevice: true), .wait)
+		XCTAssertEqual(attempt.advance(at: 25, hasHIDDevice: true), .timedOut)
+	}
+
     func testIRReportDecodesTenBitCoordinatesAndIgnoresMissingSlots() {
         // Two emitters at (300, 400) and (700, 500), followed by empty slots.
         let bytes: [UInt8] = [0x33, 0, 8, 128, 128, 154,

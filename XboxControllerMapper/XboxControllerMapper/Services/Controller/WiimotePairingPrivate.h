@@ -13,6 +13,8 @@
 #define WiimotePairingPrivate_h
 
 #import <IOBluetooth/IOBluetooth.h>
+#import <objc/message.h>
+#import <dlfcn.h>
 
 @interface IOBluetoothDevice (WiimotePairingPrivate)
 - (id)classicPeer;
@@ -27,5 +29,26 @@
 + (IOBluetoothCoreBluetoothCoordinator *)sharedInstance;
 - (void)pairPeer:(id)peer forType:(NSUInteger)type withKey:(NSNumber *)key;
 @end
+
+// System Settings connects services through BluetoothManager. openConnection
+// only creates the baseband link and can race the post-pairing disconnect.
+// Resolve private selectors at runtime so an OS change fails gracefully.
+static inline BOOL CKConnectWiiHIDDevice(NSString *address) {
+	static void *framework;
+	if (!framework) {
+		framework = dlopen("/System/Library/PrivateFrameworks/BluetoothManager.framework/BluetoothManager", RTLD_LAZY);
+	}
+	Class managerClass = NSClassFromString(@"BluetoothManager");
+	SEL shared = NSSelectorFromString(@"sharedInstance");
+	SEL find = NSSelectorFromString(@"deviceFromAddressString:");
+	SEL connect = NSSelectorFromString(@"connectDevice:");
+	if (!framework || ![managerClass respondsToSelector:shared]) return NO;
+	id manager = ((id (*)(id, SEL))objc_msgSend)(managerClass, shared);
+	if (![manager respondsToSelector:find] || ![manager respondsToSelector:connect]) return NO;
+	id device = ((id (*)(id, SEL, id))objc_msgSend)(manager, find, address);
+	if (!device) return NO;
+	((void (*)(id, SEL, id))objc_msgSend)(manager, connect, device);
+	return YES;
+}
 
 #endif /* WiimotePairingPrivate_h */

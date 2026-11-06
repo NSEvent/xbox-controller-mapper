@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import IOBluetooth
+import IOKit
 
 /// In-app Wii Remote pairing. System Settings cannot pair a Wiimote on modern
 /// macOS (legacy raw-byte PIN, ignored by the public API), so this drives the
@@ -16,6 +17,7 @@ final class WiimotePairingService: NSObject, ObservableObject {
 		case idle
 		case scanning
 		case pairing
+		case connecting
 		case paired
 		case failed(String)
 	}
@@ -26,19 +28,21 @@ final class WiimotePairingService: NSObject, ObservableObject {
 	private var pairingAgent: IOBluetoothDevicePair?
 	private var timedOut = false
 	private var timeoutWorkItem: DispatchWorkItem?
+	private var connectionTask: Task<Void, Never>?
 
 	var statusText: String {
 		switch phase {
 		case .idle: return ""
 		case .scanning: return "Scanning — tap the red SYNC button under the battery cover every few seconds…"
 		case .pairing: return "Wii Remote found — pairing…"
-		case .paired: return "Paired! Press a button to wake the remote. If it does not reconnect, pair here again."
+		case .connecting: return "Paired — connecting controller input. Keep the remote awake…"
+		case .paired: return "Connected! The Wii Remote is ready to use."
 		case .failed(let reason): return reason
 		}
 	}
 
 	var isBusy: Bool {
-		phase == .scanning || phase == .pairing
+		phase == .scanning || phase == .pairing || phase == .connecting
 	}
 
 	func startPairing() {
@@ -76,6 +80,8 @@ final class WiimotePairingService: NSObject, ObservableObject {
 		}
 		timeoutWorkItem?.cancel()
 		timeoutWorkItem = nil
+		connectionTask?.cancel()
+		connectionTask = nil
 		let previousInquiry = inquiry
 		inquiry = nil
 		let previousAgent = pairingAgent
@@ -184,18 +190,95 @@ extension WiimotePairingService: IOBluetoothDevicePairDelegate {
 		pairingAgent = nil
 		pair.stop()
 		if error == kIOReturnSuccess {
-			phase = .paired
 			stop()
-			// Bring the HID connection up; the Wiimote backend attaches from here.
-			if let device, !device.isConnected() {
-				device.openConnection()
-			}
 			NSLog("[ControllerKeys] In-app Wii Remote pairing succeeded")
+			guard let address = device?.addressString else {
+				phase = .failed("Paired, but the remote's address is unavailable. Try pairing again.")
+				return
+			}
+			connectHID(address: address)
 		} else {
 			// Wrong window timing is common — resume scanning for another tap.
 			guard !timedOut else { return }
 			phase = .scanning
 			if let inquiry { restartInquiry(inquiry) }
 		}
+	}
+
+	private func connectHID(address: String) {
+		phase = .connecting
+		let normalized = address.replacingOccurrences(of: "-", with: ":").uppercased()
+		connectionTask = Task { @MainActor [weak self] in
+			var attempt = WiimoteHIDConnectionAttempt(startedAt: ProcessInfo.processInfo.systemUptime)
+			while !Task.isCancelled {
+				guard let self, self.phase == .connecting else { return }
+				let now = ProcessInfo.processInfo.systemUptime
+				switch attempt.advance(at: now, hasHIDDevice: Self.hasHIDDevice(address: normalized)) {
+				case .wait: break
+				case .request:
+					let requested = CKConnectWiiHIDDevice(normalized)
+					NSLog("[WiiPair] HID service connection requested: %d", requested)
+				case .connected:
+					self.phase = .paired
+					self.connectionTask = nil
+					NSLog("[WiiPair] HID input device connected and stable")
+					return
+				case .timedOut:
+					self.phase = .failed("Paired, but controller input did not connect. Tap red SYNC and try Pair Wii Remote again.")
+					self.connectionTask = nil
+					NSLog("[WiiPair] HID connection timed out after pairing")
+					return
+				}
+				do { try await Task.sleep(nanoseconds: 250_000_000) } catch { return }
+			}
+		}
+	}
+
+	private static func hasHIDDevice(address: String) -> Bool {
+		var iterator: io_iterator_t = 0
+		guard IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching("IOHIDUserDevice"), &iterator) == KERN_SUCCESS else { return false }
+		defer { IOObjectRelease(iterator) }
+		while case let service = IOIteratorNext(iterator), service != 0 {
+			defer { IOObjectRelease(service) }
+			let vendor = IORegistryEntryCreateCFProperty(service, "VendorID" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? Int
+			let product = IORegistryEntryCreateCFProperty(service, "ProductID" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? Int
+			let serial = IORegistryEntryCreateCFProperty(service, "SerialNumber" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? String
+			if vendor == 0x057e, product == 0x0306 || product == 0x0330,
+			   serial?.replacingOccurrences(of: "-", with: ":").uppercased() == address { return true }
+		}
+		return false
+	}
+}
+
+/// Bounded service retries; a baseband connection alone never counts as input.
+struct WiimoteHIDConnectionAttempt {
+	enum Action: Equatable { case wait, request, connected, timedOut }
+	let startedAt: TimeInterval
+	private var lastRequest: TimeInterval?
+	private var attachedSince: TimeInterval?
+	private var terminal: Action?
+
+	init(startedAt: TimeInterval) { self.startedAt = startedAt }
+
+	mutating func advance(at now: TimeInterval, hasHIDDevice: Bool) -> Action {
+		if let terminal { return terminal }
+		// macOS drops the pairing ACL immediately after authentication.
+		guard now - startedAt >= 0.5 else { return .wait }
+		if hasHIDDevice {
+			if attachedSince == nil { attachedSince = now }
+			if now - (attachedSince ?? now) >= 0.75 {
+				terminal = .connected
+				return .connected
+			}
+		} else { attachedSince = nil }
+		if now - startedAt >= 15 {
+			terminal = .timedOut
+			return .timedOut
+		}
+		if !hasHIDDevice, lastRequest == nil || now - (lastRequest ?? now) >= 2 {
+			lastRequest = now
+			return .request
+		}
+		return .wait
 	}
 }
