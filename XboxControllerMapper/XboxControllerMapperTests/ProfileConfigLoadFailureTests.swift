@@ -46,4 +46,13 @@ final class ProfileConfigLoadFailureTests: XCTestCase {
 		XCTAssertEqual(preserved.count, 1)
 		XCTAssertEqual(try preserved.first.map { try Data(contentsOf: $0) }, corruptBytes)
 	}
+
+	func testFreshInstallPersistsBootstrapDefault() throws {
+		try FileManager.default.removeItem(at: configURL)
+		let manager = ProfileManager(configDirectoryOverride: configDirectory)
+		manager.flushPendingSaves()
+
+		XCTAssertNotNil(manager.activeProfile)
+		XCTAssertTrue(FileManager.default.fileExists(atPath: configURL.path), "a fresh install should write its default config")
+	}
 }

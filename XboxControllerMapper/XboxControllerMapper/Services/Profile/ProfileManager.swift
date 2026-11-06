@@ -282,11 +282,12 @@ class ProfileManager: ObservableObject {
         }
     }
 
-    /// Bootstrap selection only persists when the config loaded. After a load
-    /// failure the default profile lives in memory so the app stays usable, but
-    /// it must not count as user work that unlocks overwriting the unreadable file.
+    /// Bootstrap selection persists when the config loaded or no config file
+    /// exists yet (fresh install). After a load failure the default profile
+    /// lives in memory so the app stays usable, but it must not count as user
+    /// work that unlocks overwriting the unreadable file.
     private func activateBootstrapProfile(_ profile: Profile) {
-        if loadSucceeded {
+        if configurationSaveService.shouldSave(loadSucceeded: loadSucceeded, configURL: configURL) {
             setActiveProfile(profile)
         } else {
             applyActiveProfile(profile, isAutomatic: false)
