@@ -130,6 +130,7 @@ extension ControllerService {
 
             switch mode {
             case .wholePad:
+                storage.lock.withLock { storage.activeTouchpadClickButton = .touchpadButton }
                 controllerQueue.async { self.handleButton(.touchpadButton, pressed: true) }
             case .quadrants:
                 let canDispatch = ControllerService.shouldFireRegionClick(
@@ -146,7 +147,7 @@ extension ControllerService {
                     return
                 }
                 storage.lock.lock()
-                storage.activeTouchpadClickQuadrant = regionButton
+                storage.activeTouchpadClickButton = regionButton
                 storage.lock.unlock()
                 controllerQueue.async { self.handleButton(regionButton, pressed: true) }
             }
@@ -156,19 +157,14 @@ extension ControllerService {
                 return
             }
 
-            storage.lock.lock()
-			let mode = storage.isAppleTVRemote ? TouchpadInputMode.wholePad : storage.touchpadInputMode
-            let activeQuadrant = storage.activeTouchpadClickQuadrant
-            storage.activeTouchpadClickQuadrant = nil
-            storage.lock.unlock()
-
-            switch mode {
-            case .wholePad:
-                controllerQueue.async { self.handleButton(.touchpadButton, pressed: false) }
-            case .quadrants:
-                if let activeQuadrant {
-                    controllerQueue.async { self.handleButton(activeQuadrant, pressed: false) }
-                }
+            // Release whatever the press dispatched. The input mode can change
+            // mid-click (a profile switch), so it must not be re-read here.
+            let pressedButton = storage.lock.withLock { () -> ControllerButton? in
+                defer { storage.activeTouchpadClickButton = nil }
+                return storage.activeTouchpadClickButton
+            }
+            if let pressedButton {
+                controllerQueue.async { self.handleButton(pressedButton, pressed: false) }
             }
         }
     }

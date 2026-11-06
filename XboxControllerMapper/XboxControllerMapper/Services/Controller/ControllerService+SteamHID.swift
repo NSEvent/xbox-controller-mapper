@@ -551,46 +551,35 @@ extension ControllerService {
         var buttonToDispatch: ControllerButton?
 
         storage.lock.lock()
-        let mode = storage.touchpadInputMode
-        switch mode {
-        case .wholePad:
-            buttonToDispatch = side.wholeClickButton
-        case .quadrants:
+        if pressed {
+            switch storage.touchpadInputMode {
+            case .wholePad:
+                buttonToDispatch = side.wholeClickButton
+            case .quadrants:
+                if ControllerService.shouldFireRegionClick(
+                    willBeTwoFingerClick: false,
+                    clickPosition: position,
+                    isCurrentlyTouching: state.isTouching,
+                    requireActiveTouch: storage.requireActiveTouchForRegionClick
+                ) {
+                    let region = TouchpadRegion.from(position: position)
+                    buttonToDispatch = ControllerButton.from(steamTouchpadSide: side, region: region, trigger: .click)
+                }
+            }
+            switch side {
+            case .left: storage.activeSteamLeftTouchpadClickButton = buttonToDispatch
+            case .right: storage.activeSteamRightTouchpadClickButton = buttonToDispatch
+            }
+        } else {
+            // Release whatever the press dispatched; the input mode can change
+            // mid-click (a profile switch), so it must not be re-read here.
             switch side {
             case .left:
-                if pressed {
-                    if ControllerService.shouldFireRegionClick(
-                        willBeTwoFingerClick: false,
-                        clickPosition: position,
-                        isCurrentlyTouching: state.isTouching,
-                        requireActiveTouch: storage.requireActiveTouchForRegionClick
-                    ) {
-                        let region = TouchpadRegion.from(position: position)
-                        let button = ControllerButton.from(steamTouchpadSide: side, region: region, trigger: .click)
-                        storage.activeSteamLeftTouchpadClickQuadrant = button
-                        buttonToDispatch = button
-                    }
-                } else {
-                    buttonToDispatch = storage.activeSteamLeftTouchpadClickQuadrant
-                    storage.activeSteamLeftTouchpadClickQuadrant = nil
-                }
+                buttonToDispatch = storage.activeSteamLeftTouchpadClickButton
+                storage.activeSteamLeftTouchpadClickButton = nil
             case .right:
-                if pressed {
-                    if ControllerService.shouldFireRegionClick(
-                        willBeTwoFingerClick: false,
-                        clickPosition: position,
-                        isCurrentlyTouching: state.isTouching,
-                        requireActiveTouch: storage.requireActiveTouchForRegionClick
-                    ) {
-                        let region = TouchpadRegion.from(position: position)
-                        let button = ControllerButton.from(steamTouchpadSide: side, region: region, trigger: .click)
-                        storage.activeSteamRightTouchpadClickQuadrant = button
-                        buttonToDispatch = button
-                    }
-                } else {
-                    buttonToDispatch = storage.activeSteamRightTouchpadClickQuadrant
-                    storage.activeSteamRightTouchpadClickQuadrant = nil
-                }
+                buttonToDispatch = storage.activeSteamRightTouchpadClickButton
+                storage.activeSteamRightTouchpadClickButton = nil
             }
         }
         storage.lock.unlock()

@@ -101,8 +101,8 @@ final class ControllerStorage: @unchecked Sendable {
     var isSteamRightTouchpadTouching: Bool = false
 	var steamLeftTouchpadClickArmed: Bool = false
 	var steamLeftTouchpadClickStartPosition: CGPoint = .zero
-    var activeSteamLeftTouchpadClickQuadrant: ControllerButton?
-    var activeSteamRightTouchpadClickQuadrant: ControllerButton?
+    var activeSteamLeftTouchpadClickButton: ControllerButton?
+    var activeSteamRightTouchpadClickButton: ControllerButton?
     var steamTwoPadGestureActiveUntil: TimeInterval = 0
     var steamTwoPadGestureWasActive: Bool = false
 
@@ -188,7 +188,7 @@ final class ControllerStorage: @unchecked Sendable {
     /// across press → release. Cleared on release. Used to ensure the same
     /// quadrant button gets both press AND release events even if the user's
     /// finger drifts to a different quadrant during the hold.
-    var activeTouchpadClickQuadrant: ControllerButton?
+    var activeTouchpadClickButton: ControllerButton?
     var touchpadLongTapTimer: DispatchWorkItem?  // Timer for long tap detection
     var touchpadLongTapFired: Bool = false  // Whether long tap already triggered for this touch
 
@@ -1670,8 +1670,8 @@ class ControllerService: ObservableObject {
         storage.isSteamRightTouchpadTouching = false
 		storage.steamLeftTouchpadClickArmed = false
 		storage.steamLeftTouchpadClickStartPosition = .zero
-        storage.activeSteamLeftTouchpadClickQuadrant = nil
-        storage.activeSteamRightTouchpadClickQuadrant = nil
+        storage.activeSteamLeftTouchpadClickButton = nil
+        storage.activeSteamRightTouchpadClickButton = nil
         storage.steamTwoPadGestureActiveUntil = 0
 		storage.steamTwoPadGestureWasActive = false
 		storage.touchpadSecondaryTouchStartTime = 0
@@ -1681,7 +1681,7 @@ class ControllerService: ObservableObject {
 		storage.touchpadWasTwoFingerDuringTouch = false
 		storage.touchpadTwoFingerGestureDistance = 0
 		storage.touchpadTwoFingerPinchDistance = 0
-		storage.activeTouchpadClickQuadrant = nil
+		storage.activeTouchpadClickButton = nil
 		storage.touchpadLongTapTimer?.cancel()
 		storage.touchpadLongTapTimer = nil
 		storage.touchpadLongTapFired = false

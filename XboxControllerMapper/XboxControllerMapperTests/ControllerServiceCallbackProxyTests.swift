@@ -164,8 +164,8 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 			controllerService.storage.touchpadDebugLastLogTime = 6
 			controllerService.storage.steamLeftTouchpadClickArmed = true
 			controllerService.storage.steamLeftTouchpadClickStartPosition = CGPoint(x: 0.8, y: 0.1)
-			controllerService.storage.activeSteamLeftTouchpadClickQuadrant = .leftTouchpadRegionTopLeftClick
-			controllerService.storage.activeSteamRightTouchpadClickQuadrant = .rightTouchpadRegionBottomRightClick
+			controllerService.storage.activeSteamLeftTouchpadClickButton = .leftTouchpadRegionTopLeftClick
+			controllerService.storage.activeSteamRightTouchpadClickButton = .rightTouchpadRegionBottomRightClick
 			controllerService.storage.steamTwoPadGestureActiveUntil = 100
 			controllerService.storage.steamTwoPadGestureWasActive = true
 			controllerService.storage.touchpadSecondaryTouchStartTime = 9
@@ -175,7 +175,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 			controllerService.storage.touchpadWasTwoFingerDuringTouch = true
 			controllerService.storage.touchpadTwoFingerGestureDistance = 0.7
 			controllerService.storage.touchpadTwoFingerPinchDistance = 0.6
-			controllerService.storage.activeTouchpadClickQuadrant = .touchpadRegionTopRightClick
+			controllerService.storage.activeTouchpadClickButton = .touchpadRegionTopRightClick
 			controllerService.storage.touchpadLongTapTimer = longTapTimer
 			controllerService.storage.touchpadLongTapFired = true
 			controllerService.storage.motionInputEnabled = true
@@ -222,8 +222,8 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 			XCTAssertEqual(controllerService.storage.touchpadDebugLastLogTime, 0)
 			XCTAssertFalse(controllerService.storage.steamLeftTouchpadClickArmed)
 			XCTAssertEqual(controllerService.storage.steamLeftTouchpadClickStartPosition, .zero)
-			XCTAssertNil(controllerService.storage.activeSteamLeftTouchpadClickQuadrant)
-			XCTAssertNil(controllerService.storage.activeSteamRightTouchpadClickQuadrant)
+			XCTAssertNil(controllerService.storage.activeSteamLeftTouchpadClickButton)
+			XCTAssertNil(controllerService.storage.activeSteamRightTouchpadClickButton)
 			XCTAssertEqual(controllerService.storage.steamTwoPadGestureActiveUntil, 0)
 			XCTAssertFalse(controllerService.storage.steamTwoPadGestureWasActive)
 			XCTAssertEqual(controllerService.storage.touchpadSecondaryTouchStartTime, 0)
@@ -233,7 +233,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 			XCTAssertFalse(controllerService.storage.touchpadWasTwoFingerDuringTouch)
 			XCTAssertEqual(controllerService.storage.touchpadTwoFingerGestureDistance, 0)
 			XCTAssertEqual(controllerService.storage.touchpadTwoFingerPinchDistance, 0)
-			XCTAssertNil(controllerService.storage.activeTouchpadClickQuadrant)
+			XCTAssertNil(controllerService.storage.activeTouchpadClickButton)
 			XCTAssertNil(controllerService.storage.touchpadLongTapTimer)
 			XCTAssertFalse(controllerService.storage.touchpadLongTapFired)
 			XCTAssertTrue(
