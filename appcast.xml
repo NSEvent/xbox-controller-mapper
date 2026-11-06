@@ -3,12 +3,12 @@
     <channel>
         <title>ControllerKeys</title>
         <item>
-            <title>2.10.1</title>
-            <pubDate>Thu, 05 Nov 2026 00:45:56 -0800</pubDate>
-            <sparkle:version>35</sparkle:version>
-            <sparkle:shortVersionString>2.10.1</sparkle:shortVersionString>
+            <title>2.11.0</title>
+            <pubDate>Fri, 06 Nov 2026 10:09:58 -0800</pubDate>
+            <sparkle:version>36</sparkle:version>
+            <sparkle:shortVersionString>2.11.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/NSEvent/xbox-controller-mapper/releases/download/v2.10.1/ControllerKeys-2.10.1.dmg" length="34126930" type="application/octet-stream" sparkle:edSignature="rfPAf2vhuPbshyeaMnlXaTqHvl5ZUvXk/1zVnOvBHPtiZkY7x00ddIp6b0Mr70kk+PUUDMrIfNDDAL3f07bSCA=="/>
+            <enclosure url="https://github.com/NSEvent/xbox-controller-mapper/releases/download/v2.11.0/ControllerKeys-2.11.0.dmg" length="34597734" type="application/octet-stream" sparkle:edSignature="TW/kaf05AklMJItSgrxdBeIzJWD9o86JmZhPotyO9AN2dQx4zyXmOkxeGQSSk9VoQ5MY0wlfQZaKi1MVYHrwBw=="/>
         </item>
     </channel>
 </rss>
