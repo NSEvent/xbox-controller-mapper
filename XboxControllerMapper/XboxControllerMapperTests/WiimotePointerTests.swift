@@ -80,8 +80,7 @@ final class WiimotePointerTests: XCTestCase {
         XCTAssertNil(result?.wiimoteButtons)
     }
 
-    // MARK: IR tracking (1024×768 screen: at 1× gain 1 camera px = 1 screen px;
-    // tests default to 1.25× so near-center anchors stay at the base scale)
+    // MARK: IR tracking (1024×768 screen; frame inset 40px maps onto it)
 
     private let screen = CGRect(x: 0, y: 0, width: 1024, height: 768)
     private let start = CGPoint(x: 500, y: 400)
@@ -95,13 +94,13 @@ final class WiimotePointerTests: XCTestCase {
 
         /// Feed the same blobs for `reports` reports (100 Hz) so smoothing settles.
         mutating func feed(_ points: [CGPoint], reports: Int = 80) {
-            let start = cursor
             for _ in 0..<reports {
                 time += 0.01
+                let real = cursor
                 if let delta = tracker.update(
                     blobs: points.map { WiimoteIRTracker.Blob(point: $0, size: 4) },
                     at: time, baseAlpha: 0.25, gain: gain, bounds: screen,
-                    currentCursor: { start }
+                    currentCursor: { real }
                 ) {
                     cursor.x += delta.x
                     cursor.y += delta.y
@@ -110,53 +109,87 @@ final class WiimotePointerTests: XCTestCase {
         }
     }
 
-    private func rig(gain: CGFloat = 1.25, cursor: CGPoint? = nil) -> Rig {
-        Rig(cursor: cursor ?? start, screen: screen, gain: gain)
+    private func rig(gain: CGFloat = 1) -> Rig { Rig(cursor: start, screen: screen, gain: gain) }
+
+    /// Where pure absolute aiming puts the cursor for a bar midpoint.
+    private func expected(_ midX: CGFloat, _ midY: CGFloat, gain: CGFloat = 1) -> CGPoint {
+        WiimoteIRTracker.screenPosition(aim: CGPoint(x: midX, y: midY), bounds: screen, gain: gain)
     }
 
-    private func assertCursor(_ rig: Rig, _ x: CGFloat, _ y: CGFloat, file: StaticString = #filePath, line: UInt = #line) {
-        XCTAssertEqual(rig.cursor.x, x, accuracy: 0.5, file: file, line: line)
-        XCTAssertEqual(rig.cursor.y, y, accuracy: 0.5, file: file, line: line)
+    private func assertCursor(_ rig: Rig, _ point: CGPoint, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual(rig.cursor.x, point.x, accuracy: 0.5, file: file, line: line)
+        XCTAssertEqual(rig.cursor.y, point.y, accuracy: 0.5, file: file, line: line)
     }
 
     private func bar(midX: CGFloat, midY: CGFloat, halfWidth: CGFloat = 100) -> [CGPoint] {
         [CGPoint(x: midX - halfWidth, y: midY), CGPoint(x: midX + halfWidth, y: midY)]
     }
 
-    func testIRAimIsMirroredAndAbsoluteThroughEdgeClamping() {
+    func testIRAimIsAbsoluteMirroredAndReachesEveryEdge() {
+        var r = rig()
+        r.feed(bar(midX: 511, midY: 383))
+        assertCursor(r, expected(511, 383))
+        XCTAssertEqual(r.cursor.x, 511.5, accuracy: 1)
+        XCTAssertEqual(r.cursor.y, 383.5, accuracy: 1)
+        // Pointing right moves the bar image left; the inset frame edges are
+        // the screen edges.
+        r.feed(bar(midX: 140, midY: 40, halfWidth: 100))
+        XCTAssertEqual(r.cursor.y, 0, accuracy: 0.5)
+        XCTAssertGreaterThan(r.cursor.x, 600)
+        r.feed(bar(midX: 883, midY: 727))
+        XCTAssertEqual(r.cursor.y, 767, accuracy: 0.5)
+        XCTAssertLessThan(r.cursor.x, 120)
+        // A narrow (distant) bar can reach the horizontal frame edges.
+        var narrow = rig()
+        narrow.feed(bar(midX: 40, midY: 400, halfWidth: 20))
+        XCTAssertEqual(narrow.cursor.x, 1023, accuracy: 0.5)
+        narrow.feed(bar(midX: 983, midY: 400, halfWidth: 20))
+        XCTAssertEqual(narrow.cursor.x, 0, accuracy: 0.5)
+    }
+
+    func testFirstFixAtTheFrameEdgeStillReachesTheFarEdge() {
+        // The bar usually enters the camera frame at an edge; the first fix
+        // there must not limit how far the cursor can travel afterwards.
+        var r = rig()
+        r.feed(bar(midX: 512, midY: 12))
+        assertCursor(r, expected(512, 12))
+        r.feed(bar(midX: 512, midY: 727))
+        XCTAssertEqual(r.cursor.y, 767, accuracy: 0.5)
+        r.feed(bar(midX: 512, midY: 40))
+        XCTAssertEqual(r.cursor.y, 0, accuracy: 0.5)
+    }
+
+    func testSpeedSpansTheScreenWithLessMovementAndNeverDropsBelowOne() {
         var r = rig(gain: 2)
-        r.feed(bar(midX: 512, midY: 384))
-        assertCursor(r, 500, 400)
-        // Pointing right moves the bar image left; pointing down moves it down.
-        r.feed(bar(midX: 462, midY: 404))
-        assertCursor(r, 600, 440)
-        // Far past the left edge clamps there...
-        r.feed(bar(midX: 900, midY: 384))
-        assertCursor(r, 0, 400)
-        // ...and aiming back at the start returns to the exact start pixel.
-        r.feed(bar(midX: 512, midY: 384))
-        assertCursor(r, 500, 400)
+        r.feed(bar(midX: 983 - 0.75 * 943, midY: 383.5))
+        XCTAssertEqual(r.cursor.x, 1023, accuracy: 0.5)
+        XCTAssertEqual(
+            WiimoteIRTracker.screenPosition(aim: CGPoint(x: 40, y: 40), bounds: screen, gain: 0.5),
+            WiimoteIRTracker.screenPosition(aim: CGPoint(x: 40, y: 40), bounds: screen, gain: 1)
+        )
     }
 
     func testOneBarEndDroppingOutNeitherMovesNorStallsTheCursor() {
         var r = rig()
         let full = bar(midX: 512, midY: 384)
         r.feed(full)
+        let settled = r.cursor
         r.feed([full[0]])
-        assertCursor(r, 500, 400)
+        assertCursor(r, settled)
         r.feed([full[1]])
-        assertCursor(r, 500, 400)
+        assertCursor(r, settled)
         // Pitching with only one end visible still tracks vertically.
         r.feed([CGPoint(x: full[0].x, y: full[0].y + 120)])
-        assertCursor(r, 500, 550)
+        assertCursor(r, expected(512, 504))
         r.feed(bar(midX: 512, midY: 504))
-        assertCursor(r, 500, 550)
+        assertCursor(r, expected(512, 504))
     }
 
     func testRollingTheRemoteDoesNotMoveTheCursor() {
         var r = rig()
         let level = bar(midX: 612, midY: 484)
         r.feed(level)
+        let settled = r.cursor
         let angle = CGFloat.pi / 6
         let center = WiimoteIRTracker.cameraCenter
         let rolled = level.map { p -> CGPoint in
@@ -165,52 +198,35 @@ final class WiimotePointerTests: XCTestCase {
                            y: center.y + vx * sin(angle) + vy * cos(angle))
         }
         r.feed(rolled)
-        assertCursor(r, 500, 400)
+        assertCursor(r, settled)
     }
 
     func testStrayLightAndSplitBarEndDoNotHijackTheMidpoint() {
         var r = rig()
         let full = bar(midX: 512, midY: 384)
         r.feed(full)
+        let settled = r.cursor
         r.feed(full + [CGPoint(x: 300, y: 650)])
-        assertCursor(r, 500, 400)
+        assertCursor(r, settled)
         r.feed(full + [CGPoint(x: full[0].x + 6, y: full[0].y + 2)])
-        assertCursor(r, 500, 400)
+        assertCursor(r, settled)
     }
 
-    func testLoneBlobAnchorHandsOffToTheBarWithoutJumping() {
+    func testLoneBlobAimsUntilTheBarAppearsThenUsesItsMidpoint() {
         var r = rig()
         r.feed([CGPoint(x: 412, y: 384)])
+        assertCursor(r, expected(412, 384))
         r.feed(bar(midX: 512, midY: 384))
-        assertCursor(r, 500, 400)
-        r.feed(bar(midX: 412, midY: 384))
-        assertCursor(r, 625, 400)
+        assertCursor(r, expected(512, 384))
     }
 
-    func testReacquiringAfterDropoutSnapsToTheAbsoluteAim() {
+    func testReacquiringAfterDropoutSnapsAndResyncsFromTheRealCursor() {
         var r = rig()
         r.feed(bar(midX: 512, midY: 384))
         r.time += 1.0
-        r.feed(bar(midX: 462, midY: 384), reports: 1)
-        assertCursor(r, 562.5, 400)
-    }
-
-    func testEveryScreenEdgeIsReachableBeforeTheBarLeavesTheCameraFrame() {
-        // Anchored low on screen while the bar sits high in the frame: at the
-        // base scale the top of the screen would need the bar to move 560px
-        // up a frame with only 300px of room — an invisible ceiling.
-        var r = rig(cursor: CGPoint(x: 500, y: 700))
-        r.feed(bar(midX: 512, midY: 300))
-        r.feed(bar(midX: 512, midY: 60))
-        XCTAssertLessThan(r.cursor.y, 60, "most of the way up with the bar still in frame")
-        r.feed(bar(midX: 512, midY: 40))
-        assertCursor(r, 500, 0)
-        // The roomy direction keeps the base scale, and the mapping is still
-        // absolute: returning to the anchor aim returns to the anchor pixel.
-        r.feed(bar(midX: 512, midY: 350))
-        assertCursor(r, 500, 762.5)
-        r.feed(bar(midX: 512, midY: 300))
-        assertCursor(r, 500, 700)
+        r.cursor = CGPoint(x: 100, y: 100)   // a trackpad moved it meanwhile
+        r.feed(bar(midX: 462, midY: 300), reports: 1)
+        assertCursor(r, expected(462, 300))
     }
 
     func testTiltSteersOnlyBeforeTheSensorBarIsFirstSeen() {

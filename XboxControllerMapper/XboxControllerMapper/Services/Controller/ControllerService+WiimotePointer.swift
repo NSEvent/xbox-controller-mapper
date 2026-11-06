@@ -118,6 +118,24 @@ nonisolated final class WiimotePointerState: @unchecked Sendable {
         )
     }
 
+    /// One NDJSON line per engaged report for the diagnostic trace: raw
+    /// blobs, the tracker's smoothed aim and cursor target, and which input
+    /// steered (ir / tilt / hold).
+    func traceLine(time: TimeInterval, points: [WiimoteIRPoint]?, mode: String) -> String {
+        lock.lock()
+        let aim = tracker.lastAim
+        let target = tracker.lastTarget
+        let screen = cachedScreenBounds
+        lock.unlock()
+        func pair(_ p: CGPoint?) -> String {
+            p.map { String(format: "[%.1f,%.1f]", $0.x, $0.y) } ?? "null"
+        }
+        let blobs = (points ?? []).map { "[\($0.x),\($0.y),\($0.size)]" }.joined(separator: ",")
+        let screenText = screen.map { String(format: "[%.0f,%.0f,%.0f,%.0f]", $0.minX, $0.minY, $0.width, $0.height) } ?? "null"
+        return String(format: "{\"t\":%.3f,", time)
+            + "\"mode\":\"\(mode)\",\"blobs\":[\(blobs)],\"aim\":\(pair(aim)),\"target\":\(pair(target)),\"screen\":\(screenText)}\n"
+    }
+
     func tiltAllowed(irEnabled: Bool, now: TimeInterval) -> Bool {
         guard irEnabled else { return true }
         lock.lock()
@@ -136,6 +154,30 @@ nonisolated final class WiimotePointerState: @unchecked Sendable {
 
 nonisolated private let wiimotePointerState = WiimotePointerState()
 
+/// Opt-in IR pointer trace (`wiimoteIRTraceLogging` default) appended to
+/// /tmp/controllerkeys-wii-ir-trace.ndjson off the HID thread — raw blobs
+/// plus the resulting aim/target, for diagnosing pointing from real data.
+nonisolated private final class WiimoteIRTraceWriter: @unchecked Sendable {
+    static let path = "/tmp/controllerkeys-wii-ir-trace.ndjson"
+    private let queue = DispatchQueue(label: "com.controllerkeys.wiimote-ir-trace", qos: .utility)
+    private var handle: FileHandle?
+
+    func append(_ line: String) {
+        queue.async {
+            if self.handle == nil {
+                if !FileManager.default.fileExists(atPath: Self.path) {
+                    FileManager.default.createFile(atPath: Self.path, contents: nil)
+                }
+                self.handle = FileHandle(forWritingAtPath: Self.path)
+                self.handle?.seekToEndOfFile()
+            }
+            self.handle?.write(Data(line.utf8))
+        }
+    }
+}
+
+nonisolated private let wiimoteIRTraceWriter = WiimoteIRTraceWriter()
+
 @MainActor
 extension ControllerService {
     // MARK: Pointer (tilt/IR mouse via the mapped Pointer (Hold) action)
@@ -146,6 +188,8 @@ extension ControllerService {
         let value = UserDefaults.standard.double(forKey: key)
         return value == 0 ? defaultValue : value
     }
+
+    nonisolated static let wiimoteIRTraceKey = "wiimoteIRTraceLogging"
 
     /// Default-true boolean toggle (UserDefaults returns false for unset keys).
     nonisolated private static func wiimoteFlag(_ key: String) -> Bool {
@@ -379,7 +423,9 @@ extension ControllerService {
             let tiltEnabled = Self.wiimoteFlag(Config.wiimoteTiltEnabledKey)
             let now = ProcessInfo.processInfo.systemUptime
 
+            var mode = "hold"
             if irEnabled, let ir = parsed.wiimoteIRPoints, !ir.isEmpty {
+                mode = "ir"
                 moveWiimotePointerByIR(ir, at: now)
             } else if tiltEnabled,
                       wiimotePointerState.tiltAllowed(irEnabled: irEnabled, now: now),
@@ -395,9 +441,13 @@ extension ControllerService {
                     maxPerReport: Float(Self.wiimoteTuning(Config.wiimoteTiltPitchSpeedKey, default: 44)),
                     deadzone: deadzone
                 )
+                mode = "tilt"
                 if dx != 0 || dy != 0 {
                     wiimotePointerSimulator?.moveMouse(dx: dx, dy: dy)
                 }
+            }
+            if UserDefaults.standard.bool(forKey: Self.wiimoteIRTraceKey) {
+                wiimoteIRTraceWriter.append(wiimotePointerState.traceLine(time: now, points: parsed.wiimoteIRPoints, mode: mode))
             }
         }
 

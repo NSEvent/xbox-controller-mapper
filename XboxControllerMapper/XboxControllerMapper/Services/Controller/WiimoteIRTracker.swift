@@ -3,14 +3,15 @@ import Foundation
 
 /// Turns Wii Remote IR camera blobs into cursor moves.
 ///
-/// Aiming is absolute within a pointer session: the first IR fix anchors the
-/// current cursor position to where the remote points, and every later
-/// report computes the cursor position from that anchor instead of summing
-/// per-report deltas. Dropped reports, sensor-bar dropouts and screen-edge
-/// clamping therefore never accumulate into an offset between the hand and
-/// the cursor — pointing back at the same spot returns the cursor to the
-/// same pixel. Moves are still emitted as deltas so the input simulator's
-/// drag handling keeps working.
+/// Aiming is absolute, as on a Wii: the camera frame (inset by a margin)
+/// maps onto the screen, so the cursor goes where the remote points and
+/// every screen edge is reachable while the sensor bar is still in view —
+/// however the session started. (An earlier design anchored the cursor to
+/// wherever the bar sat at the first IR fix; that fix often lands as the
+/// bar enters at the frame edge, leaving almost no camera room in one
+/// direction — the "invisible ceiling".) Dropped reports and dropouts can't
+/// accumulate drift because nothing is summed. Moves are still emitted as
+/// deltas so the input simulator's drag handling keeps working.
 ///
 /// The aim reference is the sensor bar's midpoint. When only one end is
 /// visible (off-axis viewing dims one cluster, or it leaves the camera's
@@ -35,12 +36,9 @@ nonisolated struct WiimoteIRTracker {
     /// After a dropout this long the cursor snaps to the reacquired aim
     /// instead of easing toward it.
     static let reacquireSnapInterval: TimeInterval = 0.4
-    /// Reach each screen edge while the bar is still this far inside the
-    /// camera frame (it's lost at the frame edge).
+    /// The screen edges map this far inside the camera frame, so they're
+    /// reached while the bar is still in view (it's lost at the frame edge).
     static let frameMargin: CGFloat = 40
-    /// Cap on how much a direction's scale may exceed the base scale when
-    /// the anchor left it little camera headroom.
-    static let maxHeadroomBoost: CGFloat = 4
 
     struct Blob: Equatable {
         let point: CGPoint
@@ -61,18 +59,17 @@ nonisolated struct WiimoteIRTracker {
     /// Last camera-space aim reference (bar midpoint, or a lone blob before
     /// the bar geometry is known).
     private var lastReference: CGPoint?
-    /// Whether `lastReference` is a lone blob with no known bar geometry.
-    private var referenceIsLoneBlob = false
     private var roll: CGFloat = 0
     private var pairRejectedSince: TimeInterval?
     private var smoothedAim: CGPoint?
     private var lastSampleTime: TimeInterval = -.infinity
-    private var anchorAim: CGPoint?
-    private var anchorCursor: CGPoint?
     private var emittedCursor: CGPoint?
+    /// Latest smoothed aim and cursor target, for the diagnostic trace.
+    private(set) var lastAim: CGPoint?
+    private(set) var lastTarget: CGPoint?
 
     /// Feed one report's blobs; returns the cursor delta to post (nil when
-    /// nothing should move, e.g. the anchoring first fix).
+    /// nothing should move).
     mutating func update(
         blobs: [Blob],
         at time: TimeInterval,
@@ -82,19 +79,12 @@ nonisolated struct WiimoteIRTracker {
         currentCursor: () -> CGPoint
     ) -> CGPoint? {
         guard !blobs.isEmpty, let resolved = resolveReference(blobs, at: time) else { return nil }
-        let (reference, continuityShift) = resolved
-        let aim = derotate(reference)
+        let aim = derotate(resolved)
         hasSeenIR = true
 
-        // The reference switched from a lone blob to the bar midpoint without
-        // the hand moving: carry the anchor and filter along so it's seamless.
-        if let shift = continuityShift {
-            anchorAim = anchorAim.map { CGPoint(x: $0.x + shift.x, y: $0.y + shift.y) }
-            smoothedAim = smoothedAim.map { CGPoint(x: $0.x + shift.x, y: $0.y + shift.y) }
-        }
-
+        let reacquired = smoothedAim == nil || time - lastSampleTime >= Self.reacquireSnapInterval
         let smoothed: CGPoint
-        if let previous = smoothedAim, time - lastSampleTime < Self.reacquireSnapInterval {
+        if let previous = smoothedAim, !reacquired {
             // Speed-adaptive (One-Euro-style): a still hand gets heavy
             // smoothing so sensor noise parks the cursor; sweeps stay responsive.
             let distance = hypot(aim.x - previous.x, aim.y - previous.y)
@@ -109,70 +99,39 @@ nonisolated struct WiimoteIRTracker {
         smoothedAim = smoothed
         lastSampleTime = time
 
-        guard let anchorAim, let anchorCursor, let emitted = emittedCursor else {
-            let start = Self.clamp(currentCursor(), to: bounds)
-            self.anchorAim = smoothed
-            self.anchorCursor = start
-            emittedCursor = start
-            return nil
-        }
-
-        // Camera axes are mirrored horizontally: pointing right moves the
-        // bar's image left.
-        let aimDX = smoothed.x - anchorAim.x
-        let aimDY = smoothed.y - anchorAim.y
-        let scaleX = Self.headroomScale(
-            base: bounds.width / Self.cameraWidth * gain,
-            screenRoom: aimDX > 0 ? anchorCursor.x - bounds.minX : bounds.maxX - 1 - anchorCursor.x,
-            cameraRoom: aimDX > 0 ? Self.cameraWidth - 1 - Self.frameMargin - anchorAim.x : anchorAim.x - Self.frameMargin
-        )
-        let scaleY = Self.headroomScale(
-            base: bounds.height / Self.cameraHeight * gain,
-            screenRoom: aimDY > 0 ? bounds.maxY - 1 - anchorCursor.y : anchorCursor.y - bounds.minY,
-            cameraRoom: aimDY > 0 ? Self.cameraHeight - 1 - Self.frameMargin - anchorAim.y : anchorAim.y - Self.frameMargin
-        )
-        let target = Self.clamp(CGPoint(
-            x: anchorCursor.x - aimDX * scaleX,
-            y: anchorCursor.y + aimDY * scaleY
-        ), to: bounds)
+        let target = Self.screenPosition(aim: smoothed, bounds: bounds, gain: gain)
+        lastAim = smoothed
+        lastTarget = target
+        // On (re)acquiring, measure from the real cursor in case something
+        // else (a trackpad) moved it while IR wasn't steering.
+        let emitted = (reacquired ? nil : emittedCursor) ?? Self.clamp(currentCursor(), to: bounds)
         emittedCursor = target
         return CGPoint(x: target.x - emitted.x, y: target.y - emitted.y)
     }
 
-    /// Scale for one direction away from the anchor. The anchor ties the
-    /// cursor to wherever the bar happened to sit in the camera frame, so at
-    /// the base scale a cursor anchored low with the bar near the frame's
-    /// top edge loses the bar before reaching the top of the screen — an
-    /// invisible ceiling. Scaling up just enough that the screen edge
-    /// arrives before the frame edge keeps every edge reachable while the
-    /// mapping stays absolute (it's a fixed function of the aim).
-    static func headroomScale(base: CGFloat, screenRoom: CGFloat, cameraRoom: CGFloat) -> CGFloat {
-        let needed = max(0, screenRoom) / max(1, cameraRoom)
-        return min(max(base, needed), base * maxHeadroomBoost)
+    /// Absolute aim → screen position. The inset camera frame spans the
+    /// screen at 1× gain; higher gain spans it with less hand movement
+    /// (centered), and gain is floored at 1× so the edges stay reachable.
+    /// Camera X is mirrored: pointing right moves the bar's image left.
+    static func screenPosition(aim: CGPoint, bounds: CGRect, gain: CGFloat) -> CGPoint {
+        let g = max(1, gain)
+        let u = (cameraWidth - 1 - frameMargin - aim.x) / (cameraWidth - 1 - 2 * frameMargin)
+        let v = (aim.y - frameMargin) / (cameraHeight - 1 - 2 * frameMargin)
+        return clamp(CGPoint(
+            x: bounds.minX + (0.5 + (u - 0.5) * g) * (bounds.width - 1),
+            y: bounds.minY + (0.5 + (v - 0.5) * g) * (bounds.height - 1)
+        ), to: bounds)
     }
 
     // MARK: Reference resolution
 
-    /// The camera-space aim reference for this report, plus (when the
-    /// reference type changed under a still hand) the aim-space shift that
-    /// keeps the cursor from jumping.
-    private mutating func resolveReference(_ blobs: [Blob], at time: TimeInterval) -> (CGPoint, CGPoint?)? {
+    /// The camera-space aim reference for this report.
+    private mutating func resolveReference(_ blobs: [Blob], at time: TimeInterval) -> CGPoint? {
         if let pair = acceptPair(blobs, at: time) {
-            var shift: CGPoint?
-            if referenceIsLoneBlob, let last = lastReference {
-                // The lone blob we tracked is whichever end of the bar is
-                // nearer it; the aim jumps from it to the midpoint.
-                let tracked = Self.distance(pair.left, last) <= Self.distance(pair.right, last) ? pair.left : pair.right
-                let before = derotate(tracked)
-                roll = atan2(pair.halfSpan.y, pair.halfSpan.x)
-                let after = derotate(pair.midpoint)
-                shift = CGPoint(x: after.x - before.x, y: after.y - before.y)
-            }
             halfSpan = pair.halfSpan
             roll = atan2(pair.halfSpan.y, pair.halfSpan.x)
-            referenceIsLoneBlob = false
             lastReference = pair.midpoint
-            return (pair.midpoint, shift)
+            return pair.midpoint
         }
 
         if let halfSpan {
@@ -193,21 +152,19 @@ nonisolated struct WiimoteIRTracker {
                     }
                 }
             }
-            guard let best else { return nil }
-            lastReference = best
-            return (best, nil)
+            if let best { lastReference = best }
+            return best
         }
 
-        // No bar geometry yet: track a lone blob until both ends appear.
+        // No bar geometry yet: aim with a lone blob until both ends appear.
         let blob: Blob
         if let last = lastReference {
             blob = blobs.min { Self.distance($0.point, last) < Self.distance($1.point, last) }!
         } else {
             blob = blobs.max { $0.size < $1.size }!
         }
-        referenceIsLoneBlob = true
         lastReference = blob.point
-        return (blob.point, nil)
+        return blob.point
     }
 
     /// The best bar pair this report, gated against the remembered bar

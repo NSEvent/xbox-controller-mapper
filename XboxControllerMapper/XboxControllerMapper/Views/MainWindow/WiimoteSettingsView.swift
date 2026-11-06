@@ -83,8 +83,8 @@ struct WiimoteSettingsView: View {
 				SliderRow(
 					label: "Speed",
 					value: $irSpeed,
-					range: 0.25...3.0,
-					description: "How far the cursor travels per degree of aim. 1× maps the camera's full view to the screen.",
+					range: 1.0...3.0,
+					description: "1× spans the screen across the camera's full view. Raise it to cross the screen with less hand movement.",
 					specifier: "%.2f×"
 				)
 				SliderRow(
@@ -93,7 +93,7 @@ struct WiimoteSettingsView: View {
 					range: 0.10...0.90,
 					description: "Base smoothing — lower = steadier aim (smoothing auto-lightens during fast sweeps). Raise only if aiming feels laggy."
 				)
-				Text("Map B to Pointer (Toggle), then press B once to aim and again to stop. Power the sensor bar and place it above or below your display. Use a wall USB adapter: TV USB ports often underpower the bar, which dims its LEDs and makes the cursor jumpy. Aim locks to where the cursor is when the bar is first seen, so pointing back at a spot always returns the cursor there. If the bar drops out of view, the cursor holds still. Toggle off and on to recenter.")
+				Text("Map B to Pointer (Toggle), then press B once to aim and again to stop. Power the sensor bar and place it above or below your display. Use a wall USB adapter: TV USB ports often underpower the bar, which dims its LEDs and makes the cursor jumpy. The cursor goes where you point, so every edge is reachable while the bar is in view. If the bar drops out of view, the cursor holds still.")
 					.font(.system(size: 11))
 					.foregroundStyle(.tertiary)
 					.fixedSize(horizontal: false, vertical: true)
