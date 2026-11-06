@@ -895,7 +895,9 @@ class MappingEngine: ObservableObject {
 					state.physicalButtonResolutions.removeValue(forKey: button)
 				}
 			}
-            _ = UniversalControlMouseRelay.shared.sendControllerButtonPressed(button)
+            if UniversalControlMouseRelay.shared.sendControllerButtonPressed(button) {
+				state.lock.withLock { _ = state.remoteRoutedButtons.insert(button) }
+			}
             return
         }
 		let button = beginPhysicalButtonResolution(for: button)
@@ -1447,6 +1449,12 @@ class MappingEngine: ObservableObject {
 		releasedAt: CFAbsoluteTime? = nil) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
         LatencyDiagnostics.mark("engine.release \(button.rawValue)")
+		// A press the peer handled releases on the peer, wherever the cursor is
+		// now. If the session has ended the peer clears its own held buttons.
+		if state.lock.withLock({ state.remoteRoutedButtons.remove(button) != nil }) {
+			_ = UniversalControlMouseRelay.shared.sendControllerButtonReleased(button, holdDuration: holdDuration)
+			return
+		}
 		let resolvedButtonForState = peekResolvedReleaseButton(for: button)
 		if UniversalControlMouseRelay.shared.shouldRouteControllerInputToRemote {
 			let hasLocalButtonState = state.lock.withLock {
