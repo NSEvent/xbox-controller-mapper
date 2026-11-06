@@ -1214,6 +1214,11 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                 .opacity(swapFirstButton == button ? 1 : 0)
         )
         .opacity(isBaseFallthrough(for: button) ? 0.4 : 1.0)
+		.overlay(alignment: .topTrailing) {
+			// Kept inside the tile's bounds so moving onto it doesn't end the hover.
+			mappingQuickActions(for: button, hasMapping: currentMapping != nil, showsLayer: showsLayerActivator)
+				.padding(2)
+		}
         .contentShape(Rectangle())
 		.controllerAnchor(button, role: .label, attachment: isXiaomiRemote ? .horizontalEdge : .bounds)
 		.opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)
@@ -1535,6 +1540,10 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                     .opacity(swapFirstButton == button ? 1 : 0)
             )
             .opacity(isBaseFallthrough(for: button) ? 0.4 : 1.0)  // Dim fallthrough mappings
+			.overlay(alignment: .trailing) {
+				mappingQuickActions(for: button, hasMapping: currentMapping != nil, showsLayer: showsLayerActivator)
+					.padding(.trailing, 6)
+			}
             // Anchor only the glass container so connectors terminate at the box edge,
             // independent of which side of the controller the row sits on. Anchoring
             // the parent HStack would have right-column rows resolve to the icon edge.
@@ -1664,6 +1673,32 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 	private func copyMapping(for button: ControllerButton) {
 		guard let mapping = mapping(for: button) else { return }
 		ControllerMappingPasteboard.write(mapping)
+	}
+
+	/// Icon-only Copy / Paste buttons shown while a mapping is hovered, so the
+	/// context-menu actions are discoverable. Clear stays menu-only (destructive).
+	@ViewBuilder
+	private func mappingQuickActions(for button: ControllerButton, hasMapping: Bool, showsLayer: Bool) -> some View {
+		let canCopy = !showsLayer && hasMapping
+		let canPaste = !showsLayer && canPasteMapping
+		if hoveredButton == button, canCopy || canPaste {
+			HStack(spacing: 2) {
+				if canCopy {
+					MappingQuickActionButton(systemImage: "doc.on.doc", help: "Copy Mapping") {
+						copyMapping(for: button)
+					}
+				}
+				if canPaste {
+					MappingQuickActionButton(systemImage: "doc.on.clipboard", help: "Paste Mapping") {
+						pasteMapping(to: button)
+					}
+				}
+			}
+			.padding(2)
+			.background(Capsule().fill(.regularMaterial))
+			.overlay(Capsule().stroke(Color.primary.opacity(0.12), lineWidth: 1))
+			.transition(.opacity)
+		}
 	}
 
 	private func pasteMapping(to button: ControllerButton) {
@@ -1888,6 +1923,30 @@ struct HoverableGlassContainer<Content: View>: View {
                 }
             }
     }
+}
+
+/// Small icon button used by the hover quick actions on mapping rows/tiles.
+private struct MappingQuickActionButton: View {
+	let systemImage: String
+	let help: LocalizedStringKey
+	let action: () -> Void
+
+	@State private var isHovered = false
+
+	var body: some View {
+		Button(action: action) {
+			Image(systemName: systemImage)
+				.font(.system(size: 10, weight: .semibold))
+				.frame(width: 20, height: 18)
+				.background(Circle().fill(Color.primary.opacity(isHovered ? 0.14 : 0)))
+				.contentShape(Rectangle())
+		}
+		.buttonStyle(.plain)
+		.foregroundStyle(isHovered ? .primary : .secondary)
+		.onHover { isHovered = $0 }
+		.help(help)
+		.accessibilityLabel(Text(help))
+	}
 }
 
 struct MappingTag: View {
