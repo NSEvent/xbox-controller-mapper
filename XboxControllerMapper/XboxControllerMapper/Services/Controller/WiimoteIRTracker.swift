@@ -35,6 +35,12 @@ nonisolated struct WiimoteIRTracker {
     /// After a dropout this long the cursor snaps to the reacquired aim
     /// instead of easing toward it.
     static let reacquireSnapInterval: TimeInterval = 0.4
+    /// Reach each screen edge while the bar is still this far inside the
+    /// camera frame (it's lost at the frame edge).
+    static let frameMargin: CGFloat = 40
+    /// Cap on how much a direction's scale may exceed the base scale when
+    /// the anchor left it little camera headroom.
+    static let maxHeadroomBoost: CGFloat = 4
 
     struct Blob: Equatable {
         let point: CGPoint
@@ -113,12 +119,36 @@ nonisolated struct WiimoteIRTracker {
 
         // Camera axes are mirrored horizontally: pointing right moves the
         // bar's image left.
+        let aimDX = smoothed.x - anchorAim.x
+        let aimDY = smoothed.y - anchorAim.y
+        let scaleX = Self.headroomScale(
+            base: bounds.width / Self.cameraWidth * gain,
+            screenRoom: aimDX > 0 ? anchorCursor.x - bounds.minX : bounds.maxX - 1 - anchorCursor.x,
+            cameraRoom: aimDX > 0 ? Self.cameraWidth - 1 - Self.frameMargin - anchorAim.x : anchorAim.x - Self.frameMargin
+        )
+        let scaleY = Self.headroomScale(
+            base: bounds.height / Self.cameraHeight * gain,
+            screenRoom: aimDY > 0 ? bounds.maxY - 1 - anchorCursor.y : anchorCursor.y - bounds.minY,
+            cameraRoom: aimDY > 0 ? Self.cameraHeight - 1 - Self.frameMargin - anchorAim.y : anchorAim.y - Self.frameMargin
+        )
         let target = Self.clamp(CGPoint(
-            x: anchorCursor.x - (smoothed.x - anchorAim.x) * (bounds.width / Self.cameraWidth) * gain,
-            y: anchorCursor.y + (smoothed.y - anchorAim.y) * (bounds.height / Self.cameraHeight) * gain
+            x: anchorCursor.x - aimDX * scaleX,
+            y: anchorCursor.y + aimDY * scaleY
         ), to: bounds)
         emittedCursor = target
         return CGPoint(x: target.x - emitted.x, y: target.y - emitted.y)
+    }
+
+    /// Scale for one direction away from the anchor. The anchor ties the
+    /// cursor to wherever the bar happened to sit in the camera frame, so at
+    /// the base scale a cursor anchored low with the bar near the frame's
+    /// top edge loses the bar before reaching the top of the screen — an
+    /// invisible ceiling. Scaling up just enough that the screen edge
+    /// arrives before the frame edge keeps every edge reachable while the
+    /// mapping stays absolute (it's a fixed function of the aim).
+    static func headroomScale(base: CGFloat, screenRoom: CGFloat, cameraRoom: CGFloat) -> CGFloat {
+        let needed = max(0, screenRoom) / max(1, cameraRoom)
+        return min(max(base, needed), base * maxHeadroomBoost)
     }
 
     // MARK: Reference resolution

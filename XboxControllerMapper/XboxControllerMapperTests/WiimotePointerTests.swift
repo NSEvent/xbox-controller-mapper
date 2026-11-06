@@ -80,7 +80,8 @@ final class WiimotePointerTests: XCTestCase {
         XCTAssertNil(result?.wiimoteButtons)
     }
 
-    // MARK: IR tracking (1024×768 screen at 1× gain: 1 camera px = 1 screen px)
+    // MARK: IR tracking (1024×768 screen: at 1× gain 1 camera px = 1 screen px;
+    // tests default to 1.25× so near-center anchors stay at the base scale)
 
     private let screen = CGRect(x: 0, y: 0, width: 1024, height: 768)
     private let start = CGPoint(x: 500, y: 400)
@@ -109,7 +110,9 @@ final class WiimotePointerTests: XCTestCase {
         }
     }
 
-    private func rig(gain: CGFloat = 1) -> Rig { Rig(cursor: start, screen: screen, gain: gain) }
+    private func rig(gain: CGFloat = 1.25, cursor: CGPoint? = nil) -> Rig {
+        Rig(cursor: cursor ?? start, screen: screen, gain: gain)
+    }
 
     private func assertCursor(_ rig: Rig, _ x: CGFloat, _ y: CGFloat, file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertEqual(rig.cursor.x, x, accuracy: 0.5, file: file, line: line)
@@ -145,9 +148,9 @@ final class WiimotePointerTests: XCTestCase {
         assertCursor(r, 500, 400)
         // Pitching with only one end visible still tracks vertically.
         r.feed([CGPoint(x: full[0].x, y: full[0].y + 120)])
-        assertCursor(r, 500, 520)
+        assertCursor(r, 500, 550)
         r.feed(bar(midX: 512, midY: 504))
-        assertCursor(r, 500, 520)
+        assertCursor(r, 500, 550)
     }
 
     func testRollingTheRemoteDoesNotMoveTheCursor() {
@@ -181,7 +184,7 @@ final class WiimotePointerTests: XCTestCase {
         r.feed(bar(midX: 512, midY: 384))
         assertCursor(r, 500, 400)
         r.feed(bar(midX: 412, midY: 384))
-        assertCursor(r, 600, 400)
+        assertCursor(r, 625, 400)
     }
 
     func testReacquiringAfterDropoutSnapsToTheAbsoluteAim() {
@@ -189,7 +192,25 @@ final class WiimotePointerTests: XCTestCase {
         r.feed(bar(midX: 512, midY: 384))
         r.time += 1.0
         r.feed(bar(midX: 462, midY: 384), reports: 1)
-        assertCursor(r, 550, 400)
+        assertCursor(r, 562.5, 400)
+    }
+
+    func testEveryScreenEdgeIsReachableBeforeTheBarLeavesTheCameraFrame() {
+        // Anchored low on screen while the bar sits high in the frame: at the
+        // base scale the top of the screen would need the bar to move 560px
+        // up a frame with only 300px of room — an invisible ceiling.
+        var r = rig(cursor: CGPoint(x: 500, y: 700))
+        r.feed(bar(midX: 512, midY: 300))
+        r.feed(bar(midX: 512, midY: 60))
+        XCTAssertLessThan(r.cursor.y, 60, "most of the way up with the bar still in frame")
+        r.feed(bar(midX: 512, midY: 40))
+        assertCursor(r, 500, 0)
+        // The roomy direction keeps the base scale, and the mapping is still
+        // absolute: returning to the anchor aim returns to the anchor pixel.
+        r.feed(bar(midX: 512, midY: 350))
+        assertCursor(r, 500, 762.5)
+        r.feed(bar(midX: 512, midY: 300))
+        assertCursor(r, 500, 700)
     }
 
     func testTiltSteersOnlyBeforeTheSensorBarIsFirstSeen() {

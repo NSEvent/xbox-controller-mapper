@@ -93,7 +93,7 @@ struct WiimoteSettingsView: View {
 					range: 0.10...0.90,
 					description: "Base smoothing — lower = steadier aim (smoothing auto-lightens during fast sweeps). Raise only if aiming feels laggy."
 				)
-				Text("Map B to Pointer (Toggle), then press B once to aim and again to stop. Power the sensor bar and place it above or below your display. Aim locks to where the cursor is when the bar is first seen, so pointing back at a spot always returns the cursor there. If the bar drops out of view, the cursor holds still. Toggle off and on to recenter.")
+				Text("Map B to Pointer (Toggle), then press B once to aim and again to stop. Power the sensor bar and place it above or below your display. Use a wall USB adapter: TV USB ports often underpower the bar, which dims its LEDs and makes the cursor jumpy. Aim locks to where the cursor is when the bar is first seen, so pointing back at a spot always returns the cursor there. If the bar drops out of view, the cursor holds still. Toggle off and on to recenter.")
 					.font(.system(size: 11))
 					.foregroundStyle(.tertiary)
 					.fixedSize(horizontal: false, vertical: true)
