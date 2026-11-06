@@ -715,7 +715,10 @@ extension ControllerService {
             let secondaryTouchDistance = storage.touchpadSecondaryMaxDistanceFromStart
             let gestureDistance = storage.touchpadTwoFingerGestureDistance
             let pinchDistance = storage.touchpadTwoFingerPinchDistance
-            let isTwoFingerTap = wasTwoFingerDuringTouch &&
+            // Gated on wasTouching like the single tap: Apple TV remote reports
+            // keep re-entering this branch with no primary finger after a lift.
+            let isTwoFingerTap = wasTouching &&
+                wasTwoFingerDuringTouch &&
                 !longTapFired &&
                 !clickFiredDuringTouch &&
                 touchDuration < Config.touchpadTapMaxDuration &&
@@ -740,6 +743,7 @@ extension ControllerService {
             storage.touchpadClickFiredDuringTouch = false
             storage.touchpadMovementBlocked = false
             storage.touchpadLongTapFired = false
+            storage.touchpadWasTwoFingerDuringTouch = false
             storage.appleTVRemoteCircularScrollActive = false
             storage.appleTVRemoteCircularScrollStartedInOuterRing = false
             let isSecondaryTouching = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
