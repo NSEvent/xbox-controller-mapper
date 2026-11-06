@@ -113,7 +113,9 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private var tapDetector = OuraTapDetector()
 	private var authKey: Data?
 	private var pendingAdoptionKey: Data?
-	private var tapReleaseWorkItem: DispatchWorkItem?
+	/// Pending 70 ms releases, one per gesture button, so a second gesture
+	/// inside the window can't cancel the first one's release.
+	private var tapReleaseWorkItems: [ControllerButton: DispatchWorkItem] = [:]
 	private var tapSequenceWorkItem: DispatchWorkItem?
 	private var connectTimeoutWorkItem: DispatchWorkItem?
 	private var realtimeRefreshTimer: Timer?
@@ -325,8 +327,8 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	}
 
 	func resetInputSessionForConnectionLoss() {
-		tapReleaseWorkItem?.cancel()
-		tapReleaseWorkItem = nil
+		tapReleaseWorkItems.values.forEach { $0.cancel() }
+		tapReleaseWorkItems.removeAll()
 		tapSequenceWorkItem?.cancel()
 		tapSequenceWorkItem = nil
 		tapSequence.reset()
@@ -1096,16 +1098,24 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 			return false
 		}
 
-		tapReleaseWorkItem?.cancel()
+		tapReleaseWorkItems[button]?.cancel()
 		controllerService.handleButton(button, pressed: true)
 
 		let workItem = DispatchWorkItem { [weak self] in
+			self?.tapReleaseWorkItems[button] = nil
 			self?.controllerService.handleButton(button, pressed: false)
 		}
-		tapReleaseWorkItem = workItem
+		tapReleaseWorkItems[button] = workItem
 		DispatchQueue.main.asyncAfter(deadline: .now() + 0.07, execute: workItem)
 		return true
 	}
+
+	#if DEBUG
+	@discardableResult
+	func fireGestureButtonForTesting(_ button: ControllerButton) -> Bool {
+		fireGestureButton(button)
+	}
+	#endif
 
 	private func hasExplicitGestureBinding(for button: ControllerButton) -> Bool {
 		guard let profile = profileManager.activeProfile else { return false }
