@@ -32,6 +32,7 @@ class CommandWheelManager: ObservableObject {
     @Published private(set) var forceQuitProgress: CGFloat = 0
 
     private var panel: NSPanel?
+    private let fader = PanelFader()
     private var usageStatsService: UsageStatsService?
     private var actionExecutor: MappingExecutor?
     private var actionProfile: Profile?
@@ -105,6 +106,10 @@ class CommandWheelManager: ObservableObject {
         guard !items.isEmpty, !isVisible else { return }
         showPanel()
     }
+
+    #if DEBUG
+    var isPanelOnScreenForTesting: Bool { panel?.isVisible ?? false }
+    #endif
 
     /// Prepares the command wheel with primary and alternate item sets (does NOT show it yet - call show() after).
     func prepare(apps: [AppBarItem], websites: [WebsiteLink], showWebsitesFirst: Bool) {
@@ -193,16 +198,11 @@ class CommandWheelManager: ObservableObject {
     /// Hides the command wheel
     func hide() {
         if let panelToHide = panel {
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.12
-                panelToHide.animator().alphaValue = 0
-            }, completionHandler: { [weak self] in
-                guard let self = self else { return }
-                if self.panel === panelToHide {
-                    panelToHide.orderOut(nil)
-                    self.panel = nil
+            fader.fadeOut(panelToHide, duration: 0.12) { [weak self] in
+                if self?.panel === panelToHide {
+                    self?.panel = nil
                 }
-            })
+            }
         }
         isVisible = false
         alternateReleaseTime = nil
@@ -382,12 +382,7 @@ class CommandWheelManager: ObservableObject {
         }
         panel?.alphaValue = 0
         panel?.orderFrontRegardless()
-        if let panel = panel {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.12
-                panel.animator().alphaValue = 1
-            }
-        }
+        fader.fadeIn(panel, duration: 0.12)
         isVisible = true
     }
 

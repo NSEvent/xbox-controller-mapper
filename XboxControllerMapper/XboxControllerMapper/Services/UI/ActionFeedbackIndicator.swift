@@ -45,6 +45,7 @@ class ActionFeedbackIndicator {
     }
 
     private var panel: NSPanel?
+    private let fader = PanelFader()
     private var hostingView: NSHostingView<ActionFeedbackView>?
     private var hideTimer: Timer?
     private var trackingTimer: Timer?
@@ -122,11 +123,7 @@ class ActionFeedbackIndicator {
             panel?.orderFrontRegardless()
             startTracking()
 
-            // Fade in
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.1
-                panel?.animator().alphaValue = 1
-            }
+            fader.fadeIn(panel, duration: 0.1)
         }
 
         updatePosition()
@@ -193,13 +190,7 @@ class ActionFeedbackIndicator {
         heldActions.removeAll()
         stopTracking()
 
-        // Fade out
-        NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.15
-            panel?.animator().alphaValue = 0
-        }, completionHandler: { [weak self] in
-            self?.panel?.orderOut(nil)
-        })
+        fader.fadeOut(panel, duration: 0.15)
     }
 
     private func createPanel() {
