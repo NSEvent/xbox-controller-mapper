@@ -68,17 +68,20 @@ final class WiimotePairingService: NSObject, ObservableObject {
 
 	func stop(failure: String? = nil) {
 		NSLog("[WiiPair] Stop: %@", failure ?? "cancelled")
-		timeoutWorkItem?.cancel()
-		timeoutWorkItem = nil
-		inquiry?.stop()
-		inquiry = nil
-		pairingAgent?.stop()
-		pairingAgent = nil
+		// Invalidate state before stop() can synchronously call our delegates.
 		if let failure {
 			phase = .failed(failure)
 		} else if isBusy {
 			phase = .idle
 		}
+		timeoutWorkItem?.cancel()
+		timeoutWorkItem = nil
+		let previousInquiry = inquiry
+		inquiry = nil
+		let previousAgent = pairingAgent
+		pairingAgent = nil
+		previousInquiry?.stop()
+		previousAgent?.stop()
 	}
 }
 
@@ -107,18 +110,33 @@ extension WiimotePairingService: IOBluetoothDeviceInquiryDelegate {
 		let result = agent?.start()
 		NSLog("[WiiPair] Pair start result: %@", result.map { String(format: "0x%08X", $0) } ?? "no agent")
 		if result != kIOReturnSuccess {
+			pairingAgent = nil
+			agent?.stop()
 			phase = .scanning
-			inquiry?.start()
+			restartInquiry(sender)
 		}
 	}
 
 	@objc func deviceInquiryComplete(_ sender: IOBluetoothDeviceInquiry!, error: IOReturn, aborted: Bool) {
 		NSLog("[WiiPair] Inquiry complete: error=0x%08X aborted=%d phase=%@", error, aborted, String(describing: phase))
-		// Keep scanning until something answers or the overall window expires.
-		guard phase == .scanning, !timedOut else { return }
-		DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-			guard let self, self.phase == .scanning, !self.timedOut else { return }
-			self.inquiry?.start()
+		guard let sender, sender === inquiry, phase == .scanning, !timedOut, !aborted else { return }
+		// Tahoe can resolve a name without delivering deviceNameUpdated. Its
+		// duplicate discovery also skips deviceFound, so revisit the retained
+		// devices before clearing this inquiry's deduplication cache.
+		for case let device as IOBluetoothDevice in sender.foundDevices() ?? [] {
+			deviceInquiryDeviceFound(sender, device: device)
+			if phase != .scanning { return }
+		}
+		restartInquiry(sender)
+	}
+
+	private func restartInquiry(_ sender: IOBluetoothDeviceInquiry) {
+		DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self, weak sender] in
+			guard let self, let sender, sender === self.inquiry,
+				  self.phase == .scanning, !self.timedOut else { return }
+			sender.clearFoundDevices()
+			let result = sender.start()
+			NSLog("[WiiPair] Inquiry restart result: 0x%08X", result)
 		}
 	}
 }
@@ -160,20 +178,24 @@ extension WiimotePairingService: IOBluetoothDevicePairDelegate {
 		NSLog("[WiiPair] Pair finished: error=0x%08X phase=%@", error, String(describing: phase))
         guard let pair = sender as? IOBluetoothDevicePair,
               pair === pairingAgent, phase == .pairing else { return }
+		let device = pair.device()
+		// A failed agent otherwise keeps reacting to discovery and reconnects
+		// independently of our state machine (observed after error 31).
+		pairingAgent = nil
+		pair.stop()
 		if error == kIOReturnSuccess {
 			phase = .paired
+			stop()
 			// Bring the HID connection up; the Wiimote backend attaches from here.
-			if let device = pairingAgent?.device(), !device.isConnected() {
+			if let device, !device.isConnected() {
 				device.openConnection()
 			}
-			pairingAgent = nil
-			inquiry = nil
 			NSLog("[ControllerKeys] In-app Wii Remote pairing succeeded")
 		} else {
 			// Wrong window timing is common — resume scanning for another tap.
 			guard !timedOut else { return }
 			phase = .scanning
-			inquiry?.start()
+			if let inquiry { restartInquiry(inquiry) }
 		}
 	}
 }
