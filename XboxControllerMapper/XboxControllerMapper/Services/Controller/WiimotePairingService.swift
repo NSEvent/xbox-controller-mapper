@@ -43,6 +43,7 @@ final class WiimotePairingService: NSObject, ObservableObject {
 
 	func startPairing() {
 		guard !isBusy else { return }
+		NSLog("[WiiPair] Starting pairing scan")
 		timedOut = false
 		phase = .scanning
 
@@ -50,7 +51,8 @@ final class WiimotePairingService: NSObject, ObservableObject {
 		inquiry?.inquiryLength = 6
 		inquiry?.updateNewDeviceNames = true
 		self.inquiry = inquiry
-		inquiry?.start()
+		let result = inquiry?.start()
+		NSLog("[WiiPair] Inquiry start result: %@", result.map { String(format: "0x%08X", $0) } ?? "no inquiry")
 
 		// Overall window: the user may need several sync taps. Cancellable so
 		// a stale timer from a cancelled session can't kill a later scan.
@@ -65,6 +67,7 @@ final class WiimotePairingService: NSObject, ObservableObject {
 	}
 
 	func stop(failure: String? = nil) {
+		NSLog("[WiiPair] Stop: %@", failure ?? "cancelled")
 		timeoutWorkItem?.cancel()
 		timeoutWorkItem = nil
 		inquiry?.stop()
@@ -94,19 +97,23 @@ extension WiimotePairingService: IOBluetoothDeviceInquiryDelegate {
         guard sender === inquiry, phase == .scanning, let device,
               Self.isWiiRemoteName(device.name) else { return }
         phase = .pairing
+        NSLog("[WiiPair] Found %@; stopping inquiry before pairing", device.name ?? "Wii Remote")
         sender.stop()
 
 		let agent = IOBluetoothDevicePair(device: device)
 		agent?.delegate = self
 		agent?.setUserDefinedPincode(true)
 		pairingAgent = agent
-		if agent?.start() != kIOReturnSuccess {
+		let result = agent?.start()
+		NSLog("[WiiPair] Pair start result: %@", result.map { String(format: "0x%08X", $0) } ?? "no agent")
+		if result != kIOReturnSuccess {
 			phase = .scanning
 			inquiry?.start()
 		}
 	}
 
 	@objc func deviceInquiryComplete(_ sender: IOBluetoothDeviceInquiry!, error: IOReturn, aborted: Bool) {
+		NSLog("[WiiPair] Inquiry complete: error=0x%08X aborted=%d phase=%@", error, aborted, String(describing: phase))
 		// Keep scanning until something answers or the overall window expires.
 		guard phase == .scanning, !timedOut else { return }
 		DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
@@ -118,13 +125,21 @@ extension WiimotePairingService: IOBluetoothDeviceInquiryDelegate {
 
 extension WiimotePairingService: IOBluetoothDevicePairDelegate {
 	@objc func devicePairingPINCodeRequest(_ sender: Any!) {
+		NSLog("[WiiPair] PIN callback: phase=%@", String(describing: phase))
 		guard let pair = sender as? IOBluetoothDevicePair,
               pair === pairingAgent, phase == .pairing,
-			  let device = pair.device(),
-			  let hostAddrStr = IOBluetoothHostController.default()?.addressAsString() else { return }
+			  let device = pair.device() else {
+			NSLog("[WiiPair] Ignoring PIN callback from inactive pairing agent")
+			return
+		}
+		guard let hostAddrStr = IOBluetoothHostController.default()?.addressAsString() else {
+			NSLog("[WiiPair] PIN unavailable: host Bluetooth address is nil")
+			return
+		}
 
 		var hostAddr = BluetoothDeviceAddress()
-		IOBluetoothNSStringToDeviceAddress(hostAddrStr, &hostAddr)
+		let addressResult = IOBluetoothNSStringToDeviceAddress(hostAddrStr, &hostAddr)
+		NSLog("[WiiPair] Host address parse result: 0x%08X", addressResult)
 		let d = hostAddr.data
 		// Sync-button pairing PIN = host BT address bytes reversed, packed LE.
 		let bytes: [UInt8] = [d.5, d.4, d.3, d.2, d.1, d.0]
@@ -133,11 +148,16 @@ extension WiimotePairingService: IOBluetoothDevicePairDelegate {
         }
 
 		guard let coordinator = IOBluetoothCoreBluetoothCoordinator.sharedInstance(),
-			  let peer = device.classicPeer() else { return }
+			  let peer = device.classicPeer() else {
+			NSLog("[WiiPair] PIN unavailable: coordinator or classic peer is nil")
+			return
+		}
+		NSLog("[WiiPair] Sending PIN for pairing type %lu", pair.currentPairingType())
 		coordinator.pairPeer(peer, forType: pair.currentPairingType(), withKey: NSNumber(value: key))
 	}
 
 	@objc func devicePairingFinished(_ sender: Any!, error: IOReturn) {
+        NSLog("[WiiPair] Pair finished: error=0x%08X phase=%@", error, String(describing: phase))
         guard let pair = sender as? IOBluetoothDevicePair,
               pair === pairingAgent, phase == .pairing else { return }
 		if error == kIOReturnSuccess {
