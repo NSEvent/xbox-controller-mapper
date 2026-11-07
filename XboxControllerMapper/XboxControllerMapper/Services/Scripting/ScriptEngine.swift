@@ -142,8 +142,10 @@ class ScriptEngine {
         }
         context.setObject(triggerObj, forKeyedSubscript: "trigger" as NSString)
 
-        // Set up per-script state namespace (installs state object via JS evaluation)
-        installStateObject(for: script.id)
+        // Per-script state namespace, passed to the script as its `state`
+        // parameter so async callbacks keep the namespace of the script that
+        // created them.
+        let stateObject = makeStateObject(for: script.id)
 
         // Track exceptions captured by the exceptionHandler (which consumes them,
         // so context.exception is always nil when a custom handler is installed).
@@ -176,7 +178,10 @@ class ScriptEngine {
         installAPI()
 
         // Execute in IIFE to prevent global namespace pollution between scripts
-        context.evaluateScript("(function() {\n\(script.source)\n})()")
+        if let function = context.evaluateScript("(function(state) {\n\(script.source)\n})"),
+           !function.isUndefined {
+            function.call(withArguments: [stateObject as Any])
+        }
 
         let didTimeout = timedOut.value
 
@@ -464,6 +469,7 @@ class ScriptEngine {
         context.setObject(shell, forKeyedSubscript: "shell" as NSString)
 
         // shellAsync("command", callback?) - runs in background, doesn't block controller input
+        let generation = outputGate.currentGeneration
         let shellAsync: @convention(block) (String, JSValue?) -> Void = { [weak self] command, callback in
             guard let self else { return }
             if self.isTestMode {
@@ -495,17 +501,9 @@ class ScriptEngine {
                     let output = String(data: data.prefix(10240), encoding: .utf8) ?? ""
                     let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
 
-                    if let callback = callback, !callback.isUndefined, !callback.isNull {
-                        self?.inputQueue.async {
-                            callback.call(withArguments: [trimmed])
-                        }
-                    }
+                    self?.runShellAsyncCallback(callback, output: trimmed, generation: generation)
                 } catch {
-                    if let callback = callback, !callback.isUndefined, !callback.isNull {
-                        self?.inputQueue.async {
-                            callback.call(withArguments: [""])
-                        }
-                    }
+                    self?.runShellAsyncCallback(callback, output: "", generation: generation)
                 }
             }
         }
@@ -734,9 +732,20 @@ class ScriptEngine {
         context.setObject(log, forKeyedSubscript: "log" as NSString)
     }
 
+    /// Runs a `shellAsync` callback on the script queue, like every other
+    /// JSContext access, and only while output is still on the gate generation
+    /// its script ran under; `press()` alone resolves to the newest generation.
+    private func runShellAsyncCallback(_ callback: JSValue?, output: String, generation: Int) {
+        guard let callback, !callback.isUndefined, !callback.isNull else { return }
+        scriptQueue.async { [weak self] in
+            guard let self, self.outputGate.permits(generation) else { return }
+            callback.call(withArguments: [output])
+        }
+    }
+
     // MARK: - Per-Script State
 
-    private func installStateObject(for scriptId: UUID) {
+    private func makeStateObject(for scriptId: UUID) -> JSValue? {
         // Initialize state storage if needed
         if scriptState[scriptId] == nil {
             scriptState[scriptId] = [:]
@@ -758,17 +767,22 @@ class ScriptEngine {
             return newValue
         }
 
-        context.setObject(stateGet, forKeyedSubscript: "_stateGet" as NSString)
-        context.setObject(stateSet, forKeyedSubscript: "_stateSet" as NSString)
-        context.setObject(stateToggle, forKeyedSubscript: "_stateToggle" as NSString)
-
-        context.evaluateScript("""
-        var state = {
-            get: function(key) { return _stateGet(key); },
-            set: function(key, value) { _stateSet(key, value); },
-            toggle: function(key) { return _stateToggle(key); }
-        };
+        // The wrappers close over this script's native functions, not globals
+        // that the next script would replace.
+        let makeState = context.evaluateScript("""
+        (function(get, set, toggle) {
+            return {
+                get: function(key) { return get(key); },
+                set: function(key, value) { set(key, value); },
+                toggle: function(key) { return toggle(key); }
+            };
+        })
         """)
+        return makeState?.call(withArguments: [
+            unsafeBitCast(stateGet, to: AnyObject.self),
+            unsafeBitCast(stateSet, to: AnyObject.self),
+            unsafeBitCast(stateToggle, to: AnyObject.self),
+        ])
     }
 
     // MARK: - Helpers
