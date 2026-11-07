@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// A static, non-interactive controller minimap for the Connection Guides that
-/// highlights the buttons used to put a controller into pairing mode.
+/// A static, non-interactive controller minimap that highlights a set of buttons:
+/// the pairing combo in the Connection Guides, or the mappings a copy will
+/// overwrite in the Copy Controller Mappings sheet.
 ///
 /// It reuses the Buttons-tab minimap renderer verbatim — `ControllerBodyView` +
 /// `ControllerAnalogOverlay` for the gamepads, and `AppleTVRemoteMinimapView`
@@ -24,6 +25,10 @@ struct PairingMinimapView: View {
     /// `remoteTargetHeight` instead (it's far taller than it is wide).
     var targetWidth: CGFloat = 220
     var remoteTargetHeight: CGFloat = 300
+    /// Already-resolved descriptor to draw instead of resolving `layout`. The quiet
+    /// service below has no hardware, so `.active` can't resolve to the connected
+    /// controller on its own.
+    var descriptor: ControllerVisualDescriptor?
 
     /// Quiet, hardware-free service whose only job is to carry `activeButtons`
     /// so the existing minimap lights the pairing buttons. The default-value
@@ -62,7 +67,7 @@ struct PairingMinimapView: View {
     // MARK: - Gamepad
 
     private var visualDescriptor: ControllerVisualDescriptor {
-        ControllerVisualDescriptor.resolved(previewLayout: layout, using: service)
+        descriptor ?? ControllerVisualDescriptor.resolved(previewLayout: layout, using: service)
     }
 
     private var minimapStyle: ControllerMinimapStyle {

@@ -106,7 +106,16 @@ struct CopyControllerMappingsSheet: View {
 				if plan.hasChanges {
 					previewLine("square.on.square", "\(plan.copiedCount) \(plural(plan.copiedCount, "mapping")) copied to \(destination.name)")
 					if !plan.overwritten.isEmpty {
-						previewLine("exclamationmark.triangle", "Overwrites \(plan.overwritten.count): \(overwrittenSummary(plan.overwritten))", tint: .orange)
+						previewLine("exclamationmark.triangle", overwrittenSummary(plan.overwritten), tint: .orange)
+						PairingMinimapView(
+							layout: layout,
+							pressedButtons: Set(plan.overwritten.map(\.button)),
+							targetWidth: 240,
+							remoteTargetHeight: 200,
+							descriptor: descriptor
+						)
+						.frame(maxWidth: .infinity)
+						.padding(.vertical, 4)
 					}
 					if plan.clearedCount > 0 {
 						previewLine("xmark.circle", "Clears \(plan.clearedCount) \(plural(plan.clearedCount, "mapping")) that \(source?.name ?? "the source") leaves unmapped", tint: .orange)
@@ -154,12 +163,13 @@ struct CopyControllerMappingsSheet: View {
 	}
 
 	private func overwrittenSummary(_ changes: [ControllerMappingTransferPlan.Change]) -> String {
-		let names = changes.prefix(6).map { change in
-			let label = descriptor.buttonLabel(change.button)
-			return change.layerName.map { "\($0): \(label)" } ?? label
+		let summary = "Overwrites \(changes.count) \(plural(changes.count, "mapping")), highlighted below"
+		let layerNames = changes.compactMap(\.layerName).reduce(into: [String]()) { names, name in
+			if !names.contains(name) { names.append(name) }
 		}
-		let more = changes.count > names.count ? ", +\(changes.count - names.count) more" : ""
-		return names.joined(separator: ", ") + more
+		guard !layerNames.isEmpty else { return summary }
+		let layerCount = changes.filter { $0.layerName != nil }.count
+		return summary + " (\(layerCount) in \(plural(layerNames.count, "layer")): \(layerNames.joined(separator: ", ")))"
 	}
 
 	private func dependencySummary(_ plan: ControllerMappingTransferPlan) -> String {
