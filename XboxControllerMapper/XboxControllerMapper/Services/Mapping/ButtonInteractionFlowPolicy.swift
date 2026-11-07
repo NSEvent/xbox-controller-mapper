@@ -89,7 +89,9 @@ enum ButtonInteractionFlowPolicy {
         let isRepeatMapping = mapping.repeatMapping?.enabled ?? false
         let hasDoubleTap = mapping.doubleTapMapping.map { !$0.isEmpty } ?? false
 
-        if mapping.isHoldModifier || isRepeatMapping || isLongHoldTriggered {
+        // MIDI mappings take the hold path too: a held press releases through
+        // heldButtons, and a press that fired the double-tap has nothing left.
+        if mapping.isHoldModifier || mapping.midiControlChange != nil || isRepeatMapping || isLongHoldTriggered {
             if isRepeatMapping, hasDoubleTap, let doubleTapMapping = mapping.doubleTapMapping {
                 return .evaluateDoubleTap(doubleTapMapping, skipSingleTapFallback: true)
             }
