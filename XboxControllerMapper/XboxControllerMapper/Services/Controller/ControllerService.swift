@@ -265,6 +265,14 @@ class ControllerService: ObservableObject {
     var micDeviceID: AudioDeviceID?
     var micLevelTimer: Timer?
     var audioEngine: AVAudioEngine?
+    /// Bumped by every stop, so a start still waiting on permission or the
+    /// device-switch delay knows it was cancelled.
+    var micMonitorGeneration = 0
+    #if DEBUG
+    /// Replaces the delayed engine start (and the input-device switch) so tests
+    /// never touch real audio hardware.
+    var micLevelEngineStarterForTesting: (() -> Void)?
+    #endif
 
     var batteryBlinkTimer: Timer?
     var batteryBlinkOn: Bool = true
