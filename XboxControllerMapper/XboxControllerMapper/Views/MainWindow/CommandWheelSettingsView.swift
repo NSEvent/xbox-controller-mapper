@@ -5,6 +5,8 @@ struct CommandWheelSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
     @State private var selectedItemId: UUID?
     @State private var showingAddSheet = false
+    /// The profile an open editor sheet was started on.
+    @State private var editorProfileId: UUID?
     @State private var editingAction: CommandWheelAction?
 	@State private var selectedLayerId: UUID?
 
@@ -151,6 +153,7 @@ struct CommandWheelSettingsView: View {
                 }
 
                 Button {
+                    editorProfileId = profileManager.activeProfile?.id
                     showingAddSheet = true
                 } label: {
                     Label("Add Action", systemImage: "plus.circle")
@@ -173,7 +176,7 @@ struct CommandWheelSettingsView: View {
             CommandWheelActionSheet(
                 action: nil,
                 onSave: { newAction in
-					profileManager.addCommandWheelAction(newAction, layerId: selectedLayerId)
+					profileManager.addCommandWheelAction(newAction, layerId: selectedLayerId, profileId: editorProfileId)
                     selectedItemId = newAction.id
                 }
             )
@@ -192,6 +195,7 @@ struct CommandWheelSettingsView: View {
 			selectedLayerId = nil
 			selectedItemId = nil
 			editingAction = nil
+			showingAddSheet = false
 		}
 		.onChange(of: selectedLayerId) {
 			selectedItemId = nil
