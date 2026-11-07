@@ -94,6 +94,54 @@ final class LicenseManagerTests: XCTestCase {
 		}
 	}
 
+	func testGumroadKeychainFailureDoesNotReportActivation() async {
+		for failedKey in ["licenseKey", "licensedConfirmed"] {
+			let storage = SpyLicenseCredentialStore()
+			storage.values["trialStart"] = "2020-01-01T00:00:00Z"
+			storage.failedWriteKey = failedKey
+			let manager = makeGumroadManager(storage)
+			let result = await manager.verify(key: "test-gumroad-key")
+			XCTAssertFalse(result.success, "a license that wasn't saved must not report success")
+			XCTAssertEqual(manager.status, .expired)
+			XCTAssertNil(storage.values["licensedConfirmed"])
+		}
+	}
+
+	func testGumroadKeychainFailurePreservesAnExistingLicense() async {
+		for failedKey in ["licenseKey", "licensedConfirmed"] {
+			let storage = SpyLicenseCredentialStore()
+			storage.values = ["licenseKey": "older-gumroad-key", "licensedConfirmed": "1"]
+			storage.failedWriteKey = failedKey
+			let manager = makeGumroadManager(storage)
+			let result = await manager.verify(key: "test-gumroad-key")
+			XCTAssertFalse(result.success)
+			XCTAssertEqual(manager.storedLicenseKey, "older-gumroad-key")
+			XCTAssertTrue(manager.isLicensed)
+		}
+	}
+
+	func testGumroadActivationPersistsWhenKeychainWorks() async {
+		let storage = SpyLicenseCredentialStore()
+		storage.values["trialStart"] = "2020-01-01T00:00:00Z"
+		let manager = makeGumroadManager(storage)
+		let result = await manager.verify(key: "test-gumroad-key")
+		XCTAssertTrue(result.success)
+		XCTAssertTrue(manager.isLicensed)
+		XCTAssertEqual(storage.values["licenseKey"], "test-gumroad-key")
+		XCTAssertEqual(storage.values["licensedConfirmed"], "1")
+	}
+
+	private func makeGumroadManager(_ storage: SpyLicenseCredentialStore) -> LicenseManager {
+		let json: [String: Any] = ["success": true, "purchase": ["sale_id": "test-sale"]]
+		let data = try! JSONSerialization.data(withJSONObject: json)
+		let manager = LicenseManager(credentialStore: storage.store, skipsPersistentLicenseStorage: false,
+									 lemonSqueezyVerifier: nil, gumroadTransport: { request in
+			(data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+		})
+		Self.retainedManagers.append(manager)
+		return manager
+	}
+
 	private func makeManager(_ storage: SpyLicenseCredentialStore, returnedProductID: Int = 202) -> LicenseManager {
 		let json: [String: Any] = [
 			"valid": true,

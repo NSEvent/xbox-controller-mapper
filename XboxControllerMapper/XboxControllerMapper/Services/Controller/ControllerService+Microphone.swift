@@ -266,6 +266,7 @@ extension ControllerService {
             return
         }
 
+        let generation = micMonitorGeneration
         // Request microphone permission first
         requestMicrophonePermission { [weak self] granted in
             guard granted else {
@@ -278,6 +279,7 @@ extension ControllerService {
             guard let self = self else { return }
 
             Task { @MainActor in
+                guard self.micMonitorGeneration == generation else { return }
                 self.startAudioEngine()
             }
         }
@@ -313,63 +315,77 @@ extension ControllerService {
 
     /// Starts the audio engine for level monitoring (called after permission granted)
     func startAudioEngine() {
+        let generation = micMonitorGeneration
+        #if DEBUG
+        let starter = micLevelEngineStarterForTesting
+        #else
+        let starter: (() -> Void)? = nil
+        #endif
         // Set DualSense as the input device BEFORE creating the engine
-        setDualSenseAsInputDevice()
+        if starter == nil { setDualSenseAsInputDevice() }
 
         // Small delay to let the system recognize the device change
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            guard let self = self, self.micMonitorGeneration == generation else { return }
+            if let starter {
+                starter()
+                return
+            }
+            self.startMicLevelEngine()
+        }
+    }
+
+    private func startMicLevelEngine() {
+        let engine = AVAudioEngine()
+
+        // Force the engine to use the new default device
+        let inputNode = engine.inputNode
+        let format = inputNode.outputFormat(forBus: 0)
+
+        #if DEBUG
+        print("[Mic] Audio format: \(format)")
+        #endif
+
+        // Install tap on input node to monitor audio levels
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let self = self else { return }
 
-            let engine = AVAudioEngine()
+            let channelData = buffer.floatChannelData?[0]
+            let frameLength = Int(buffer.frameLength)
 
-            // Force the engine to use the new default device
-            let inputNode = engine.inputNode
-            let format = inputNode.outputFormat(forBus: 0)
+            guard let data = channelData, frameLength > 0 else { return }
 
+            // Calculate RMS (root mean square) for audio level
+            var sum: Float = 0
+            for i in 0..<frameLength {
+                sum += data[i] * data[i]
+            }
+            let rms = sqrt(sum / Float(frameLength))
+
+            // Convert to a 0-1 scale (with some amplification for visibility)
+            let level = min(1.0, rms * 8.0)
+
+            Task { @MainActor in
+                self.micAudioLevel = level
+            }
+        }
+
+        do {
+            try engine.start()
+            self.audioEngine = engine
             #if DEBUG
-            print("[Mic] Audio format: \(format)")
+            print("[Mic] Audio level monitoring started successfully")
             #endif
-
-            // Install tap on input node to monitor audio levels
-            inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-                guard let self = self else { return }
-
-                let channelData = buffer.floatChannelData?[0]
-                let frameLength = Int(buffer.frameLength)
-
-                guard let data = channelData, frameLength > 0 else { return }
-
-                // Calculate RMS (root mean square) for audio level
-                var sum: Float = 0
-                for i in 0..<frameLength {
-                    sum += data[i] * data[i]
-                }
-                let rms = sqrt(sum / Float(frameLength))
-
-                // Convert to a 0-1 scale (with some amplification for visibility)
-                let level = min(1.0, rms * 8.0)
-
-                Task { @MainActor in
-                    self.micAudioLevel = level
-                }
-            }
-
-            do {
-                try engine.start()
-                self.audioEngine = engine
-                #if DEBUG
-                print("[Mic] Audio level monitoring started successfully")
-                #endif
-            } catch {
-                #if DEBUG
-                print("[Mic] Failed to start audio engine: \(error)")
-                #endif
-            }
+        } catch {
+            #if DEBUG
+            print("[Mic] Failed to start audio engine: \(error)")
+            #endif
         }
     }
 
     /// Stops monitoring the microphone audio level
     func stopMicLevelMonitoring() {
+        micMonitorGeneration &+= 1
         if let engine = audioEngine {
             engine.inputNode.removeTap(onBus: 0)
             engine.stop()

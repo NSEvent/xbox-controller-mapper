@@ -358,6 +358,7 @@ class OnScreenKeyboardManager: ObservableObject {
     /// Dedicated serial queue for character-by-character typing so Thread.sleep
     /// does not block shared GCD worker threads.
     private nonisolated(unsafe) let typingQueue = DispatchQueue(label: "com.controllerkeys.typing", qos: .userInitiated)
+    private let clipboardSession = ClipboardRestoreSession()
 
     private init() {
 		repairPersistedCursorHideIfNeeded()
@@ -1208,6 +1209,8 @@ class OnScreenKeyboardManager: ObservableObject {
             control: modifiers.contains(.maskControl)
         )
         DispatchQueue.main.async {
+            // The keyboard may have hidden after the off-main check above.
+            guard self.isVisible else { return }
             self.updateTypingBuffer(keyCode: keyCode, modifiers: mods)
         }
     }
@@ -1462,13 +1465,7 @@ class OnScreenKeyboardManager: ObservableObject {
     private func pasteText(_ text: String) {
         NSLog("[OnScreenKeyboard] pasteText: '\(text)'")
 
-        // Save current clipboard contents
-        let pasteboard = NSPasteboard.general
-        let previousContents = pasteboard.string(forType: .string)
-
-        // Set our text to clipboard
-        pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
+        clipboardSession.beginPaste(text)
 
         // Small delay to ensure clipboard is ready
         typingQueue.async {
@@ -1488,10 +1485,7 @@ class OnScreenKeyboardManager: ObservableObject {
             // Restore previous clipboard after a delay
             Thread.sleep(forTimeInterval: 0.3)
             DispatchQueue.main.async {
-                if let previous = previousContents {
-                    pasteboard.clearContents()
-                    pasteboard.setString(previous, forType: .string)
-                }
+                self.clipboardSession.endPaste()
             }
         }
     }
@@ -1599,6 +1593,8 @@ class OnScreenKeyboardManager: ObservableObject {
     // MARK: - Test Support
 
     #if DEBUG
+    var isBufferPanelVisibleForTesting: Bool { bufferPanel?.isVisible ?? false }
+
     /// Exposes handleKeyPress for unit tests (mirrors on-screen keyboard key press path)
     func testHandleKeyPress(keyCode: CGKeyCode, modifiers: ModifierFlags) {
         handleKeyPress(keyCode: keyCode, modifiers: modifiers)

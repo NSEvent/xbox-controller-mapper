@@ -348,7 +348,7 @@ class MappingEngine: ObservableObject {
         profileManager.$activeProfile
             .sink { [weak self] profile in
                 guard let self = self else { return }
-				let cleanup = self.state.lock.withLock {
+				let (cleanup, isProfileSwitch) = self.state.lock.withLock {
 					let cleanup = RoutingBoundaryCleanup(state: self.state)
 					let isProfileSwitch = self.state.activeProfile?.id != profile?.id
 					let oldGyroMode = self.state.joystickSettings?.gyroActivationMode
@@ -383,7 +383,7 @@ class MappingEngine: ObservableObject {
 					)
                     self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
                     self.state.applyProfileIndex(MappingProfileIndex(profile: profile))
-					return cleanup
+					return (cleanup, isProfileSwitch)
                 }
 				self.performRoutingBoundaryCleanup(cleanup, resetMIDI: false)
                 self.syncGestureSettings(from: profile?.joystickSettings)
@@ -391,7 +391,11 @@ class MappingEngine: ObservableObject {
                 self.syncTouchpadSettings(from: profile)
                 self.syncMotionActivation(for: profile)
                 self.syncLatencySettings(for: profile)
-                self.scriptEngine.clearState()
+                // Script `state` is per-profile session memory; settings edits
+                // republish the same profile and must not wipe it.
+                if isProfileSwitch {
+                    self.scriptEngine.clearState()
+                }
 				self.refreshLayerPresentation()
             }
             .store(in: &cancellables)
@@ -896,7 +900,9 @@ class MappingEngine: ObservableObject {
 					state.physicalButtonResolutions.removeValue(forKey: button)
 				}
 			}
-            _ = UniversalControlMouseRelay.shared.sendControllerButtonPressed(button)
+            if UniversalControlMouseRelay.shared.sendControllerButtonPressed(button) {
+				state.lock.withLock { _ = state.remoteRoutedButtons.insert(button) }
+			}
             return
         }
 		let button = beginPhysicalButtonResolution(for: button)
@@ -1408,6 +1414,8 @@ class MappingEngine: ObservableObject {
             state.directoryNavigatorButton = nil
             state.directoryNavigatorHoldMode = false
             state.commandWheelActive = false
+            state.commandWheelButton = nil
+            state.commandWheelHoldMode = false
             state.wiimotePointerButtons.removeAll()
             state.wiimotePointerToggledOn = false
 
@@ -1441,6 +1449,7 @@ class MappingEngine: ObservableObject {
                 LaserPointerOverlay.shared.hide()
                 OnScreenKeyboardManager.shared.hide()
                 DirectoryNavigatorManager.shared.hide()
+                CommandWheelManager.shared.hide()
             }
         }
 
@@ -1523,6 +1532,12 @@ class MappingEngine: ObservableObject {
 		releasedAt: CFAbsoluteTime? = nil) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
         LatencyDiagnostics.mark("engine.release \(button.rawValue)")
+		// A press the peer handled releases on the peer, wherever the cursor is
+		// now. If the session has ended the peer clears its own held buttons.
+		if state.lock.withLock({ state.remoteRoutedButtons.remove(button) != nil }) {
+			_ = UniversalControlMouseRelay.shared.sendControllerButtonReleased(button, holdDuration: holdDuration)
+			return
+		}
 		let resolvedButtonForState = peekResolvedReleaseButton(for: button)
 		if UniversalControlMouseRelay.shared.shouldRouteControllerInputToRemote {
 			let hasLocalButtonState = state.lock.withLock {
@@ -1638,6 +1653,13 @@ class MappingEngine: ObservableObject {
             switch button {
             case .dpadUp, .dpadDown, .dpadLeft, .dpadRight:
                 stopDpadNavigationRepeat(button)
+                // The press may have started a held mapping or long-hold timer
+                // before the overlay appeared; release it so nothing stays down.
+                if case .heldMapping(let heldMapping)? = cleanupReleaseTimers(for: button) {
+                    stopHeldAction(heldMapping)
+                    inputLogService?.dismissHeldFeedback(action: heldMapping.feedbackString)
+                }
+                state.lock.withLock { _ = state.longHoldTriggered.remove(button) }
                 return
             default:
                 break

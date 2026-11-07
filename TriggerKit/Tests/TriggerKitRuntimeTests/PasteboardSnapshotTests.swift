@@ -55,4 +55,33 @@ final class PasteboardSnapshotTests: XCTestCase {
 
 		XCTAssertEqual(pasteboard.string(forType: .string), "user changed")
 	}
+
+	func testOverlappingPastesRestoreOriginalClipboard() {
+		let pasteboard = NSPasteboard(name: NSPasteboard.Name("TriggerKitTests-\(UUID().uuidString)"))
+		defer { pasteboard.releaseGlobally() }
+		pasteboard.clearContents()
+		pasteboard.setString("user clipboard", forType: .string)
+
+		var burst = PasteboardRestoreBurst()
+		burst.beginPaste("snippet 1", on: pasteboard)
+		burst.beginPaste("snippet 2", on: pasteboard)
+		burst.endPaste(on: pasteboard)
+		XCTAssertEqual(pasteboard.string(forType: .string), "snippet 2")
+		burst.endPaste(on: pasteboard)
+		XCTAssertEqual(pasteboard.string(forType: .string), "user clipboard")
+	}
+
+	func testCopyDuringPasteIsKept() {
+		let pasteboard = NSPasteboard(name: NSPasteboard.Name("TriggerKitTests-\(UUID().uuidString)"))
+		defer { pasteboard.releaseGlobally() }
+		pasteboard.clearContents()
+		pasteboard.setString("user clipboard", forType: .string)
+
+		var burst = PasteboardRestoreBurst()
+		burst.beginPaste("snippet", on: pasteboard)
+		pasteboard.clearContents()
+		pasteboard.setString("copied meanwhile", forType: .string)
+		burst.endPaste(on: pasteboard)
+		XCTAssertEqual(pasteboard.string(forType: .string), "copied meanwhile")
+	}
 }

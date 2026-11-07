@@ -95,6 +95,7 @@ final class LicenseManager: ObservableObject {
 	private let skipsPersistentLicenseStorage: Bool
     private let isoFormatter = ISO8601DateFormatter()
 	private let lemonSqueezyVerifier: LemonSqueezyLicenseVerifier?
+	private let gumroadTransport: LemonSqueezyLicenseVerifier.Transport
     private var clockTimer: Timer?
     private var enforcementCancellable: AnyCancellable?
 
@@ -103,11 +104,13 @@ final class LicenseManager: ObservableObject {
 		skipsPersistentLicenseStorage: Bool = AppRuntime.isRunningTests,
 		lemonSqueezyVerifier: LemonSqueezyLicenseVerifier? = LicenseDistribution.lemonSqueezyProduct.map {
 			LemonSqueezyLicenseVerifier(product: $0)
-		}
+		},
+		gumroadTransport: @escaping LemonSqueezyLicenseVerifier.Transport = { try await URLSession.shared.data(for: $0) }
     ) {
 		self.credentialStore = credentialStore
 		self.skipsPersistentLicenseStorage = skipsPersistentLicenseStorage
 		self.lemonSqueezyVerifier = lemonSqueezyVerifier
+		self.gumroadTransport = gumroadTransport
 
 		if skipsPersistentLicenseStorage {
 			status = .licensed
@@ -261,7 +264,7 @@ final class LicenseManager: ObservableObject {
         request.httpBody = form.data(using: .utf8)
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await gumroadTransport(request)
             guard let http = response as? HTTPURLResponse else {
                 TelemetryService.shared.licenseActivationFailed(.network)
                 return VerifyResult(success: false, message: String(localized: "No response from Gumroad."))
@@ -290,8 +293,9 @@ final class LicenseManager: ObservableObject {
                 }
             }
 
-			credentialStore.store(key, Keys.licenseKey)
-			credentialStore.store("1", Keys.licensedConfirmed)
+			guard persistConfirmedLicense(key) else {
+				return VerifyResult(success: false, message: String(localized: "Couldn't save your license in Keychain. Try activating again."))
+			}
             status = .licensed
             // Tier 3 join: report activation with the Gumroad sale_id so the
             // backend can tie this anonymous install to its purchase.
@@ -313,23 +317,7 @@ final class LicenseManager: ObservableObject {
 		}
 		switch await lemonSqueezyVerifier.verify(key: key) {
 		case .success:
-			// Match existing offline ownership behavior without modifying the
-			// trial anchor or overwriting an existing confirmed key on failure.
-			let previousKey = credentialStore.retrieve(Keys.licenseKey)
-			let previousConfirmation = credentialStore.retrieve(Keys.licensedConfirmed)
-			guard credentialStore.store(key, Keys.licenseKey) != nil,
-				  credentialStore.store("1", Keys.licensedConfirmed) != nil else {
-				if let previousKey {
-					if credentialStore.retrieve(Keys.licenseKey) != previousKey {
-						credentialStore.store(previousKey, Keys.licenseKey)
-					}
-				} else {
-					credentialStore.delete(Keys.licenseKey)
-				}
-				if credentialStore.retrieve(Keys.licenseKey) != previousKey || previousConfirmation != "1" {
-					credentialStore.delete(Keys.licensedConfirmed)
-				}
-				refresh()
+			guard persistConfirmedLicense(key) else {
 				return VerifyResult(success: false, message: String(localized: "Couldn't save your license in Keychain. Try activating again."))
 			}
 			status = .licensed
@@ -356,6 +344,31 @@ final class LicenseManager: ObservableObject {
 			TelemetryService.shared.licenseActivationFailed(category)
 			return VerifyResult(success: false, message: message)
 		}
+	}
+
+	/// Saves a verified key as the confirmed license, for offline use. If either
+	/// Keychain write fails, restores the previous license (or none) without
+	/// touching the trial anchor, re-derives `status`, and returns false, so an
+	/// activation that wasn't saved is never reported as successful.
+	private func persistConfirmedLicense(_ key: String) -> Bool {
+		let previousKey = credentialStore.retrieve(Keys.licenseKey)
+		let previousConfirmation = credentialStore.retrieve(Keys.licensedConfirmed)
+		guard credentialStore.store(key, Keys.licenseKey) != nil,
+			  credentialStore.store("1", Keys.licensedConfirmed) != nil else {
+			if let previousKey {
+				if credentialStore.retrieve(Keys.licenseKey) != previousKey {
+					credentialStore.store(previousKey, Keys.licenseKey)
+				}
+			} else {
+				credentialStore.delete(Keys.licenseKey)
+			}
+			if credentialStore.retrieve(Keys.licenseKey) != previousKey || previousConfirmation != "1" {
+				credentialStore.delete(Keys.licensedConfirmed)
+			}
+			refresh()
+			return false
+		}
+		return true
 	}
 
     /// Removes the stored license (used for testing / "deactivate this Mac").

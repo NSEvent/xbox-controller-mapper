@@ -359,6 +359,11 @@ extension MappingEngine {
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
 				guard CommandWheelManager.shared.isVisible else { return }
+				// A lock between release and this hop must not fire the selection.
+				guard !self.state.lock.withLock({ self.state.isLocked }) else {
+					CommandWheelManager.shared.hide()
+					return
+				}
                 CommandWheelManager.shared.activateSelection()
                 CommandWheelManager.shared.hide()
                 self.controllerService.playHaptic(

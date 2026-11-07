@@ -6,9 +6,13 @@ extension ProfileManager {
     @discardableResult
     private func mutateActiveCommandWheelActions(
 		layerId: UUID?,
+		profileId: UUID? = nil,
         _ mutate: (inout [CommandWheelAction]) -> Bool
     ) -> Bool {
         guard var profile = activeProfile else { return false }
+		// An editor opened on one profile must not write into another one
+		// that became active (e.g. by app auto-switch) while it was open.
+		if let profileId, profile.id != profileId { return false }
 
 		let didChange: Bool
 		if let layerId {
@@ -61,8 +65,10 @@ extension ProfileManager {
 		updateProfile(profile)
     }
 
-    func addCommandWheelAction(_ action: CommandWheelAction, layerId: UUID? = nil) {
-		mutateActiveCommandWheelActions(layerId: layerId) { actions in
+    /// Pass `profileId` from an editor so the add is dropped if a different
+    /// profile became active while it was open.
+    func addCommandWheelAction(_ action: CommandWheelAction, layerId: UUID? = nil, profileId: UUID? = nil) {
+		mutateActiveCommandWheelActions(layerId: layerId, profileId: profileId) { actions in
             actions.append(action)
             return true
         }
@@ -75,8 +81,8 @@ extension ProfileManager {
         }
     }
 
-    func updateCommandWheelAction(_ action: CommandWheelAction, layerId: UUID? = nil) {
-		mutateActiveCommandWheelActions(layerId: layerId) { actions in
+    func updateCommandWheelAction(_ action: CommandWheelAction, layerId: UUID? = nil, profileId: UUID? = nil) {
+		mutateActiveCommandWheelActions(layerId: layerId, profileId: profileId) { actions in
             guard let index = actions.firstIndex(where: { $0.id == action.id }) else {
                 return false
             }

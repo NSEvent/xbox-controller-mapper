@@ -295,7 +295,8 @@ struct ContentView: View {
 				)
         }
 		.modifier(PhysicalInputCaptureRouting(session: physicalCapture, selectedButton: $selectedButton,
-				  configuringButton: $configuringButton, selectedLayerId: selectedLayerId, selectedTab: selectedTab))
+				  configuringButton: $configuringButton, isSwapMode: $isSwapMode, swapFirstButton: $swapFirstButton,
+				  profileManager: profileManager, selectedLayerId: selectedLayerId, selectedTab: selectedTab))
         .isolatedSheet(isPresented: $showingChordSheet) {
             ChordMappingSheet()
         }

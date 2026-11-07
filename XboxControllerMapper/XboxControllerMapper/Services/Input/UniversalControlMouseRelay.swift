@@ -335,6 +335,9 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     func cancelUnconfirmedRemoteSession() {
+        // Buttons pressed while routing here must not stay held on the peer;
+        // endRemoteSession sends the same reset. No-op when nothing is active.
+        _ = sendControllerInputReset()
         lock.lock()
 		let wasActive = isRemoteSessionActive
         isRemoteSessionActive = false

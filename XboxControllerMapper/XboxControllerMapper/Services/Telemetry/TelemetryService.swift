@@ -42,6 +42,9 @@ final class TelemetryService: @unchecked Sendable {
     private var dailyUsage: DailyUsage
 	private var lastPointerSampleSecond: Int64?
     private var isSending = false
+    /// Bumped by each send and by opt-out, so a send that was in flight
+    /// across an opt-out cannot clear the flag of the send that replaced it.
+    private var sendGeneration = 0
     private var retryWorkItem: DispatchWorkItem?
 
     init(
@@ -150,6 +153,7 @@ final class TelemetryService: @unchecked Sendable {
                 self.retryWorkItem?.cancel()
                 self.retryWorkItem = nil
                 self.isSending = false
+                self.sendGeneration &+= 1
                 self.defaults.removeObject(forKey: Key.outbox)
                 self.defaults.removeObject(forKey: Key.failureCount)
                 self.defaults.removeObject(forKey: Key.retryAfter)
@@ -334,15 +338,18 @@ final class TelemetryService: @unchecked Sendable {
         request.timeoutInterval = 10
         request.httpBody = body
         isSending = true
+        sendGeneration &+= 1
+        let generation = sendGeneration
 
         transport(request) { [weak self] statusCode in
             self?.stateQueue.async { [weak self] in
-                self?.handleSendResult(statusCode: statusCode, batch: batch)
+                self?.handleSendResult(statusCode: statusCode, batch: batch, generation: generation)
             }
         }
     }
 
-    private func handleSendResult(statusCode: Int?, batch: [QueuedEvent]) {
+    private func handleSendResult(statusCode: Int?, batch: [QueuedEvent], generation: Int) {
+        guard generation == sendGeneration else { return }
         isSending = false
         guard canCollect else { return }
         if let statusCode, (200..<300).contains(statusCode) {

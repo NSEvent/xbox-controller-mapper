@@ -27,6 +27,7 @@ public final class InputSimulator: InputSimulating {
 	private let source = CGEventSource(stateID: .hidSystemState)
 	private var activeKeyDownModifiers: [TriggerKey: ModifierSet] = [:]
 	private var activeMouseDownModifiers: [MouseButton: ModifierSet] = [:]
+	private var pasteRestore = PasteboardRestoreBurst()
 
 	public init() {}
 
@@ -202,14 +203,10 @@ public final class InputSimulator: InputSimulating {
 	}
 
 	private func pasteText(_ text: String) async {
-		let pasteboard = NSPasteboard.general
-		let snapshot = PasteboardSnapshot(pasteboard: pasteboard)
-		pasteboard.clearContents()
-		pasteboard.setString(text, forType: .string)
-		let temporaryChangeCount = pasteboard.changeCount
+		pasteRestore.beginPaste(text, on: .general)
 		await keyPress(KeyStroke(key: TriggerKey(id: "v", keyCode: 9, displayName: "V"), modifiers: ModifierSet(command: .any)))
 		try? await Task.sleep(nanoseconds: 200_000_000)
-		snapshot.restore(to: .general, ifChangeCountMatches: temporaryChangeCount)
+		pasteRestore.endPaste(on: .general)
 	}
 
 	private func typeUnicode(_ text: String, charactersPerMinute: Int? = nil) async {
@@ -267,6 +264,41 @@ public final class InputSimulator: InputSimulating {
 			data2: -1
 		)
 		event?.cgEvent?.post(tap: .cghidEventTap)
+	}
+}
+
+/// Snapshot-and-restore for pastes that can overlap: `pasteText` suspends
+/// while the target app consumes Cmd+V, so a second macro's paste can begin
+/// before the first restores. Snapshotting per paste would save the first
+/// snippet as "the user's clipboard"; instead one snapshot covers the burst
+/// and the last paste to end restores it, unless something else wrote to the
+/// pasteboard after our last write.
+struct PasteboardRestoreBurst {
+	private var outstandingPastes = 0
+	private var snapshot: PasteboardSnapshot?
+	private var lastWrittenChangeCount: Int?
+
+	mutating func beginPaste(_ text: String, on pasteboard: NSPasteboard) {
+		// First paste of a burst, or someone copied something mid-burst: that
+		// content is what the user expects back.
+		if outstandingPastes == 0 || pasteboard.changeCount != lastWrittenChangeCount {
+			snapshot = PasteboardSnapshot(pasteboard: pasteboard)
+		}
+		outstandingPastes += 1
+		pasteboard.clearContents()
+		pasteboard.setString(text, forType: .string)
+		lastWrittenChangeCount = pasteboard.changeCount
+	}
+
+	mutating func endPaste(on pasteboard: NSPasteboard) {
+		guard outstandingPastes > 0 else { return }
+		outstandingPastes -= 1
+		guard outstandingPastes == 0 else { return }
+		defer {
+			snapshot = nil
+			lastWrittenChangeCount = nil
+		}
+		snapshot?.restore(to: pasteboard, ifChangeCountMatches: lastWrittenChangeCount)
 	}
 }
 

@@ -51,6 +51,9 @@ struct ButtonMappingsTab: View {
 	@State private var showingCopyMappingsSheet = false
     @State private var panDragBase: CGSize?
     @State private var pinchBase: (scale: CGFloat, pan: CGSize, anchor: CGPoint)?
+    /// Bumped when a pinch begins, so the previous pinch's delayed
+    /// `isMagnifying` reset can't end a newer pinch.
+    @State private var pinchGeneration = 0
     @State private var canvasEventView: NSView?
     @State private var scrollPanMonitor: Any?
 	@State private var measuredCanvasBaseSize: CGSize = .zero
@@ -302,6 +305,7 @@ struct ButtonMappingsTab: View {
                         .onChanged { value in
                             isMagnifying = true
                             if pinchBase == nil {
+                                pinchGeneration &+= 1
                                 pinchBase = (profileManager.uiScale, canvasPan, value.startLocation)
                             }
                             guard let base = pinchBase else { return }
@@ -321,8 +325,10 @@ struct ButtonMappingsTab: View {
                             pinchBase = nil
                             profileManager.setUiScale(profileManager.uiScale)
                             // Delay resetting isMagnifying to prevent tap events that fire at gesture end
+                            let generation = pinchGeneration
                             Task { @MainActor in
                                 try? await Task.sleep(for: .milliseconds(100))
+                                guard pinchGeneration == generation, pinchBase == nil else { return }
                                 isMagnifying = false
                             }
                         }
@@ -704,19 +710,8 @@ struct ButtonMappingsTab: View {
 	}
 
     private func handleSwapButtonTap(_ button: ControllerButton) {
-        if let firstButton = swapFirstButton {
-            // Second button selected - perform the swap
-            if let layerId = selectedLayerId {
-                profileManager.swapLayerMappings(button1: firstButton, button2: button, in: layerId)
-            } else {
-                profileManager.swapMappings(button1: firstButton, button2: button)
-            }
-            // Exit swap mode
-            swapFirstButton = nil
-            isSwapMode = false
-        } else {
-            // First button selected
-            swapFirstButton = button
+        if let pair = ButtonSwapSelection.pick(button, first: &swapFirstButton, isSwapMode: &isSwapMode) {
+            ButtonSwapSelection.apply(pair, layerId: selectedLayerId, profileManager: profileManager)
         }
     }
 

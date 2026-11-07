@@ -406,6 +406,10 @@ struct Config {
     // MARK: - Scripting
     /// Maximum execution time for a single script invocation (milliseconds)
     static let scriptExecutionTimeoutMs: Int = 2000
+    /// Wall-clock budget after which JavaScriptCore stops a running script
+    /// (seconds). Longer than the reported limit so scripts that chain a few
+    /// clamped delay()/hold() calls still finish; it exists to end runaway loops.
+    static let scriptTerminationSeconds: Double = 5
     /// Maximum execution time for shell() commands within scripts (seconds)
     static let shellCommandTimeoutSeconds: Int = 5
 

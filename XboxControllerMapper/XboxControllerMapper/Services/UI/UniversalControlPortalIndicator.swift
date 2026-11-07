@@ -7,9 +7,11 @@ final class UniversalControlPortalIndicator {
     static let shared = UniversalControlPortalIndicator()
 
     private var panel: NSPanel?
+    private let panelFader = PanelFader()
     private var hostingView: NSHostingView<EdgePortalView>?
     private var hideTimer: Timer?
     private var cursorPanel: NSPanel?
+    private let cursorFader = PanelFader()
     private var cursorHostingView: NSHostingView<CursorTeleportView>?
     private var cursorHideTimer: Timer?
     private var cursorTrackingTimer: Timer?
@@ -133,6 +135,7 @@ final class UniversalControlPortalIndicator {
             persistentEdge: persistentEdge,
             pulseActive: pulseActive
         )
+        panelFader.cancelFadeOut()
         panel?.alphaValue = 1
         panel?.orderFrontRegardless()
     }
@@ -140,6 +143,7 @@ final class UniversalControlPortalIndicator {
     private func showCursor(at point: NSPoint, state: CursorTeleportState, persistent: Bool) {
         ensureCursorPanel()
         cursorHostingView?.rootView = CursorTeleportView(state: state)
+        cursorFader.cancelFadeOut()
         cursorPanel?.alphaValue = 1
         setCursorPanelCenter(point)
         cursorPanel?.orderFrontRegardless()
@@ -176,24 +180,13 @@ final class UniversalControlPortalIndicator {
     }
 
     private func hide() {
-        guard let panel else { return }
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = fadeDuration
-            panel.animator().alphaValue = 0
-        } completionHandler: { [weak self] in
-            self?.panel?.orderOut(nil)
-        }
+        panelFader.fadeOut(panel, duration: fadeDuration)
     }
 
     private func hideCursor() {
         guard let cursorPanel else { return }
         stopCursorTracking()
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = fadeDuration
-            cursorPanel.animator().alphaValue = 0
-        } completionHandler: { [weak self] in
-            self?.cursorPanel?.orderOut(nil)
-        }
+        cursorFader.fadeOut(cursorPanel, duration: fadeDuration)
     }
 
     private func ensurePanel(on screen: NSScreen) {

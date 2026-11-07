@@ -33,6 +33,32 @@ nonisolated private final class AtomicBool {
     }
 }
 
+/// JavaScriptCore's per-group execution time limit, declared in
+/// JSContextRefPrivate.h rather than the public headers, so it is looked up at
+/// runtime. Without it a script stuck in a loop never returns and wedges the
+/// script queue; if the symbol is missing, scripts keep only the reported timeout.
+nonisolated private enum JSExecutionTimeLimit {
+	private typealias ShouldTerminate = @convention(c) (JSContextRef?, UnsafeMutableRawPointer?) -> Bool
+	private typealias SetLimit = @convention(c) (JSContextGroupRef?, Double, ShouldTerminate?, UnsafeMutableRawPointer?) -> Void
+
+	private static let setLimit: SetLimit? = {
+		// RTLD_DEFAULT, which Swift doesn't import.
+		guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "JSContextGroupSetExecutionTimeLimit") else {
+			return nil
+		}
+		return unsafeBitCast(symbol, to: SetLimit.self)
+	}()
+
+	/// Every later entry into `context` from native code is stopped once it has
+	/// run for `seconds`. Returns false when the limit isn't available.
+	@discardableResult
+	static func apply(to context: JSContext, seconds: Double) -> Bool {
+		guard let setLimit else { return false }
+		setLimit(JSContextGetGroup(context.jsGlobalContextRef), seconds, nil, nil)
+		return true
+	}
+}
+
 /// JavaScript scripting engine that executes user-defined scripts triggered by controller input.
 /// Uses JavaScriptCore (built into macOS) for lightweight, sandboxed script execution.
 class ScriptEngine {
@@ -74,8 +100,11 @@ class ScriptEngine {
         "volumeup": 72, "volumedown": 73, "mute": 74,
     ]
 
+    private let terminationSeconds: Double
+
     init(inputSimulator: InputSimulatorProtocol, inputQueue: DispatchQueue,
-         controllerService: ControllerService? = nil, inputLogService: InputLogService? = nil) {
+         controllerService: ControllerService? = nil, inputLogService: InputLogService? = nil,
+         terminationSeconds: Double = Config.scriptTerminationSeconds) {
         self.inputSimulator = inputSimulator
         self.inputQueue = inputQueue
         self.controllerService = controllerService
@@ -84,6 +113,8 @@ class ScriptEngine {
         // JSContext() virtually never fails (only under extreme memory pressure).
         // Force-unwrap is appropriate here — there's no meaningful recovery path.
         self.context = JSContext()!
+        self.terminationSeconds = terminationSeconds
+        JSExecutionTimeLimit.apply(to: context, seconds: terminationSeconds)
     }
 
     // MARK: - Script Execution
@@ -142,8 +173,10 @@ class ScriptEngine {
         }
         context.setObject(triggerObj, forKeyedSubscript: "trigger" as NSString)
 
-        // Set up per-script state namespace (installs state object via JS evaluation)
-        installStateObject(for: script.id)
+        // Per-script state namespace, passed to the script as its `state`
+        // parameter so async callbacks keep the namespace of the script that
+        // created them.
+        let stateObject = makeStateObject(for: script.id)
 
         // Track exceptions captured by the exceptionHandler (which consumes them,
         // so context.exception is always nil when a custom handler is installed).
@@ -174,11 +207,22 @@ class ScriptEngine {
 
         // Re-install APIs before each execution to prevent persistent overrides from prior scripts
         installAPI()
+        let startedAt = DispatchTime.now()
 
         // Execute in IIFE to prevent global namespace pollution between scripts
-        context.evaluateScript("(function() {\n\(script.source)\n})()")
+        if let function = context.evaluateScript("(function(state) {\n\(script.source)\n})"),
+           !function.isUndefined {
+            function.call(withArguments: [stateObject as Any])
+        }
 
         let didTimeout = timedOut.value
+        let elapsedSeconds = Double(DispatchTime.now().uptimeNanoseconds - startedAt.uptimeNanoseconds) / 1_000_000_000
+
+        // JavaScriptCore reports its time-limit stop as an exception.
+        if capturedExceptionMessage != nil, elapsedSeconds >= terminationSeconds {
+            logMessage("[Script Timeout] \(script.name): stopped after \(terminationSeconds)s")
+            return .error("Script stopped: still running after \(Int(terminationSeconds))s")
+        }
 
         // Check for errors (captured by the exceptionHandler above)
         if let errorMessage = capturedExceptionMessage {
@@ -464,6 +508,7 @@ class ScriptEngine {
         context.setObject(shell, forKeyedSubscript: "shell" as NSString)
 
         // shellAsync("command", callback?) - runs in background, doesn't block controller input
+        let generation = outputGate.currentGeneration
         let shellAsync: @convention(block) (String, JSValue?) -> Void = { [weak self] command, callback in
             guard let self else { return }
             if self.isTestMode {
@@ -495,17 +540,9 @@ class ScriptEngine {
                     let output = String(data: data.prefix(10240), encoding: .utf8) ?? ""
                     let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
 
-                    if let callback = callback, !callback.isUndefined, !callback.isNull {
-                        self?.inputQueue.async {
-                            callback.call(withArguments: [trimmed])
-                        }
-                    }
+                    self?.runShellAsyncCallback(callback, output: trimmed, generation: generation)
                 } catch {
-                    if let callback = callback, !callback.isUndefined, !callback.isNull {
-                        self?.inputQueue.async {
-                            callback.call(withArguments: [""])
-                        }
-                    }
+                    self?.runShellAsyncCallback(callback, output: "", generation: generation)
                 }
             }
         }
@@ -734,9 +771,20 @@ class ScriptEngine {
         context.setObject(log, forKeyedSubscript: "log" as NSString)
     }
 
+    /// Runs a `shellAsync` callback on the script queue, like every other
+    /// JSContext access, and only while output is still on the gate generation
+    /// its script ran under; `press()` alone resolves to the newest generation.
+    private func runShellAsyncCallback(_ callback: JSValue?, output: String, generation: Int) {
+        guard let callback, !callback.isUndefined, !callback.isNull else { return }
+        scriptQueue.async { [weak self] in
+            guard let self, self.outputGate.permits(generation) else { return }
+            callback.call(withArguments: [output])
+        }
+    }
+
     // MARK: - Per-Script State
 
-    private func installStateObject(for scriptId: UUID) {
+    private func makeStateObject(for scriptId: UUID) -> JSValue? {
         // Initialize state storage if needed
         if scriptState[scriptId] == nil {
             scriptState[scriptId] = [:]
@@ -758,17 +806,22 @@ class ScriptEngine {
             return newValue
         }
 
-        context.setObject(stateGet, forKeyedSubscript: "_stateGet" as NSString)
-        context.setObject(stateSet, forKeyedSubscript: "_stateSet" as NSString)
-        context.setObject(stateToggle, forKeyedSubscript: "_stateToggle" as NSString)
-
-        context.evaluateScript("""
-        var state = {
-            get: function(key) { return _stateGet(key); },
-            set: function(key, value) { _stateSet(key, value); },
-            toggle: function(key) { return _stateToggle(key); }
-        };
+        // The wrappers close over this script's native functions, not globals
+        // that the next script would replace.
+        let makeState = context.evaluateScript("""
+        (function(get, set, toggle) {
+            return {
+                get: function(key) { return get(key); },
+                set: function(key, value) { set(key, value); },
+                toggle: function(key) { return toggle(key); }
+            };
+        })
         """)
+        return makeState?.call(withArguments: [
+            unsafeBitCast(stateGet, to: AnyObject.self),
+            unsafeBitCast(stateSet, to: AnyObject.self),
+            unsafeBitCast(stateToggle, to: AnyObject.self),
+        ])
     }
 
     // MARK: - Helpers

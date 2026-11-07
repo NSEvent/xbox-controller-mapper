@@ -7,6 +7,7 @@ class LaserPointerOverlay {
     static let shared = LaserPointerOverlay()
 
     private var panel: NSPanel?
+    private let fader = PanelFader()
     private var globalMonitor: Any?
     private var localMonitor: Any?
     private var fallbackTimer: DispatchSourceTimer?
@@ -38,11 +39,7 @@ class LaserPointerOverlay {
         panel?.orderFrontRegardless()
         updatePosition()
 
-        // Fade in
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.15
-            panel?.animator().alphaValue = 1
-        }
+        fader.fadeIn(panel, duration: 0.15)
 
         startTracking()
     }
@@ -57,14 +54,12 @@ class LaserPointerOverlay {
 
         stopTracking()
 
-        // Fade out
-        NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.15
-            panel?.animator().alphaValue = 0
-        }, completionHandler: { [weak self] in
-            self?.panel?.orderOut(nil)
-        })
+        fader.fadeOut(panel, duration: 0.15)
     }
+
+    #if DEBUG
+    var isPanelOnScreenForTesting: Bool { panel?.isVisible ?? false }
+    #endif
 
     func toggle() {
         if isShowing {

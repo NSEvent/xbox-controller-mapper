@@ -640,6 +640,32 @@ final class OuraRingInputTests: XCTestCase {
 		}
 	}
 
+	/// Two different gestures within the 70 ms tap window must each get their
+	/// own release; the second must not cancel the first's.
+	@MainActor
+	func testBackToBackGesturesEachRelease() async {
+		let configDirectory = FileManager.default.temporaryDirectory
+			.appendingPathComponent("controllerkeys-oura-tests-\(UUID().uuidString)", isDirectory: true)
+		let controllerService = ControllerService(enableHardwareMonitoring: false)
+		controllerService.lowLatencyInputEnabled = true
+		let profileManager = ProfileManager(configDirectoryOverride: configDirectory)
+		profileManager.installTestProfile(Profile(name: "Oura", buttonMappings: [
+			.ouraFlickLeft: KeyMapping(keyCode: 123),
+			.ouraTapHold: KeyMapping(keyCode: 49),
+		]))
+		let service = OuraRingInputService(controllerService: controllerService, profileManager: profileManager)
+
+		XCTAssertTrue(service.fireGestureButtonForTesting(.ouraFlickLeft))
+		XCTAssertTrue(service.fireGestureButtonForTesting(.ouraTapHold))
+
+		let released = await waitForCondition(timeout: 1.0) {
+			controllerService.readStorage(\.activeButtons).isDisjoint(with: [.ouraFlickLeft, .ouraTapHold])
+		}
+		XCTAssertTrue(released, "both gestures must release: \(controllerService.readStorage(\.activeButtons))")
+		controllerService.cleanup()
+		try? FileManager.default.removeItem(at: configDirectory)
+	}
+
 	@MainActor
 	func testConnectionLossResetReleasesVirtualOuraInputs() {
 		let configDirectory = FileManager.default.temporaryDirectory

@@ -16,6 +16,7 @@ class DirectoryNavigatorManager: ObservableObject {
     var defaultTerminalApp: String = "Terminal"
 
     private var panel: NSPanel?
+    private let fader = PanelFader()
     private var clickOutsideMonitor: Any?
     private var localClickMonitor: Any?
 
@@ -65,12 +66,7 @@ class DirectoryNavigatorManager: ObservableObject {
 
         panel?.alphaValue = 0
         panel?.orderFrontRegardless()
-        if let panel = panel {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.15
-                panel.animator().alphaValue = 1
-            }
-        }
+        fader.fadeIn(panel, duration: 0.15)
         isVisible = true
         updateThreadSafeState()
         installClickOutsideMonitors()
@@ -79,14 +75,7 @@ class DirectoryNavigatorManager: ObservableObject {
     func hide() {
         guard isVisible else { return }
         removeClickOutsideMonitors()
-        if let panel = panel {
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.12
-                panel.animator().alphaValue = 0
-            }, completionHandler: { [weak self] in
-                self?.panel?.orderOut(nil)
-            })
-        }
+        fader.fadeOut(panel, duration: 0.12)
         isVisible = false
         updateThreadSafeState()
     }

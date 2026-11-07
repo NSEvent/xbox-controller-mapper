@@ -101,6 +101,10 @@ extension MappingEngine {
 		// Unlike `pressConsumedByAction`, this is checked only on release so a
 		// disconnect that never delivers key-up cannot poison the next press.
 		var cancelledPhysicalButtonReleases: Set<ControllerButton> = []
+		// Physical buttons whose press was sent to the Universal Control peer.
+		// Their release goes to the peer too, even if the cursor has returned,
+		// so a remote press never ends as a local tap.
+		var remoteRoutedButtons: Set<ControllerButton> = []
 
         // Joystick State
         var smoothedLeftStick: CGPoint = .zero
