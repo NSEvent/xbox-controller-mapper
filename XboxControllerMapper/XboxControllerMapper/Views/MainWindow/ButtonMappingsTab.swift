@@ -677,19 +677,8 @@ struct ButtonMappingsTab: View {
 	}
 
     private func handleSwapButtonTap(_ button: ControllerButton) {
-        if let firstButton = swapFirstButton {
-            // Second button selected - perform the swap
-            if let layerId = selectedLayerId {
-                profileManager.swapLayerMappings(button1: firstButton, button2: button, in: layerId)
-            } else {
-                profileManager.swapMappings(button1: firstButton, button2: button)
-            }
-            // Exit swap mode
-            swapFirstButton = nil
-            isSwapMode = false
-        } else {
-            // First button selected
-            swapFirstButton = button
+        if let pair = ButtonSwapSelection.pick(button, first: &swapFirstButton, isSwapMode: &isSwapMode) {
+            ButtonSwapSelection.apply(pair, layerId: selectedLayerId, profileManager: profileManager)
         }
     }
 
