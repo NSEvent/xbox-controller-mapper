@@ -115,7 +115,8 @@ struct CopyControllerMappingsSheet: View {
 							descriptor: descriptor
 						)
 						.frame(maxWidth: .infinity)
-						.padding(.vertical, 4)
+						.padding(.top, 12)
+						.padding(.bottom, 4)
 					}
 					if plan.clearedCount > 0 {
 						previewLine("xmark.circle", "Clears \(plan.clearedCount) \(plural(plan.clearedCount, "mapping")) that \(source?.name ?? "the source") leaves unmapped", tint: .orange)
