@@ -33,6 +33,32 @@ nonisolated private final class AtomicBool {
     }
 }
 
+/// JavaScriptCore's per-group execution time limit, declared in
+/// JSContextRefPrivate.h rather than the public headers, so it is looked up at
+/// runtime. Without it a script stuck in a loop never returns and wedges the
+/// script queue; if the symbol is missing, scripts keep only the reported timeout.
+nonisolated private enum JSExecutionTimeLimit {
+	private typealias ShouldTerminate = @convention(c) (JSContextRef?, UnsafeMutableRawPointer?) -> Bool
+	private typealias SetLimit = @convention(c) (JSContextGroupRef?, Double, ShouldTerminate?, UnsafeMutableRawPointer?) -> Void
+
+	private static let setLimit: SetLimit? = {
+		// RTLD_DEFAULT, which Swift doesn't import.
+		guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "JSContextGroupSetExecutionTimeLimit") else {
+			return nil
+		}
+		return unsafeBitCast(symbol, to: SetLimit.self)
+	}()
+
+	/// Every later entry into `context` from native code is stopped once it has
+	/// run for `seconds`. Returns false when the limit isn't available.
+	@discardableResult
+	static func apply(to context: JSContext, seconds: Double) -> Bool {
+		guard let setLimit else { return false }
+		setLimit(JSContextGetGroup(context.jsGlobalContextRef), seconds, nil, nil)
+		return true
+	}
+}
+
 /// JavaScript scripting engine that executes user-defined scripts triggered by controller input.
 /// Uses JavaScriptCore (built into macOS) for lightweight, sandboxed script execution.
 class ScriptEngine {
@@ -74,8 +100,11 @@ class ScriptEngine {
         "volumeup": 72, "volumedown": 73, "mute": 74,
     ]
 
+    private let terminationSeconds: Double
+
     init(inputSimulator: InputSimulatorProtocol, inputQueue: DispatchQueue,
-         controllerService: ControllerService? = nil, inputLogService: InputLogService? = nil) {
+         controllerService: ControllerService? = nil, inputLogService: InputLogService? = nil,
+         terminationSeconds: Double = Config.scriptTerminationSeconds) {
         self.inputSimulator = inputSimulator
         self.inputQueue = inputQueue
         self.controllerService = controllerService
@@ -84,6 +113,8 @@ class ScriptEngine {
         // JSContext() virtually never fails (only under extreme memory pressure).
         // Force-unwrap is appropriate here — there's no meaningful recovery path.
         self.context = JSContext()!
+        self.terminationSeconds = terminationSeconds
+        JSExecutionTimeLimit.apply(to: context, seconds: terminationSeconds)
     }
 
     // MARK: - Script Execution
@@ -176,6 +207,7 @@ class ScriptEngine {
 
         // Re-install APIs before each execution to prevent persistent overrides from prior scripts
         installAPI()
+        let startedAt = DispatchTime.now()
 
         // Execute in IIFE to prevent global namespace pollution between scripts
         if let function = context.evaluateScript("(function(state) {\n\(script.source)\n})"),
@@ -184,6 +216,13 @@ class ScriptEngine {
         }
 
         let didTimeout = timedOut.value
+        let elapsedSeconds = Double(DispatchTime.now().uptimeNanoseconds - startedAt.uptimeNanoseconds) / 1_000_000_000
+
+        // JavaScriptCore reports its time-limit stop as an exception.
+        if capturedExceptionMessage != nil, elapsedSeconds >= terminationSeconds {
+            logMessage("[Script Timeout] \(script.name): stopped after \(terminationSeconds)s")
+            return .error("Script stopped: still running after \(Int(terminationSeconds))s")
+        }
 
         // Check for errors (captured by the exceptionHandler above)
         if let errorMessage = capturedExceptionMessage {
