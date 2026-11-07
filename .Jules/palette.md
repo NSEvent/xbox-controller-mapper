@@ -66,3 +66,9 @@
 ## 2026-06-06 - Ensure Symmetry in Accessibility and Tooltips for SwiftUI Icon Buttons
 **Learning:** In macOS SwiftUI applications, icon-only buttons often have either `.help()` (for hover tooltips) or `.accessibilityLabel()` (for VoiceOver), but frequently lack both. Both are necessary because they serve different user interaction models—`.help` for visual hover feedback and `.accessibilityLabel` for screen readers.
 **Action:** When adding or reviewing icon-only buttons in SwiftUI, always ensure symmetry by defining both `.help("Description")` and `.accessibilityLabel("Description")` to cover all accessibility and usability vectors.
+## 2024-05-19 - [Missing Accessibility on Empty State Mapping Buttons]
+**Learning:** Found an empty state UI in `ControllerVisualView.swift` where a "plus.circle" icon is presented alongside text, but the entire element lacked `.help()` tooltips for mouse users and `.accessibilityLabel()` for VoiceOver. This causes empty state actions to be silent or unclear for users with accessibility needs.
+**Action:** Always verify that "Add [item]" empty state views or placeholder buttons have proper `.help()` and `.accessibilityLabel()` modifiers attached to them to ensure they can be understood and navigated accurately by all users, even if there is visible text next to the icon.
+## 2026-09-26 - [Maintainer] Do not duplicate visible text in a11y labels
+**Rule:** The empty state already displays the visible text "Add mapping", and per the palette rules we do not add .help/.accessibilityLabel duplicating visible text, so this change is redundant.
+**Action:** Do not add tooltips or accessibility labels to buttons that already display their function via visible text.
