@@ -916,6 +916,7 @@
 "Missing script" = "Fehlendes Skript";
 "Hold: %@" = "Halten: %@";
 "Double tap: %@" = "Doppeltippen: %@";
+"Release: %@" = "Loslassen: %@";
 "Repeat: %lld/s" = "Wiederholung: %lld/s";
 "%lld button mappings" = "%lld Tastenzuordnungen";
 "wheel disabled" = "Rad deaktiviert";
@@ -987,6 +988,7 @@
 "Runtime layer active now: %@" = "Jetzt aktive Laufzeitebene: %@";
 "Hold only: %@" = "Nur Halten: %@";
 "Double tap only: %@" = "Nur Doppeltippen: %@";
+"Release only: %@" = "Nur Loslassen: %@";
 "Hold and double tap only" = "Nur Halten und Doppeltippen";
 "Not available on %@" = "Auf %@ nicht verfügbar";
 "Unavailable for %@ (%lld)" = "Für %@ nicht verfügbar (%lld)";

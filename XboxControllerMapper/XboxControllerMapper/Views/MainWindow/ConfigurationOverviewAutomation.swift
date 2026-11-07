@@ -104,7 +104,7 @@ extension ConfigurationOverviewBuilder {
 	static func buttonActionName(_ mapping: KeyMapping, profile: Profile) -> String {
 		if !mapping.isEmpty { return actionName(mapping, profile: profile) }
 		if (mapping.longHoldMapping?.isEmpty ?? true), (mapping.doubleTapMapping?.isEmpty ?? true),
-		   let release = mapping.releaseMapping, !release.isEmpty {
+		   let release = mapping.effectiveReleaseMapping {
 			return String(format: String(localized: "Release only: %@"), actionName(release, profile: profile))
 		}
 		let hold = mapping.longHoldMapping.flatMap { $0.isEmpty ? nil : actionName($0, profile: profile) }
@@ -150,7 +150,7 @@ extension ConfigurationOverviewBuilder {
 			let value = action == underlying ? action : "\(action) (\(underlying))"
 			details.append(String(format: String(localized: "Double tap: %@"), value))
 		}
-		if let release = mapping.releaseMapping, !release.isEmpty {
+		if let release = mapping.effectiveReleaseMapping {
 			let action = actionName(release, profile: profile)
 			let underlying = underlyingActionName(release, profile: profile)
 			let value = action == underlying ? action : "\(action) (\(underlying))"

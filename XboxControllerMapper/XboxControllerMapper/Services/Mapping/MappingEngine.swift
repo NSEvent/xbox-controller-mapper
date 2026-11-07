@@ -1001,6 +1001,12 @@ class MappingEngine: ObservableObject {
                         setupLongHoldTimer(for: button, mapping: lh)
                         return
                     }
+                    // A release action that toggles the lock must be able to
+                    // unlock too: arm it without firing the primary.
+                    if mapping.effectiveReleaseMapping?.keyCode == KeyCodeMapping.controllerLock {
+                        state.lock.withLock { state.armedReleaseActions[button] = mapping }
+                        return
+                    }
                 }
                 return
             }
@@ -1312,14 +1318,23 @@ class MappingEngine: ObservableObject {
 
         guard let releaseMapping = pressedMapping.effectiveReleaseMapping,
               let profile = state.lock.withLock({ () -> Profile? in
-                  guard state.isEnabled, !state.isLocked else { return nil }
+                  guard state.isEnabled else { return nil }
                   return state.activeProfile
               }) else { return }
 
+        executeReleaseAction(releaseMapping, for: button, profile: profile)
+    }
+
+    /// Runs a release action, routing special keycodes (lock, overlays, gyro)
+    /// through the same intercept as the other alternate actions.
+    /// `handleSpecialActionIntercept` toggles the lock and swallows everything
+    /// else while locked.
+    nonisolated func executeReleaseAction(_ releaseMapping: ReleaseMapping, for button: ControllerButton, profile: Profile) {
         if handleSpecialActionIntercept(keyCode: releaseMapping.keyCode, buttons: [button], logType: .release) {
             playActionHaptic(style: releaseMapping.hapticStyle)
             return
         }
+        if state.lock.withLock({ state.isLocked }) { return }
         mappingExecutor.executeAction(releaseMapping, for: button, profile: profile, logType: .release)
         playActionHaptic(style: releaseMapping.hapticStyle)
     }
@@ -1354,6 +1369,9 @@ class MappingEngine: ObservableObject {
 			state.physicalTapPressOwners.removeAll()
             state.pendingReleaseActions.values.forEach { $0.cancel() }
             state.pendingReleaseActions.removeAll()
+			// Their primaries already fired; consume the physical release so an
+			// unlock before it comes up cannot replay the primary as a tap.
+			state.pressConsumedByAction.formUnion(state.armedReleaseActions.keys)
 			state.armedReleaseActions.removeAll()
             state.longHoldTimers.values.forEach { $0.cancel() }
             state.longHoldTimers.removeAll()

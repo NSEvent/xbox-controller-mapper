@@ -172,6 +172,55 @@ final class ReleaseActionTests: MappingEngineTestCase {
 		XCTAssertEqual(pressKeyCount(keyX), 0)
 	}
 
+	@MainActor
+	func testLockAndUnlockWhileHeldDoesNotReplayPrimary() async throws {
+		await install(Profile(
+			name: "Lock",
+			buttonMappings: [.a: KeyMapping(keyCode: keyC, releaseMapping: ReleaseMapping(keyCode: keyX))]
+		))
+
+		controllerService.emitInputEvent(.buttonPressed(.a))
+		let pressed = await waitForCondition { self.pressKeyCount(self.keyC) == 1 }
+		XCTAssertTrue(pressed)
+
+		XCTAssertTrue(mappingEngine.performLockToggle())
+		XCTAssertFalse(mappingEngine.performLockToggle())
+		controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.4))
+		await waitForTasks(0.2)
+
+		XCTAssertEqual(pressKeyCount(keyC), 1, "Unlocking mid-hold must not replay the primary as a tap")
+		XCTAssertEqual(pressKeyCount(keyX), 0, "The lock dropped the armed release action")
+	}
+
+	@MainActor
+	func testLockReleaseActionCanUnlockAgain() async throws {
+		await install(Profile(
+			name: "Lock Toggle",
+			buttonMappings: [.a: KeyMapping(keyCode: keyC, releaseMapping: ReleaseMapping(keyCode: KeyCodeMapping.controllerLock))]
+		))
+
+		controllerService.emitInputEvent(.buttonPressed(.a))
+		controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.1))
+		let locked = await waitForCondition { self.mappingEngine.state.lock.withLock { self.mappingEngine.state.isLocked } }
+		XCTAssertTrue(locked, "Releasing should lock the controller")
+
+		controllerService.emitInputEvent(.buttonPressed(.a))
+		controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.1))
+		let unlocked = await waitForCondition { !self.mappingEngine.state.lock.withLock { self.mappingEngine.state.isLocked } }
+		XCTAssertTrue(unlocked, "The same button's release should unlock it")
+		XCTAssertEqual(pressKeyCount(keyC), 1, "The primary must not fire while locked")
+	}
+
+	func testDPadPresetDirectionWithReleaseActionTaps() {
+		let mapping = KeyMapping(keyCode: KeyCodeMapping.leftArrow, releaseMapping: ReleaseMapping(keyCode: 7))
+		XCTAssertFalse(ButtonInteractionFlowPolicy.shouldUseHoldPath(
+			button: .dpadLeft,
+			mapping: mapping,
+			isChordPart: false,
+			isDPadPresetDirection: true
+		))
+	}
+
 	// MARK: - Model
 
 	func testEffectiveReleaseMappingYieldsToResolveOnReleaseFeatures() {

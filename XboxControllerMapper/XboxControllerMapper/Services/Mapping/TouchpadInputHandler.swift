@@ -273,7 +273,7 @@ extension MappingEngine {
         // A tap is a press and release in one event, so an armed release
         // action follows immediately.
         if let releaseMapping = mapping.effectiveReleaseMapping {
-            mappingExecutor.executeAction(releaseMapping, for: button, profile: profile, logType: .release)
+            executeReleaseAction(releaseMapping, for: button, profile: profile)
         }
     }
 

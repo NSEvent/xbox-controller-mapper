@@ -916,6 +916,7 @@
 "Missing script" = "スクリプトが見つかりません";
 "Hold: %@" = "長押し：%@";
 "Double tap: %@" = "ダブルタップ：%@";
+"Release: %@" = "離したとき：%@";
 "Repeat: %lld/s" = "リピート：毎秒%lld回";
 "%lld button mappings" = "ボタンマッピング %lld件";
 "wheel disabled" = "ホイール無効";
@@ -987,6 +988,7 @@
 "Runtime layer active now: %@" = "現在アクティブな実行レイヤー：%@";
 "Hold only: %@" = "長押しのみ：%@";
 "Double tap only: %@" = "ダブルタップのみ：%@";
+"Release only: %@" = "離したときのみ：%@";
 "Hold and double tap only" = "長押しとダブルタップのみ";
 "Not available on %@" = "%@では使用できません";
 "Unavailable for %@ (%lld)" = "%@では使用不可（%lld）";

@@ -49,7 +49,8 @@ enum ButtonInteractionFlowPolicy {
 			  !mapping.modifiers.hasAny,
 			  !(mapping.repeatMapping?.enabled ?? false),
 			  mapping.longHoldMapping?.isEmpty ?? true,
-			  mapping.doubleTapMapping?.isEmpty ?? true else {
+			  mapping.doubleTapMapping?.isEmpty ?? true,
+			  mapping.effectiveReleaseMapping == nil else {
 			return false
 		}
 

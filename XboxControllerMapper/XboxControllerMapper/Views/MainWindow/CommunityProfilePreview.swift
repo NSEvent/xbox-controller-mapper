@@ -241,7 +241,7 @@ struct PreviewMappingRow: View {
 				}
 
 				// Release
-				if let release = mapping.releaseMapping, !release.isEmpty {
+				if let release = mapping.effectiveReleaseMapping {
 					PreviewMappingLabel(
 						text: release.hint ?? release.displayString,
 						shortcut: release.hint != nil ? release.displayString : nil,

@@ -916,6 +916,7 @@
 "Missing script" = "指令碼遺失";
 "Hold: %@" = "長按：%@";
 "Double tap: %@" = "雙擊：%@";
+"Release: %@" = "放開：%@";
 "Repeat: %lld/s" = "重複：%lld 次/秒";
 "%lld button mappings" = "%lld 個按鍵對應";
 "wheel disabled" = "輪盤已停用";
@@ -987,6 +988,7 @@
 "Runtime layer active now: %@" = "目前執行中的圖層：%@";
 "Hold only: %@" = "僅長按：%@";
 "Double tap only: %@" = "僅點兩下：%@";
+"Release only: %@" = "僅放開：%@";
 "Hold and double tap only" = "僅長按和點兩下";
 "Not available on %@" = "在%@上無法使用";
 "Unavailable for %@ (%lld)" = "不適用於%@（%lld）";

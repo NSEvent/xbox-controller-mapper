@@ -210,7 +210,7 @@ struct MappingLabelView: View {
             }
         }
 
-        if let release = mapping.releaseMapping, !release.isEmpty {
+        if let release = mapping.effectiveReleaseMapping {
             if let hint = release.hint, !hint.isEmpty {
                 labelRow(text: hint, icon: "↑", color: .indigo, tooltip: release.displayString)
             } else if let macroId = release.macroId,

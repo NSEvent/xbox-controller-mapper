@@ -868,7 +868,7 @@ struct ButtonMappingSheet: View {
     private var releaseBlockedBy: String? {
         if enableLongHold && !longHoldDisabled { return "long hold" }
         if enableDoubleTap && !doubleTapDisabled { return "double tap" }
-        if enableRepeat { return "repeat" }
+        if enableRepeat && primaryState.mappingType == .singleKey && !primaryIsSmoothScrollAction { return "repeat" }
         return nil
     }
 
@@ -1198,7 +1198,9 @@ struct ButtonMappingSheet: View {
             }
 
             if let release = existingMapping.releaseMapping {
-                enableRelease = true
+                // The engine ignores a release action alongside long hold, double
+                // tap or repeat; mirror that so saving keeps today's behavior.
+                enableRelease = existingMapping.effectiveReleaseMapping != nil
                 releaseState.hint = release.hint ?? ""
                 releaseState.hapticStyle = release.hapticStyle
                 if let systemCommand = release.systemCommand {

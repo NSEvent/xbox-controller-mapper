@@ -916,6 +916,7 @@
 "Missing script" = "脚本缺失";
 "Hold: %@" = "长按：%@";
 "Double tap: %@" = "双击：%@";
+"Release: %@" = "松开：%@";
 "Repeat: %lld/s" = "重复：%lld 次/秒";
 "%lld button mappings" = "%lld 个按键映射";
 "wheel disabled" = "轮盘已停用";
@@ -987,6 +988,7 @@
 "Runtime layer active now: %@" = "当前运行中的图层：%@";
 "Hold only: %@" = "仅长按：%@";
 "Double tap only: %@" = "仅双击：%@";
+"Release only: %@" = "仅松开：%@";
 "Hold and double tap only" = "仅长按和双击";
 "Not available on %@" = "在%@上不可用";
 "Unavailable for %@ (%lld)" = "不适用于%@（%lld）";

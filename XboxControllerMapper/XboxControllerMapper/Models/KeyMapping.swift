@@ -390,7 +390,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
             parts.append("×2 " + doubleTap.displayString)
         }
 
-        if let release = releaseMapping, !release.isEmpty {
+        if let release = effectiveReleaseMapping {
             parts.append("↑ " + release.displayString)
         }
 
