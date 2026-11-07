@@ -1527,6 +1527,8 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                                 .font(.system(size: 12, weight: .medium))
                         }
                         .foregroundColor(.white.opacity(0.34))
+                        .help("Add mapping")
+                        .accessibilityLabel("Add mapping")
                     }
                     Spacer()
                 }
