@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-11-06
+
+### Added
+
+- **Release actions**: turn on **Enable Release Action** in a button's settings to send a second action when you let go. It starts as a copy of the press action, so a key such as C fires once on press and once on release, which suits apps like Clip Studio Paint that toggle a tool on each keypress. You can change it to a different key, macro, system command or MIDI message. Release actions can't be combined with long hold, double tap or repeat on the same button. A disconnect or profile switch while the button is held skips the release action, so nothing fires late. Buttons with a release action show a ↑ badge.
+- **Copy controller mappings to another profile**: copy one controller's button mappings into another profile from the button beside the Buttons-tab layout menu, or from a profile's right-click menu. Choose Replace or Fill empty only, and optionally include layers matched by name. A preview shows what will be copied and cleared, with the buttons it will overwrite highlighted on a controller map, before anything changes. Macros and scripts the mappings use come along, and a snapshot is saved first so you can undo the copy from History.
+
 ## [2.11.0] - 2026-11-06
 
 ### Added
