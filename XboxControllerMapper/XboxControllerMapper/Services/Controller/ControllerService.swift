@@ -354,6 +354,10 @@ class ControllerService: ObservableObject {
     var wiimoteHIDManager: IOHIDManager?
     var wiimoteHIDRegistrations: [WiimoteHIDRegistration] = []
     var wiimoteHIDActiveDevice: IOHIDDevice?
+    #if DEBUG
+    /// Stands in for a displayed Wii Remote, which tests can't create.
+    var wiimoteHIDActiveForTesting = false
+    #endif
     var wiimoteHIDCallbackContext: UnsafeMutableRawPointer?
     /// Pending debounced disconnect — interface churn must not flap the
     /// connected state (each flip animates the empty-state card).
@@ -1540,13 +1544,24 @@ class ControllerService: ObservableObject {
 		}
 	}
 
+	/// A physical controller holds the display slot, so auxiliary inputs must
+	/// neither take it over nor blank it when they disconnect. A Wii Remote
+	/// counts only while it is the displayed controller (`wiimoteHIDActiveDevice`).
 	var hasActiveHardwareInputSource: Bool {
 		connectedController != nil ||
 		isGenericController ||
 		steamHIDActiveDevice != nil ||
+		isWiimoteHIDDisplayed ||
 		appleTVRemoteHIDDevice != nil ||
 		appleTVRemoteHIDTouchDevice != nil
     }
+
+	private var isWiimoteHIDDisplayed: Bool {
+		#if DEBUG
+		if wiimoteHIDActiveForTesting { return true }
+		#endif
+		return wiimoteHIDActiveDevice != nil
+	}
 
 	var canAcceptSteamDeckInput: Bool { !hasActiveHardwareInputSource && !isBeamdeskGamepadConnected && !isXiaomiRemoteConnected }
 	var isSteamDeckActiveInputSource: Bool {
