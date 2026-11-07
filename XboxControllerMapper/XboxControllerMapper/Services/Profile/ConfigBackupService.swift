@@ -24,7 +24,14 @@ struct ConfigBackupService {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         let timestamp = dateFormatter.string(from: Date())
-        let backupURL = backupDir.appendingPathComponent("config_\(timestamp).json")
+        // Two saves in the same second would otherwise collide and skip the
+        // second backup; number the later ones instead.
+        var backupURL = backupDir.appendingPathComponent("config_\(timestamp).json")
+        var suffix = 2
+        while fileManager.fileExists(atPath: backupURL.path) {
+            backupURL = backupDir.appendingPathComponent("config_\(timestamp)_\(suffix).json")
+            suffix += 1
+        }
 
         do {
             try AtomicFileWriter.copyResolvedItem(from: configURL, to: backupURL, fileManager: fileManager)
