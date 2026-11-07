@@ -19,6 +19,7 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 	case xiaomiRemote
 	case ouraRing
 	case s29Ring
+	case footPedal
 	case beamdeskHands
 
 	var id: String { rawValue }
@@ -47,6 +48,7 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 		case .xiaomiRemote: return XiaomiRemoteIdentity.displayName
 		case .ouraRing: return "Oura Ring"
 		case .s29Ring: return "S29 Ring"
+		case .footPedal: return FootPedalIdentity.displayName
 		case .beamdeskHands: return "Beamdesk Hands"
 		}
 	}
@@ -71,6 +73,7 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 		case .xiaomiRemote: return "RC003 Bluetooth remote"
 		case .ouraRing: return "Oura Ring 3 / 4"
 		case .s29Ring: return "Bluetooth button ring"
+		case .footPedal: return "Three-pedal USB foot pedal"
 		case .beamdeskHands: return "Meta Quest hand tracking"
 		}
 	}
@@ -90,6 +93,7 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 		case .xiaomiRemote: return "av.remote"
 		case .ouraRing: return "circle.dashed"
 		case .s29Ring: return "circle.circle"
+		case .footPedal: return "shoeprints.fill"
 		case .beamdeskHands: return "hand.raised.fingers.spread"
 		}
 	}

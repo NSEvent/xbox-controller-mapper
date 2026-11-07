@@ -591,6 +591,9 @@ struct ButtonMappingsTab: View {
 		if controllerService.isS29RingConnected {
 			layouts.insert(.s29Ring)
 		}
+		if controllerService.isFootPedalConnected {
+			layouts.insert(.footPedal)
+		}
 		if controllerService.isXiaomiRemoteConnected { layouts.insert(.xiaomiRemote) }
 
 		return layouts

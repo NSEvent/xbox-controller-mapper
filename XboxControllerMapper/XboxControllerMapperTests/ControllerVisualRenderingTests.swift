@@ -338,6 +338,8 @@ private struct StaticControllerMinimapPreview: View {
 				beamdeskHandsMinimap
 			} else if descriptor.isS29Ring {
 				s29RingMinimap
+			} else if descriptor.isFootPedal {
+				footPedalMinimap
 			} else if descriptor.isOuraRing {
 				ouraRingMinimap
 			} else if descriptor.isAppleTVRemote {
@@ -377,6 +379,16 @@ private struct StaticControllerMinimapPreview: View {
 		let scale = remoteTargetHeight / size.height
 		return XiaomiRemoteMinimapView(pressedButtons: pressedButtons)
 			.scaleEffect(scale).frame(width: (size.width * scale).rounded(), height: remoteTargetHeight)
+	}
+
+	private var footPedalMinimap: some View {
+		let size = FootPedalMinimapView.previewSize
+		let scale = targetWidth / size.width
+
+		return FootPedalMinimapView(pressedButtons: pressedButtons)
+			.frame(width: size.width, height: size.height)
+			.scaleEffect(scale)
+			.frame(width: targetWidth, height: (size.height * scale).rounded())
 	}
 
 	private var s29RingMinimap: some View {

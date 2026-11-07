@@ -99,6 +99,7 @@ final class ServiceContainer {
     let beamdeskInputService: BeamdeskInputService
     let steamDeckInput: SteamDeckInput
     let s29RingInputService: S29RingInputService
+    let footPedalInputService: FootPedalInputService
 	let xiaomiRemoteInputService: XiaomiRemoteInputService
 
     private var cancellables = Set<AnyCancellable>()
@@ -143,6 +144,14 @@ final class ServiceContainer {
         self.s29RingInputService = s29RingInputService
         s29RingInputService.bindMappingEnabled(self.mappingEngine.$isEnabled)
         s29RingInputService.startIfPermitted()
+        // Foot pedal: same seized raw-HID contract as the S29 ring.
+        let footPedalInputService = FootPedalInputService(
+            controllerService: controllerService,
+            hardwareMonitoringEnabled: AppRuntime.screenshotVariant == nil
+        )
+        self.footPedalInputService = footPedalInputService
+        footPedalInputService.bindMappingEnabled(self.mappingEngine.$isEnabled)
+        footPedalInputService.startIfPermitted()
 		let xiaomiRemoteInputService = XiaomiRemoteInputService(
 			controller: controllerService,
 			hardwareEnabled: AppRuntime.screenshotVariant == nil
@@ -639,6 +648,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 		services.beamdeskInputService.stop()
 		services.steamDeckInput.stop()
 		services.s29RingInputService.stop()
+		services.footPedalInputService.stop()
 		services.xiaomiRemoteInputService.stop()
 		services.mappingEngine.shutdown()
 		services.controllerService.cleanup()
@@ -685,6 +695,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         permissions.onInputMonitoringGranted = {
             ServiceContainer.shared.controllerService.startInputMonitoringHID()
             ServiceContainer.shared.s29RingInputService.startIfPermitted()
+            ServiceContainer.shared.footPedalInputService.startIfPermitted()
 			ServiceContainer.shared.xiaomiRemoteInputService.startIfPermitted()
         }
         permissions.requestBluetoothAction = {

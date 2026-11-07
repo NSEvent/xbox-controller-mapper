@@ -117,6 +117,7 @@ struct OnboardingControllerTestView: View {
 		case .xiaomiRemote: return .xiaomiRemote
         case .ouraRing: return .ouraRing
         case .s29Ring: return .s29Ring
+        case .footPedal: return .footPedal
         case .beamdeskHands: return .beamdeskHands
         }
     }

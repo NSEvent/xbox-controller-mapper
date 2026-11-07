@@ -216,6 +216,34 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
         }
     }
 
+    /// A system-command tap with a key long-hold (VEC pedal: tap launches an app,
+    /// hold triggers dictation) must fire the long-hold while still held.
+    func testLongHoldFiresWhileHeldWhenTapIsSystemCommand() async throws {
+        await MainActor.run {
+            var mapping = KeyMapping(systemCommand: .launchApp(bundleIdentifier: "com.example.missing", newWindow: false))
+            mapping.longHoldMapping = LongHoldMapping(keyCode: 105, threshold: 0.1)
+            profileManager.setActiveProfile(Profile(name: "PedalHold", buttonMappings: [.footPedalMiddle: mapping]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.emitInputEvent(.buttonPressed(.footPedalMiddle))
+        }
+        await waitForTasks(0.3)
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(105, _) = event { return true }
+                return false
+            }, "Long-hold should trigger while the pedal is still held")
+        }
+
+        await MainActor.run {
+            controllerService.emitInputEvent(.buttonReleased(.footPedalMiddle, holdDuration: 0.3))
+        }
+        await waitForTasks()
+    }
+
     // MARK: - Double Tap with Macro Tests
 
     /// Tests double tap that triggers a macro

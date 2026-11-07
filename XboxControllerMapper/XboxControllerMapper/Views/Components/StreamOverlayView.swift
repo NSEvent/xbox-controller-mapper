@@ -53,6 +53,8 @@ struct StreamOverlayView: View {
 					ouraRingGraphic
 				} else if isS29Ring {
 					s29RingGraphic
+				} else if visualDescriptor.isFootPedal {
+					footPedalGraphic
 				} else if isAppleTVRemote {
                     appleTVRemoteGraphic
                 } else if isWiimote {
@@ -179,6 +181,16 @@ struct StreamOverlayView: View {
 		let scale = graphicWidth / size.width
 
 		return OuraRingMinimapView(isTapPressed: controllerService.activeButtons.contains { $0.isOuraRingOnly })
+			.frame(width: size.width, height: size.height)
+			.scaleEffect(scale)
+			.frame(width: graphicWidth, height: (size.height * scale).rounded())
+	}
+
+	private var footPedalGraphic: some View {
+		let size = FootPedalMinimapView.previewSize
+		let scale = graphicWidth / size.width
+
+		return FootPedalMinimapView(pressedButtons: controllerService.activeButtons)
 			.frame(width: size.width, height: size.height)
 			.scaleEffect(scale)
 			.frame(width: graphicWidth, height: (size.height * scale).rounded())

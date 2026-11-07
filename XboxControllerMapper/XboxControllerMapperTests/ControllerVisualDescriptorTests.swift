@@ -35,6 +35,7 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 			.xiaomiRemote: .xiaomiRemote,
 			.ouraRing: .ouraRing,
 			.s29Ring: .s29Ring,
+			.footPedal: .footPedal,
 			.beamdeskHands: .beamdeskHands,
 		]
 
@@ -85,6 +86,7 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 			.appleTVRemote: nil,
 			.ouraRing: nil,
 			.s29Ring: nil,
+			.footPedal: nil,
 			.beamdeskHands: nil,
 		]
 

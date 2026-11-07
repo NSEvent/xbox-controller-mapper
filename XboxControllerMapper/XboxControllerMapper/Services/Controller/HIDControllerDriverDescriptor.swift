@@ -135,6 +135,15 @@ struct S29RingHIDDriverDescriptor: HIDControllerDriverDescriptor {
 	}
 }
 
+/// The VEC Infinity foot pedal (USB, Consumer-page device).
+struct FootPedalHIDDriverDescriptor: HIDControllerDriverDescriptor {
+	let displayName = FootPedalIdentity.displayName
+
+	var matchingCriteria: [HIDMatchingCriterion] {
+		[.vendorProduct(vendorID: FootPedalIdentity.vendorID, productID: FootPedalIdentity.productID)]
+	}
+}
+
 struct WiimoteHIDDriverDescriptor: HIDControllerDriverDescriptor {
 	static let vendorID = 0x057E
 	/// RVL-CNT-01 — the original Wii Remote (verified working 2026-09-08).

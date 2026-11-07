@@ -147,6 +147,11 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     case s29Camera                // Camera button (tap, double-tap, or hold)
     case s29Home                  // Home button (tap or hold)
 
+    // VEC Infinity three-pedal USB foot pedal
+    case footPedalLeft
+    case footPedalMiddle
+    case footPedalRight
+
     // Xiaomi RC003 remote. Directions share the d-pad; other keys retain
     // distinct identities so existing gamepad/Siri profiles are unchanged.
     case xiaomiOK, xiaomiBack, xiaomiHome, xiaomiMenu

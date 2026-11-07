@@ -96,6 +96,16 @@ extension ControllerButton {
         }
     }
 
+    /// Buttons that exist only on the three-pedal USB foot pedal.
+    var isFootPedalOnly: Bool {
+        switch self {
+        case .footPedalLeft, .footPedalMiddle, .footPedalRight:
+            return true
+        default:
+            return false
+        }
+    }
+
     /// Whether this button represents one of the eight touchpad quadrant
     /// variants (4 regions × {touch, click}). Used by the mapping engine for
     /// dispatch and by UI to know how to render the region group.
@@ -389,7 +399,7 @@ extension ControllerButton {
         allCases.filter {
             !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
                 && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
-				&& !$0.isS29RingOnly && !$0.isXiaomiRemoteOnly
+				&& !$0.isS29RingOnly && !$0.isXiaomiRemoteOnly && !$0.isFootPedalOnly
         }
     }
 
@@ -404,7 +414,7 @@ extension ControllerButton {
         allCases.filter {
             !$0.isDualSenseOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
                 && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
-				&& !$0.isS29RingOnly && !$0.isXiaomiRemoteOnly && $0 != .share
+				&& !$0.isS29RingOnly && !$0.isXiaomiRemoteOnly && !$0.isFootPedalOnly && $0 != .share
         }
     }
 
@@ -414,7 +424,7 @@ extension ControllerButton {
             $0 != .share && !$0.isDualSenseEdgeOnly && !$0.isGestureButton
                 && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
                 && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
-				&& !$0.isS29RingOnly && !$0.isXiaomiRemoteOnly
+				&& !$0.isS29RingOnly && !$0.isXiaomiRemoteOnly && !$0.isFootPedalOnly
         }
     }
 
@@ -424,7 +434,7 @@ extension ControllerButton {
         allCases.filter {
             !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
                 && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
-				&& !$0.isS29RingOnly && !$0.isXiaomiRemoteOnly
+				&& !$0.isS29RingOnly && !$0.isXiaomiRemoteOnly && !$0.isFootPedalOnly
         }
     }
 
@@ -484,5 +494,10 @@ extension ControllerButton {
     /// Every logical control the S29 ring produces.
     static var s29RingButtons: [ControllerButton] {
         s29RingDirectionButtons + s29RingActionButtons
+    }
+
+    /// The foot pedal's three pedals, left to right.
+    static var footPedalButtons: [ControllerButton] {
+        [.footPedalLeft, .footPedalMiddle, .footPedalRight]
     }
 }

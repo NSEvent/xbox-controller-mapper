@@ -331,6 +331,20 @@ extension ControllerPreviewLayout {
 				pairingButtons: [.s29Home]
 			)
 
+		case .footPedal:
+			return ControllerPairingGuide(
+				title: loc("Connect Your VEC Infinity Pedal"),
+				tagline: loc("Three-pedal USB foot pedal (IN-USB-2 / IN-USB-3)"),
+				systemImage: systemImage,
+				bluetoothSteps: [
+					loc("Plug the pedal into a **USB** port on your Mac."),
+					loc("Allow **Input Monitoring** for ControllerKeys, then enable mapping."),
+					loc("Press a pedal; the Buttons tab then shows the VEC Infinity Pedal layout.")
+				],
+				tip: loc("If you use Karabiner, turn off **Modify events** for **VEC USB Footpedal** in Karabiner → Devices, or it keeps the pedal for itself. Each pedal is an independent switch, so holds, chords and sequences all work."),
+				pairingButtons: [.footPedalMiddle]
+			)
+
 		case .beamdeskHands:
 			return ControllerPairingGuide(
 				title: loc("Connect Beamdesk Hands"),

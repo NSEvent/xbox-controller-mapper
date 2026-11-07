@@ -134,6 +134,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 	var isOuraRing: Bool { visualDescriptor.isOuraRing }
 	var isBeamdeskHands: Bool { visualDescriptor.isBeamdeskHands }
 	var isS29Ring: Bool { visualDescriptor.isS29Ring }
+	var isFootPedal: Bool { visualDescriptor.isFootPedal }
 	var isXiaomiRemote: Bool { visualDescriptor.isXiaomiRemote }
 	var eightBitDoModel: EightBitDoMinimapModel? { visualDescriptor.eightBitDoModel }
 	var isStickless: Bool { visualDescriptor.isStickless }
@@ -212,6 +213,8 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 					beamdeskHandsLayout
 				} else if isS29Ring {
 					s29RingLayout
+				} else if isFootPedal {
+					footPedalLayout
 				} else if isOuraRing {
 					ouraRingLayout
 				} else if isAppleTVRemote {

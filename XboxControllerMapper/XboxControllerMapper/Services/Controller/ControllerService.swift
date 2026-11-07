@@ -246,6 +246,7 @@ class ControllerService: ObservableObject {
     @Published private(set) var isSteamDeckConnected = false
     private var preSteamDeckType: ControllerTypeState?
     @Published private(set) var isS29RingConnected = false
+	@Published private(set) var isFootPedalConnected = false
 	@Published private(set) var isXiaomiRemoteConnected = false
 	@Published var xiaomiRemoteInputIssue: String?
 	var xiaomiRemoteIdentity: ControllerIdentity?
@@ -808,6 +809,7 @@ class ControllerService: ObservableObject {
         case "8bitdo-lite-se": return "8BitDo Lite SE"
         case "8bitdo-ultimate2": return "8BitDo Ultimate 2 Wireless"
         case "s29-ring": return S29RingIdentity.displayName
+		case "foot-pedal": return FootPedalIdentity.displayName
 		case "xiaomi-remote": return XiaomiRemoteIdentity.displayName
         default: return "Xbox Wireless Controller"
         }
@@ -962,6 +964,10 @@ class ControllerService: ObservableObject {
                 isS29RingConnected = true
                 controllerMappingSource = S29RingIdentity.displayName
             }
+			if variant == "foot-pedal" {
+				isFootPedalConnected = true
+				controllerMappingSource = FootPedalIdentity.displayName
+			}
 			if variant == "xiaomi-remote" {
 				isXiaomiRemoteConnected = true
 				controllerMappingSource = XiaomiRemoteIdentity.displayName
@@ -1401,7 +1407,7 @@ class ControllerService: ObservableObject {
 
 	/// When no physical controller is active, show the highest-precedence
 	/// connected virtual/auxiliary input: Beamdesk gamepad, Oura Ring,
-	/// S29 Ring, then Beamdesk hands.
+	/// S29 Ring, foot pedal, then Beamdesk hands.
 	func publishVirtualInputSourceIfNeeded() {
 		if isXiaomiRemoteConnected {
 			publishXiaomiRemoteConnection()
@@ -1413,6 +1419,8 @@ class ControllerService: ObservableObject {
 			publishOuraRingConnection()
 		} else if isS29RingConnected {
 			publishS29RingConnection()
+		} else if isFootPedalConnected {
+			publishFootPedalConnection()
 		} else if isBeamdeskHandsConnected {
 			publishBeamdeskHandsConnection()
 		}
@@ -1452,7 +1460,7 @@ class ControllerService: ObservableObject {
 			publishBeamdeskHandsConnection()
 		} else {
 			releaseBeamdeskHandsButtons()
-			if !hasActiveHardwareInputSource && !isXiaomiRemoteConnected && !isOuraRingConnected && !isS29RingConnected && !isBeamdeskGamepadConnected && !isSteamDeckConnected {
+			if !hasActiveHardwareInputSource && !isXiaomiRemoteConnected && !isOuraRingConnected && !isS29RingConnected && !isFootPedalConnected && !isBeamdeskGamepadConnected && !isSteamDeckConnected {
 				isConnected = false
 				currentControllerIdentity = nil
 				controllerName = ""
@@ -1475,6 +1483,29 @@ class ControllerService: ObservableObject {
 		if connected {
 			publishS29RingConnection()
 		} else if !hasActiveHardwareInputSource && !isXiaomiRemoteConnected {
+			isConnected = false
+			currentControllerIdentity = nil
+			controllerName = ""
+			controllerMappingSource = nil
+			activeButtons.removeAll()
+			stopDisplayUpdateTimer()
+			publishVirtualInputSourceIfNeeded()
+		}
+	}
+
+	/// Same auxiliary-input contract as the S29 ring: pedal presses always
+	/// reach the mapping engine (so the pedal works alongside a gamepad), and
+	/// it is only the displayed controller when nothing else is.
+	/// `FootPedalInputService` releases held pedals before reporting a
+	/// disconnect, so only the display state is handled here.
+	func setFootPedalConnected(_ connected: Bool) {
+		guard isFootPedalConnected != connected else { return }
+		isFootPedalConnected = connected
+
+		if connected {
+			publishFootPedalConnection()
+		} else if !hasActiveHardwareInputSource && !isXiaomiRemoteConnected
+			&& controllerName == FootPedalIdentity.displayName {
 			isConnected = false
 			currentControllerIdentity = nil
 			controllerName = ""
@@ -1560,6 +1591,12 @@ class ControllerService: ObservableObject {
 		controllerMappingSource == S29RingIdentity.displayName
 	}
 
+	var isFootPedalActiveInputSource: Bool {
+		isFootPedalConnected &&
+		controllerName == FootPedalIdentity.displayName &&
+		controllerMappingSource == FootPedalIdentity.displayName
+	}
+
 	func setBeamdeskGamepadConnected(_ connected: Bool) {
 		guard isBeamdeskGamepadConnected != connected else { return }
 		isBeamdeskGamepadConnected = connected
@@ -1619,8 +1656,20 @@ class ControllerService: ObservableObject {
 		}
 	}
 
-	private func publishBeamdeskHandsConnection() {
+	private func publishFootPedalConnection() {
 		guard !hasActiveHardwareInputSource, !isXiaomiRemoteConnected, !isOuraRingConnected, !isS29RingConnected, !isBeamdeskGamepadConnected, !isSteamDeckConnected else { return }
+		isConnected = true
+		currentControllerIdentity = nil
+		controllerName = FootPedalIdentity.displayName
+		controllerMappingSource = FootPedalIdentity.displayName
+		reportControllerConnectionForTelemetry(fallback: .generic)
+		if !AppRuntime.isRunningTests {
+			startDisplayUpdateTimer()
+		}
+	}
+
+	private func publishBeamdeskHandsConnection() {
+		guard !hasActiveHardwareInputSource, !isXiaomiRemoteConnected, !isOuraRingConnected, !isS29RingConnected, !isFootPedalConnected, !isBeamdeskGamepadConnected, !isSteamDeckConnected else { return }
 		isConnected = true
 		currentControllerIdentity = nil
 		controllerName = "Beamdesk Hands"
