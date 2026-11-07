@@ -299,6 +299,32 @@ final class TelemetryServiceTests: XCTestCase {
         XCTAssertEqual(service.pendingEventCountForTesting(), 0)
     }
 
+    func testSendFromBeforeOptOutDoesNotUnlockASecondConcurrentSend() throws {
+        let recorder = TransportRecorder()
+        let service = makeService(recorder: recorder)
+        service.appLaunched(status: "trial")
+        service.synchronizeForTesting()
+        XCTAssertEqual(recorder.requestBodies().count, 1)
+
+        // Opt out and back in while the first send is still in flight.
+        defaults.set(false, forKey: "telemetryEnabled")
+        service.preferenceChanged(enabled: false)
+        defaults.set(true, forKey: "telemetryEnabled")
+        service.preferenceChanged(enabled: true)
+        service.appLaunched(status: "trial")
+        service.synchronizeForTesting()
+        XCTAssertEqual(recorder.requestBodies().count, 2)
+
+        // The pre-opt-out send finishes; the newer send is still in flight.
+        recorder.respondNext(200)
+        service.synchronizeForTesting()
+        XCTAssertEqual(recorder.requestBodies().count, 2, "a stale completion must not start a duplicate send")
+
+        recorder.respondNext(200)
+        service.synchronizeForTesting()
+        XCTAssertEqual(service.pendingEventCountForTesting(), 0)
+    }
+
     private func makeService(
         recorder: TransportRecorder,
         clock: Clock = Clock(ISO8601DateFormatter().date(from: "2026-09-02T12:00:00Z")!)
