@@ -13,7 +13,10 @@ class AppMonitor: ObservableObject {
 	private var appInfoCache: [String: AppInfo] = [:]
 	private var unavailableBundleIds = Set<String>()
 
-    init() {
+    /// Tests that script `frontmostBundleId` pass `observesWorkspace: false` so a
+    /// real app activation elsewhere can't overwrite the scripted value.
+    init(observesWorkspace: Bool = true) {
+        guard observesWorkspace else { return }
         setupNotifications()
         updateFrontmostApp()
     }

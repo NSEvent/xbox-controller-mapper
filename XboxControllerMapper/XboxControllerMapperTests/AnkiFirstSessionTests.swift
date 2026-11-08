@@ -1,4 +1,5 @@
 import XCTest
+import AppKit
 import CoreGraphics
 @testable import ControllerKeys
 
@@ -20,6 +21,9 @@ final class AnkiFirstSessionTests: MappingEngineTestCase {
 
 	private func connectAppMonitor() {
 		mappingEngine.shutdown()
+		// Real activations (other tests, the desktop) would replace the scripted
+		// frontmost app and auto-switch back to Default mid-test.
+		appMonitor = AppMonitor(observesWorkspace: false)
 		appMonitor.frontmostBundleId = "com.apple.finder"
 		profileManager = ProfileManager(appMonitor: appMonitor, configDirectoryOverride: testConfigDirectory)
 		profileManager.setupControllerAutoSwitching(with: controllerService)
@@ -86,6 +90,20 @@ final class AnkiFirstSessionTests: MappingEngineTestCase {
 		await expectTap(.x, keyCode: 18)
 		await expectTap(.b, keyCode: 19)
 		await expectTap(.y, keyCode: 21)
+	}
+
+	func testScriptedAnkiFrontmostIgnoresRealAppActivations() async throws {
+		connectAppMonitor()
+		let profile = try importAndSelect("Anki - AnKing (USMLE)")
+		appMonitor.frontmostBundleId = modernAnkiID
+		NSWorkspace.shared.notificationCenter.post(
+			name: NSWorkspace.didActivateApplicationNotification, object: NSWorkspace.shared,
+			userInfo: [NSWorkspace.applicationUserInfoKey: NSRunningApplication.current]
+		)
+		await waitForTasks(0.1)
+		XCTAssertEqual(appMonitor.frontmostBundleId, modernAnkiID)
+		XCTAssertEqual(profileManager.activeProfileId, profile.id)
+		await expectTap(.b, keyCode: 19)
 	}
 
 	func testAnkiSelectionSurvivesDisconnectAndFirstTapAfterReconnect() async throws {
