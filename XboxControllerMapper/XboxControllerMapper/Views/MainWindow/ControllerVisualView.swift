@@ -1534,7 +1534,10 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                     Spacer()
                 }
                 .padding(.vertical, 8)
-                .padding(.horizontal, 12)
+                .padding(.leading, 12)
+				.mappingQuickActionColumn {
+					mappingQuickActions(for: button, hasMapping: currentMapping != nil, showsLayer: showsLayerActivator)
+				}
             }
             .overlay(
 				layerOverrideOutline(for: button, cornerRadius: 10)
@@ -1546,10 +1549,6 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                     .opacity(swapFirstButton == button ? 1 : 0)
             )
             .opacity(isBaseFallthrough(for: button) ? 0.4 : 1.0)  // Dim fallthrough mappings
-			.overlay(alignment: .trailing) {
-				mappingQuickActions(for: button, hasMapping: currentMapping != nil, showsLayer: showsLayerActivator)
-					.padding(.trailing, 6)
-			}
             // Anchor only the glass container so connectors terminate at the box edge,
             // independent of which side of the controller the row sits on. Anchoring
             // the parent HStack would have right-column rows resolve to the icon edge.
@@ -1688,21 +1687,10 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 		let canCopy = !showsLayer && hasMapping
 		let canPaste = !showsLayer && canPasteMapping
 		if hoveredButton == button, canCopy || canPaste {
-			HStack(spacing: 2) {
-				if canCopy {
-					MappingQuickActionButton(systemImage: "doc.on.doc", help: "Copy Mapping") {
-						copyMapping(for: button)
-					}
-				}
-				if canPaste {
-					MappingQuickActionButton(systemImage: "doc.on.clipboard", help: "Paste Mapping") {
-						pasteMapping(to: button)
-					}
-				}
-			}
-			.padding(2)
-			.background(Capsule().fill(.regularMaterial))
-			.overlay(Capsule().stroke(Color.primary.opacity(0.12), lineWidth: 1))
+			MappingQuickActionsStack(
+				onCopy: canCopy ? { copyMapping(for: button) } : nil,
+				onPaste: canPaste ? { pasteMapping(to: button) } : nil
+			)
 			.transition(.opacity)
 		}
 	}
@@ -1931,6 +1919,51 @@ struct HoverableGlassContainer<Content: View>: View {
     }
 }
 
+/// Sizing for the hover Copy/Paste column. Reference rows reserve
+/// `reservedTrailingWidth` so the column never covers the mapping label.
+enum MappingQuickActionLayout {
+	static let buttonSize = CGSize(width: 20, height: 13)
+	static let padding: CGFloat = 2
+	static let spacing: CGFloat = 1
+	static let edgeInset: CGFloat = 6
+	/// Gap kept between the label's trailing edge and the column.
+	static let labelGap: CGFloat = 4
+	static var stackWidth: CGFloat { buttonSize.width + padding * 2 }
+	static var reservedTrailingWidth: CGFloat { edgeInset + stackWidth + labelGap }
+}
+
+extension View {
+	/// Reserves the hover Copy/Paste column on the trailing edge and places the
+	/// actions in it, so long labels stop short of the column instead of running
+	/// underneath, and the row never reflows when hover shows the actions.
+	func mappingQuickActionColumn<Actions: View>(@ViewBuilder _ actions: () -> Actions) -> some View {
+		padding(.trailing, MappingQuickActionLayout.reservedTrailingWidth)
+			.overlay(alignment: .trailing) {
+				actions().padding(.trailing, MappingQuickActionLayout.edgeInset)
+			}
+	}
+}
+
+/// Copy above Paste, stacked so the pair stays narrow at the row's trailing edge.
+struct MappingQuickActionsStack: View {
+	var onCopy: (() -> Void)?
+	var onPaste: (() -> Void)?
+
+	var body: some View {
+		VStack(spacing: MappingQuickActionLayout.spacing) {
+			if let onCopy {
+				MappingQuickActionButton(systemImage: "doc.on.doc", help: "Copy Mapping", action: onCopy)
+			}
+			if let onPaste {
+				MappingQuickActionButton(systemImage: "doc.on.clipboard", help: "Paste Mapping", action: onPaste)
+			}
+		}
+		.padding(MappingQuickActionLayout.padding)
+		.background(RoundedRectangle(cornerRadius: 7).fill(.regularMaterial))
+		.overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.primary.opacity(0.12), lineWidth: 1))
+	}
+}
+
 /// Small icon button used by the hover quick actions on mapping rows/tiles.
 private struct MappingQuickActionButton: View {
 	let systemImage: String
@@ -1943,8 +1976,9 @@ private struct MappingQuickActionButton: View {
 		Button(action: action) {
 			Image(systemName: systemImage)
 				.font(.system(size: 10, weight: .semibold))
-				.frame(width: 20, height: 18)
-				.background(Circle().fill(Color.primary.opacity(isHovered ? 0.14 : 0)))
+				.frame(width: MappingQuickActionLayout.buttonSize.width,
+					height: MappingQuickActionLayout.buttonSize.height)
+				.background(RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(isHovered ? 0.14 : 0)))
 				.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
