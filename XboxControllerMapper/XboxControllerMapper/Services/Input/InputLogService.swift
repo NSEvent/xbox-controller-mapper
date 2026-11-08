@@ -14,11 +14,22 @@ class InputLogService: ObservableObject {
     private var pendingEntries: [InputLogEntry] = []
     private var isUpdateScheduled = false
     private let lock = NSLock()
+	/// Resolved button → the physical button last pressed for it. A remote key
+	/// that shares another remote's binding (Xiaomi TV runs the Apple TV
+	/// remote's `.xbox` mapping) must still log as the key the user pressed.
+	private var physicalSources: [ControllerButton: ControllerButton] = [:]
+
+	func notePhysicalSource(_ physical: ControllerButton, resolvedAs resolved: ControllerButton) {
+		lock.lock()
+		physicalSources[resolved] = physical == resolved ? nil : physical
+		lock.unlock()
+	}
     
     func log(buttons: [ControllerButton], type: InputEventType, action: String, isHeld: Bool = false) {
-        let entry = InputLogEntry(buttons: buttons, type: type, actionDescription: action)
-
         lock.lock()
+		let entry = InputLogEntry(
+			buttons: buttons.map { physicalSources[$0] ?? $0 }, type: type, actionDescription: action
+		)
         pendingEntries.append(entry)
         let shouldSchedule = !isUpdateScheduled
         if shouldSchedule {

@@ -631,6 +631,7 @@ class MappingEngine: ObservableObject {
 			state.physicalButtonResolutions[button] = resolvedButton
 			state.cancelledPhysicalButtonReleases.remove(button)
 		}
+		inputLogService?.notePhysicalSource(button, resolvedAs: resolvedButton)
 		return resolvedButton
 	}
 
