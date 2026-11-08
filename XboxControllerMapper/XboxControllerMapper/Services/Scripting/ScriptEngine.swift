@@ -49,8 +49,12 @@ nonisolated private enum JSExecutionTimeLimit {
 		return unsafeBitCast(symbol, to: SetLimit.self)
 	}()
 
-	/// Every later entry into `context` from native code is stopped once it has
-	/// run for `seconds`. Returns false when the limit isn't available.
+	/// The exception message JavaScriptCore raises when it stops a script.
+	static let terminationMessage = "JavaScript execution terminated."
+
+	/// Every later entry into `context` from native code is stopped once its
+	/// JavaScript has run for `seconds`. Time blocked in native calls such as
+	/// delay() or shell() doesn't count. Returns false when the limit isn't available.
 	@discardableResult
 	static func apply(to context: JSContext, seconds: Double) -> Bool {
 		guard let setLimit else { return false }
@@ -207,7 +211,6 @@ class ScriptEngine {
 
         // Re-install APIs before each execution to prevent persistent overrides from prior scripts
         installAPI()
-        let startedAt = DispatchTime.now()
 
         // Execute in IIFE to prevent global namespace pollution between scripts
         if let function = context.evaluateScript("(function(state) {\n\(script.source)\n})"),
@@ -216,10 +219,9 @@ class ScriptEngine {
         }
 
         let didTimeout = timedOut.value
-        let elapsedSeconds = Double(DispatchTime.now().uptimeNanoseconds - startedAt.uptimeNanoseconds) / 1_000_000_000
 
         // JavaScriptCore reports its time-limit stop as an exception.
-        if capturedExceptionMessage != nil, elapsedSeconds >= terminationSeconds {
+        if capturedExceptionMessage == JSExecutionTimeLimit.terminationMessage {
             logMessage("[Script Timeout] \(script.name): stopped after \(terminationSeconds)s")
             return .error("Script stopped: still running after \(Int(terminationSeconds))s")
         }

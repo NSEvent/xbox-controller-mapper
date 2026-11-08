@@ -31,12 +31,25 @@ final class ScriptRunawayTerminationTests: XCTestCase {
 		}, [CGKeyCode(15)])
 	}
 
-	func testDelaysWithinBudgetStillFinish() {
+	func testTimeBlockedInDelaysDoesNotCountTowardTheLimit() {
 		let simulator = MockInputSimulator()
 		let engine = ScriptEngine(inputSimulator: simulator, inputQueue: DispatchQueue(label: "test.delays"),
-								  terminationSeconds: 1.0)
-		_ = engine.execute(script: Script(name: "Delays", source: "delay(0.3); delay(0.3); press(16);"),
+								  terminationSeconds: 0.5)
+		// 1.2s of delay() against a 0.5s limit, then a loop that gives JSC a
+		// chance to act on an expired limit.
+		_ = engine.execute(script: Script(name: "Delays",
+										  source: "delay(0.6); delay(0.6); for (var i = 0; i < 100000; i++) {} press(16);"),
 						   trigger: ScriptTrigger(button: .a))
 		XCTAssertEqual(simulator.events.count { if case .pressKey(16, _) = $0 { return true }; return false }, 1)
+	}
+
+	func testErrorAfterLongDelaysKeepsItsOwnMessage() {
+		let engine = ScriptEngine(inputSimulator: MockInputSimulator(), inputQueue: DispatchQueue(label: "test.error"),
+								  terminationSeconds: 0.5)
+		let result = engine.execute(script: Script(name: "Throws", source: "delay(0.6); undefinedFunction();"),
+									trigger: ScriptTrigger(button: .a))
+		guard case .error(let message) = result else { return XCTFail("expected an error, got \(result)") }
+		XCTAssertFalse(message.contains("still running"), message)
+		XCTAssertTrue(message.contains("undefinedFunction"), message)
 	}
 }
