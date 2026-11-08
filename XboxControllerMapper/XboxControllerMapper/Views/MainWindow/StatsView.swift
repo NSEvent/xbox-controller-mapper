@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Stats dashboard tab showing usage statistics and controller personality
-struct StatsView: View, ControllerTypeProviding {
+struct StatsView: View, MappingControllerTypeProviding {
     @EnvironmentObject var usageStatsService: UsageStatsService
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
@@ -352,14 +352,14 @@ struct StatsView: View, ControllerTypeProviding {
 						button: item.button,
 						isDualSense: presentationState.isPlayStation,
 						isNintendo: presentationState.isNintendo,
-						isSteamController: presentationState.isSteamController
+						isSteamController: presentationState.isSteamController,
+						isAppleTVRemote: presentationState.isAppleTVRemote,
+						isEightBitDo: presentationState.eightBitDoModel != nil,
+						isWiimote: presentationState.isWiimote
 					)
 						.frame(width: ButtonIconView.maxIconWidth)
 
-					Text(item.button.displayName(
-						forDualSense: presentationState.isPlayStation,
-						forNintendo: presentationState.isNintendo
-					))
+					Text(presentationState.buttonLabel(item.button))
 						.font(.system(size: 13, weight: .medium))
 						.foregroundColor(.white)
 						.frame(width: 90, alignment: .leading)

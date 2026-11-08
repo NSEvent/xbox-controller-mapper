@@ -205,6 +205,7 @@ extension ControllerService {
         enqueueWiimotePointerMode(engaged: engaged, device: device)
 
         activateWiimoteHIDSessionIfNeeded(device)
+		recordControllerConnectionPreview(.wiimote)
     }
 
     func wiimoteDeviceRemoved(_ device: IOHIDDevice) {
@@ -334,7 +335,6 @@ extension ControllerService {
 
         isConnected = true
         reportControllerConnectionForTelemetry(fallback: .nintendo)
-		recordCurrentControllerConnectionPreview()
 
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
@@ -420,7 +420,7 @@ extension ControllerService {
         for entry in Self.wiimoteButtonMap where latched.contains(entry.wiimote) {
             let button = entry.button
             controllerQueue.async { [weak self] in
-                self?.handleButton(button, pressed: false)
+				self?.handleButton(button, pressed: false, source: .wiimote)
             }
         }
     }

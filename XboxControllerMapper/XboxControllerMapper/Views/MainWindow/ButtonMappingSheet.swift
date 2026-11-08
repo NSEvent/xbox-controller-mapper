@@ -17,6 +17,7 @@ struct ButtonMappingSheet: View {
     @EnvironmentObject var appMonitor: AppMonitor
 
     @Environment(\.dismiss) private var dismiss
+	@State private var editorScope = MappingEditorScope()
 
     // MARK: - Per-variant editing state (replaces ~60 individual @State vars)
 
@@ -213,6 +214,7 @@ struct ButtonMappingSheet: View {
         .animation(.easeInOut(duration: 0.2), value: doubleTapState.showingMouse)
         .animation(.easeInOut(duration: 0.2), value: releaseState.showingMouse)
         .animation(.easeInOut(duration: 0.2), value: primaryState.mappingType)
+		.mappingEditorScope($editorScope, profileId: profileManager.activeProfileId)
         .onAppear {
             loadCurrentMapping()
             // Initialize selectedExistingLayerId if there are unassigned layers
@@ -1227,6 +1229,7 @@ struct ButtonMappingSheet: View {
     }
 
     private func saveMapping() {
+		guard editorScope.canSave(to: profileManager.activeProfileId) else { return }
         // Handle layer activator
         if isLayerActivator {
             if let existingId = existingLayerId,
@@ -1240,7 +1243,7 @@ struct ButtonMappingSheet: View {
                 _ = profileManager.setLayerActivator(layer, button: button)
             } else {
                 // Create new layer
-                guard !layerName.isEmpty else { return }
+				guard editorScope.canSave(to: profileManager.activeProfileId), !layerName.isEmpty else { return }
                 _ = profileManager.createLayer(name: layerName, activatorButton: button)
             }
             // Clear any existing button mapping for this button
@@ -1388,6 +1391,7 @@ struct ButtonMappingSheet: View {
     }
 
     private func clearMapping() {
+		guard editorScope.canSave(to: profileManager.activeProfileId) else { return }
         // If this was a layer activator, delete the layer
         if let existingId = existingLayerId,
            let layer = profileManager.activeProfile?.layers.first(where: { $0.id == existingId }) {

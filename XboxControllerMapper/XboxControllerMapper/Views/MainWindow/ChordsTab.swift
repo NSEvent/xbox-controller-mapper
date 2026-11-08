@@ -21,25 +21,23 @@ struct ChordsTab: View, MappingControllerTypeProviding {
                 if let profile = profileManager.activeProfile, !profile.chordMappings.isEmpty {
                     ChordListView(
                         chords: profile.chordMappings,
-						isDualSense: presentationState.isPlayStation,
-						isNintendo: presentationState.isNintendo,
-						isSteamController: presentationState.isSteamController,
-						isAppleTVRemote: presentationState.isAppleTVRemote,
-						isWiimote: presentationState.isWiimote,
+						descriptor: presentationState,
+						groupingDescriptor: (profile.controllerPreviewLayout == .active && !controllerService.isConnected) ? nil : presentationState,
 						onEdit: { chord in
                             editingChord = chord
                         },
                         onDelete: { chord in
+							guard profileManager.activeProfileId == profile.id else { return }
                             profileManager.removeChord(chord)
                         },
                         onClearAction: { chord in
+							guard profileManager.activeProfileId == profile.id else { return }
                             profileManager.updateChord(chord.clearingAllActions())
                         },
-                        onMove: { source, destination in
-                            profileManager.moveChords(from: source, to: destination)
+						onMove: { ids, source, destination in
+							profileManager.moveChordSection(ids: ids, from: source, to: destination, profileId: profile.id)
                         }
                     )
-                    .equatable()
                 } else {
                     Text("No chords configured")
                         .foregroundColor(.secondary)
@@ -50,7 +48,7 @@ struct ChordsTab: View, MappingControllerTypeProviding {
                 Text("Chord Mappings")
                     .foregroundColor(.secondary)
             } footer: {
-                Text("Chords let you map multiple button presses to a single action.")
+				Text("Chords let you map multiple button presses to a single action. Compatible mappings appear first. Drag within a section to reorder; switching controllers preserves your saved order.")
                     .foregroundColor(.secondary.opacity(0.7))
             }
         }

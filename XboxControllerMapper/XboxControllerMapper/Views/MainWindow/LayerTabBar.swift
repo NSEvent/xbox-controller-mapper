@@ -135,7 +135,9 @@ struct LayerTabBar: View, MappingControllerTypeProviding {
 									Text(activator.shortLabel(
 										forDualSense: presentationState.isPlayStation,
 										forNintendo: presentationState.isNintendo,
-										forAppleTVRemote: presentationState.isAppleTVRemote
+										forAppleTVRemote: presentationState.isAppleTVRemote,
+										forEightBitDo: presentationState.eightBitDoModel != nil,
+										forWiimote: presentationState.isWiimote
 									))
 									if layer.activationStyle == .toggle {
 										Image(systemName: "pin.fill")

@@ -55,4 +55,30 @@ final class ClipboardRestoreSessionTests: XCTestCase {
 		session.endPaste()
 		XCTAssertEqual(pasteboard.string(forType: .string), "copied meanwhile")
 	}
+	func testOverlappingPastesRestoreEveryClipboardItemAndFormat() {
+		pasteboard.clearContents()
+		let first = NSPasteboardItem()
+		first.setString("formatted text", forType: .string)
+		let rich = Data([1, 2, 3, 4])
+		first.setData(rich, forType: .rtf)
+		let second = NSPasteboardItem()
+		let image = Data([5, 6, 7, 8])
+		second.setData(image, forType: .png)
+		pasteboard.writeObjects([first, second])
+		let session = ClipboardRestoreSession(pasteboard: pasteboard)
+		session.beginPaste("one"); session.beginPaste("two")
+		session.endPaste(); session.endPaste()
+		XCTAssertEqual(pasteboard.pasteboardItems?.count, 2)
+		XCTAssertEqual(pasteboard.pasteboardItems?.first?.data(forType: .rtf), rich)
+		XCTAssertEqual(pasteboard.pasteboardItems?.last?.data(forType: .png), image)
+	}
+
+	func testEmptyClipboardIsRestoredInsteadOfLeavingSnippet() {
+		pasteboard.clearContents()
+		let session = ClipboardRestoreSession(pasteboard: pasteboard)
+		session.beginPaste("snippet"); session.endPaste()
+		XCTAssertNil(pasteboard.string(forType: .string))
+		XCTAssertTrue(pasteboard.pasteboardItems?.isEmpty ?? true)
+	}
+
 }

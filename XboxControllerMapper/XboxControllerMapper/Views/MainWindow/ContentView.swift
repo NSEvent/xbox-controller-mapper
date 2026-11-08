@@ -578,7 +578,8 @@ struct ContentView: View {
             if isOn {
                 StreamOverlayManager.shared.show(
                     controllerService: controllerService,
-                    inputLogService: inputLogService
+					inputLogService: inputLogService,
+					profileManager: profileManager
                 )
             } else {
                 StreamOverlayManager.shared.hide()

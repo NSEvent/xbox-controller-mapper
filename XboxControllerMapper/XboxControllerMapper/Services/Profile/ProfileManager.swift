@@ -97,6 +97,7 @@ class ProfileManager: ObservableObject {
     
     private var cancellables = Set<AnyCancellable>()
 	var controllerPreviewSubscription: AnyCancellable?
+	var controllerPreviewSelection: ControllerPreviewLayout?
 
     init(
         appMonitor: AppMonitor? = nil,
@@ -304,8 +305,18 @@ class ProfileManager: ObservableObject {
 
 	func setControllerPreviewLayout(_ layout: ControllerPreviewLayout, in profile: Profile? = nil) {
 		guard var targetProfile = profile ?? activeProfile else { return }
+		if targetProfile.id == activeProfileId, controllerPreviewSubscription != nil {
+			controllerPreviewSelection = layout
+		}
 		guard targetProfile.controllerPreviewLayout != layout else { return }
 		targetProfile.controllerPreviewLayout = layout
+		// Navigation/auto-follow is not a user mapping edit that authorizes
+		// replacing an unreadable configuration with the bootstrap profile.
+		if configLoadError != nil {
+			if let index = profiles.firstIndex(where: { $0.id == targetProfile.id }) { profiles[index] = targetProfile }
+			if activeProfileId == targetProfile.id { activeProfile = targetProfile }
+			return
+		}
 		updateProfile(targetProfile)
 	}
 
@@ -384,6 +395,9 @@ class ProfileManager: ObservableObject {
 
     func updateProfile(_ profile: Profile) {
         var updatedProfile = profile
+		if activeProfileId == profile.id, let controllerPreviewSelection {
+			updatedProfile.controllerPreviewLayout = controllerPreviewSelection
+		}
 		updatedProfile.reconcileDPadPreset()
         updatedProfile.modifiedAt = Date()
         updatedProfile.sharedMacroSnapshots = SharedMacroSnapshotPolicy.syncedSnapshots(
@@ -404,10 +418,15 @@ class ProfileManager: ObservableObject {
 
 	func setActiveProfile(_ profile: Profile, isAutomatic: Bool = false) {
 		applyActiveProfile(profile, isAutomatic: isAutomatic)
-		saveConfiguration()
+		if !isAutomatic || configLoadError == nil { saveConfiguration() }
 	}
 
 	private func applyActiveProfile(_ profile: Profile, isAutomatic: Bool) {
+		var profile = profile
+		if let controllerPreviewSelection {
+			profile.controllerPreviewLayout = controllerPreviewSelection
+			if let index = profiles.firstIndex(where: { $0.id == profile.id }) { profiles[index] = profile }
+		}
         if !profiles.contains(where: { $0.id == profile.id }) {
             profiles.append(profile)
         }
@@ -632,7 +651,13 @@ class ProfileManager: ObservableObject {
         self.profiles = state.profiles
         // Set activeProfileId before activeProfile to avoid transient desync
         self.activeProfileId = state.activeProfileId
-        self.activeProfile = state.activeProfile
+		var restoredActive = state.activeProfile
+		if let controllerPreviewSelection, var profile = restoredActive {
+			profile.controllerPreviewLayout = controllerPreviewSelection
+			restoredActive = profile
+			if let index = profiles.firstIndex(where: { $0.id == profile.id }) { profiles[index] = profile }
+		}
+		self.activeProfile = restoredActive
 		self.lastActiveProfileId = state.lastActiveProfileId
         self.uiScale = state.uiScale
     }

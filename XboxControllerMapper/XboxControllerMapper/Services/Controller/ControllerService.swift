@@ -119,6 +119,7 @@ final class ControllerStorage: @unchecked Sendable {
     var activeButtons: Set<ControllerButton> = []
 	let previewActivity = PassthroughSubject<ControllerPreviewLayout, Never>()
 	var latestPreviewActivity: (layout: ControllerPreviewLayout, time: TimeInterval)?
+	var previewSourceButtons: [ControllerPreviewLayout: Set<ControllerButton>] = [:]
     var buttonPressTimestamps: [ControllerButton: Date] = [:]
     var lastMicButtonState: Bool = false
     var lastPSButtonState: Bool = false
@@ -1312,6 +1313,7 @@ class ControllerService: ObservableObject {
 
 		storage.lock.lock()
 		storage.activeButtons.removeAll()
+		storage.previewSourceButtons.removeAll()
 		storage.buttonPressTimestamps.removeAll()
 		storage.pendingButtons.removeAll()
 		storage.capturedButtonsInWindow.removeAll()
@@ -1387,6 +1389,7 @@ class ControllerService: ObservableObject {
 
         storage.lock.lock()
         storage.activeButtons.removeAll()
+		storage.previewSourceButtons.removeAll()
         storage.buttonPressTimestamps.removeAll()
         storage.pendingButtons.removeAll()
         storage.capturedButtonsInWindow.removeAll()
@@ -1461,7 +1464,7 @@ class ControllerService: ObservableObject {
 				releaseOuraRingButtons()
 			}
 		}
-		if connected { recordPreviewActivity(.ouraRing) }
+		if connected { recordControllerConnectionPreview(.ouraRing) }
 	}
 
 	/// Beamdesk announces its link over the same distributed-notification
@@ -1485,7 +1488,7 @@ class ControllerService: ObservableObject {
 				stopDisplayUpdateTimer()
 			}
 		}
-		if connected { recordPreviewActivity(.beamdeskHands) }
+		if connected { recordControllerConnectionPreview(.beamdeskHands) }
 	}
 
 	/// The S29 ring is a real HID device, but like the Oura ring it is an
@@ -1508,7 +1511,7 @@ class ControllerService: ObservableObject {
 			stopDisplayUpdateTimer()
 			publishVirtualInputSourceIfNeeded()
 		}
-		if connected { recordPreviewActivity(.s29Ring) }
+		if connected { recordControllerConnectionPreview(.s29Ring) }
 	}
 
 	/// Same auxiliary-input contract as the S29 ring: pedal presses always
@@ -1532,7 +1535,7 @@ class ControllerService: ObservableObject {
 			stopDisplayUpdateTimer()
 			publishVirtualInputSourceIfNeeded()
 		}
-		if connected { recordPreviewActivity(.footPedal) }
+		if connected { recordControllerConnectionPreview(.footPedal) }
 	}
 
 	func setXiaomiRemoteConnected(_ connected: Bool, identity: ControllerIdentity? = nil) {
@@ -1549,7 +1552,7 @@ class ControllerService: ObservableObject {
 			stopDisplayUpdateTimer()
 			publishVirtualInputSourceIfNeeded()
 		}
-		if connected { recordPreviewActivity(.xiaomiRemote) }
+		if connected { recordControllerConnectionPreview(.xiaomiRemote) }
 	}
 
 	/// A physical controller holds the display slot, so auxiliary inputs must
@@ -1594,7 +1597,7 @@ class ControllerService: ObservableObject {
 			stopDisplayUpdateTimer()
 			publishVirtualInputSourceIfNeeded()
 		} else { preSteamDeckType = nil }
-		if connected { recordPreviewActivity(.steam) }
+		if connected { recordControllerConnectionPreview(.steam) }
 	}
 	private func publishSteamDeckConnection() {
 		guard canAcceptSteamDeckInput else { return }
@@ -1640,7 +1643,7 @@ class ControllerService: ObservableObject {
 			stopDisplayUpdateTimer()
 			publishVirtualInputSourceIfNeeded()
 		}
-		if connected { recordPreviewActivity(.xbox) }
+		if connected { recordControllerConnectionPreview(.xbox) }
 	}
 
 	private func publishBeamdeskGamepadConnection() {
@@ -2860,7 +2863,7 @@ class ControllerService: ObservableObject {
         if pressed {
 			buttonPressed(button, source: source)
         } else {
-            buttonReleased(button)
+			buttonReleased(button, source: source)
         }
     }
 
@@ -2880,20 +2883,24 @@ class ControllerService: ObservableObject {
             storage.lock.lock()
         }
 
-        guard !storage.activeButtons.contains(button) else {
-            storage.lock.unlock()
-            return
-        }
-
 		// Snapshot the event's source before dispatching to the UI. Auxiliary
 		// devices share this input pipeline but do not replace hardware identity.
-		if let layout = ControllerPreviewAutoFollow.layout(
+		let freshSourcePress: Bool
+		if let source {
+			freshSourcePress = storage.previewSourceButtons[source, default: []].insert(button).inserted
+		} else { freshSourcePress = !storage.activeButtons.contains(button) }
+		if freshSourcePress, let layout = ControllerPreviewAutoFollow.layout(
 			button: button, source: source,
 			activeDescriptor: ControllerVisualDescriptor.active(from: storage.controllerPresentationStateLocked)
 		) {
 			// Queue under the lock to preserve accepted press order; subscribers
 			// run later on main, outside the input lock and without coalescing.
 			DispatchQueue.main.async { [weak self] in self?.recordPreviewActivity(layout, at: pressedAt) }
+		}
+
+		guard !storage.activeButtons.contains(button) else {
+			storage.lock.unlock()
+			return
 		}
 
         storage.activeButtons.insert(button)
@@ -2943,9 +2950,10 @@ class ControllerService: ObservableObject {
         controllerQueue.asyncAfter(deadline: .now() + window, execute: workItem)
     }
 
-    nonisolated internal func buttonReleased(_ button: ControllerButton) {
+	nonisolated internal func buttonReleased(_ button: ControllerButton, source: ControllerPreviewLayout? = nil) {
 		let releasedAt = CFAbsoluteTimeGetCurrent()
         storage.lock.lock()
+		if let source { storage.previewSourceButtons[source]?.remove(button) }
         guard storage.activeButtons.contains(button) else {
             storage.lock.unlock()
             return

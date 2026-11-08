@@ -21,25 +21,23 @@ struct SequencesTab: View, MappingControllerTypeProviding {
                 if let profile = profileManager.activeProfile, !profile.sequenceMappings.isEmpty {
                     SequenceListView(
                         sequences: profile.sequenceMappings,
-						isDualSense: presentationState.isPlayStation,
-						isNintendo: presentationState.isNintendo,
-						isSteamController: presentationState.isSteamController,
-						isAppleTVRemote: presentationState.isAppleTVRemote,
-						isWiimote: presentationState.isWiimote,
+						descriptor: presentationState,
+						groupingDescriptor: (profile.controllerPreviewLayout == .active && !controllerService.isConnected) ? nil : presentationState,
 						onEdit: { sequence in
                             editingSequence = sequence
                         },
                         onDelete: { sequence in
+							guard profileManager.activeProfileId == profile.id else { return }
                             profileManager.removeSequence(sequence)
                         },
                         onClearAction: { sequence in
+							guard profileManager.activeProfileId == profile.id else { return }
                             profileManager.updateSequence(sequence.clearingAllActions())
                         },
-                        onMove: { source, destination in
-                            profileManager.moveSequences(from: source, to: destination)
+						onMove: { ids, source, destination in
+							profileManager.moveSequenceSection(ids: ids, from: source, to: destination, profileId: profile.id)
                         }
                     )
-                    .equatable()
                 } else {
                     Text("No sequences configured")
                         .foregroundColor(.secondary)
@@ -50,7 +48,7 @@ struct SequencesTab: View, MappingControllerTypeProviding {
                 Text("Sequence Mappings")
                     .foregroundColor(.secondary)
             } footer: {
-                Text("Sequences fire an extra action when buttons are pressed in order within a time window. Individual button actions still fire normally (zero added latency).")
+				Text("Sequences fire an extra action when buttons are pressed in order within a time window. Individual button actions still fire normally (zero added latency). Compatible mappings appear first. Drag within a section to reorder; switching controllers preserves your saved order.")
                     .foregroundColor(.secondary.opacity(0.7))
             }
         }

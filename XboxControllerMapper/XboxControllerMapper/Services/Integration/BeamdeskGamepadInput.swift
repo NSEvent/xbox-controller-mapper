@@ -96,8 +96,8 @@ final class BeamdeskGamepadInput {
 		guard value.active else { releaseInputs(); controller.setBeamdeskGamepadConnected(false); return }
 		controller.setBeamdeskGamepadConnected(true)
 		let next = value.effectiveButtons
-		for button in pressed.subtracting(next) { controller.handleButton(button, pressed: false) }
-		for button in next.subtracting(pressed) { controller.handleButton(button, pressed: true) }
+		for button in pressed.subtracting(next) { controller.handleButton(button, pressed: false, source: .xbox) }
+		for button in next.subtracting(pressed) { controller.handleButton(button, pressed: true, source: .xbox) }
 		pressed = next
 		controller.updateLeftStick(x: value.axes[0], y: value.axes[1])
 		controller.updateRightStick(x: value.axes[2], y: value.axes[3])
@@ -117,7 +117,7 @@ final class BeamdeskGamepadInput {
 		releaseInputs(); controller.setBeamdeskGamepadConnected(false)
 	}
 	private func releaseInputs() {
-		for button in pressed { controller.handleButton(button, pressed: false) }
+		for button in pressed { controller.handleButton(button, pressed: false, source: .xbox) }
 		pressed.removeAll()
 		controller.updateLeftStick(x: 0, y: 0)
 		controller.updateRightStick(x: 0, y: 0)

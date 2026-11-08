@@ -2,42 +2,35 @@ import SwiftUI
 
 // MARK: - Chord List
 
-struct ChordListView: View, Equatable {
+struct ChordListView: View {
     let chords: [ChordMapping]
-	    let isDualSense: Bool
-	    let isNintendo: Bool
-	    let isSteamController: Bool
-	    let isAppleTVRemote: Bool
-	    let isWiimote: Bool
-	    let onEdit: (ChordMapping) -> Void
+	let descriptor: ControllerVisualDescriptor
+	let groupingDescriptor: ControllerVisualDescriptor?
+	let onEdit: (ChordMapping) -> Void
     let onDelete: (ChordMapping) -> Void
     let onClearAction: (ChordMapping) -> Void
-    let onMove: (IndexSet, Int) -> Void
-
-    static func == (lhs: ChordListView, rhs: ChordListView) -> Bool {
-			lhs.chords == rhs.chords && lhs.isDualSense == rhs.isDualSense && lhs.isNintendo == rhs.isNintendo && lhs.isSteamController == rhs.isSteamController && lhs.isAppleTVRemote == rhs.isAppleTVRemote && lhs.isWiimote == rhs.isWiimote
-    }
+	let onMove: ([UUID], IndexSet, Int) -> Void
 
     var body: some View {
         List {
-            ForEach(chords) { chord in
-                ChordRow(
-                    chord: chord,
-						isDualSense: isDualSense,
-						isNintendo: isNintendo,
-						isSteamController: isSteamController,
-						isAppleTVRemote: isAppleTVRemote,
-						isWiimote: isWiimote,
-						onEdit: { onEdit(chord) },
-                    onDelete: { onDelete(chord) },
-                    onClearAction: { onClearAction(chord) }
-                )
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
-                .background(GlassCardBackground())
+			ForEach(ControllerMappingGroups.sections(of: chords, descriptor: groupingDescriptor, buttons: { $0.buttons })) { group in
+				Section {
+					if group.items.isEmpty { Text("No compatible chords yet").foregroundStyle(.secondary).italic() }
+					ForEach(group.items) { chord in
+						ChordRow(chord: chord, isDualSense: descriptor.isPlayStation,
+							isNintendo: descriptor.isNintendo, isSteamController: descriptor.isSteamController,
+							isAppleTVRemote: descriptor.isAppleTVRemote, isWiimote: descriptor.isWiimote,
+							isEightBitDo: descriptor.eightBitDoModel != nil,
+							onEdit: { onEdit(chord) }, onDelete: { onDelete(chord) }, onClearAction: { onClearAction(chord) })
+							.listRowBackground(Color.clear).listRowSeparator(.hidden)
+							.listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
+							.background(GlassCardBackground())
+					}
+					.onMove { onMove(group.items.map(\.id), $0, $1) }
+				} header: {
+					HStack { Text(group.title); Spacer(); Text("\(group.items.count)").foregroundStyle(.secondary) }
+				}
             }
-            .onMove(perform: onMove)
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
@@ -53,11 +46,18 @@ struct ChordRow: View {
 	    let isSteamController: Bool
 	    let isAppleTVRemote: Bool
 	    let isWiimote: Bool
+	var isEightBitDo: Bool = false
 	    var onEdit: () -> Void
     var onDelete: () -> Void
     var onClearAction: () -> Void
 
     @EnvironmentObject var profileManager: ProfileManager
+
+	private var triggerLabel: String {
+		(Array(chord.buttons).sorted { $0.rawValue < $1.rawValue }).map { $0.displayName(forDualSense: isDualSense, forNintendo: isNintendo,
+			forAppleTVRemote: isAppleTVRemote, forEightBitDo: isEightBitDo, forWiimote: isWiimote) }
+			.joined(separator: " + ")
+	}
 
     var body: some View {
         HStack {
@@ -72,7 +72,7 @@ struct ChordRow: View {
             HStack {
                 HStack(spacing: 4) {
                     ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
-							ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote, isWiimote: isWiimote)
+							ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote, isEightBitDo: isEightBitDo, isWiimote: isWiimote)
                     }
                 }
 
@@ -118,16 +118,16 @@ struct ChordRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
-                .help("Edit \(chord.buttonsDisplayString)")
-                .accessibilityLabel("Edit \(chord.buttonsDisplayString)")
+				.help("Edit \(triggerLabel)")
+				.accessibilityLabel("Edit \(triggerLabel)")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
-                .help("Delete \(chord.buttonsDisplayString)")
-                .accessibilityLabel("Delete \(chord.buttonsDisplayString)")
+				.help("Delete \(triggerLabel)")
+				.accessibilityLabel("Delete \(triggerLabel)")
             }
         }
         .padding(.horizontal, 12)
@@ -152,42 +152,35 @@ struct ChordRow: View {
 
 // MARK: - Sequence List
 
-struct SequenceListView: View, Equatable {
+struct SequenceListView: View {
     let sequences: [SequenceMapping]
-	    let isDualSense: Bool
-	    let isNintendo: Bool
-	    let isSteamController: Bool
-	    let isAppleTVRemote: Bool
-	    let isWiimote: Bool
-	    let onEdit: (SequenceMapping) -> Void
+	let descriptor: ControllerVisualDescriptor
+	let groupingDescriptor: ControllerVisualDescriptor?
+	let onEdit: (SequenceMapping) -> Void
     let onDelete: (SequenceMapping) -> Void
     let onClearAction: (SequenceMapping) -> Void
-    let onMove: (IndexSet, Int) -> Void
-
-    static func == (lhs: SequenceListView, rhs: SequenceListView) -> Bool {
-			lhs.sequences == rhs.sequences && lhs.isDualSense == rhs.isDualSense && lhs.isNintendo == rhs.isNintendo && lhs.isSteamController == rhs.isSteamController && lhs.isAppleTVRemote == rhs.isAppleTVRemote && lhs.isWiimote == rhs.isWiimote
-    }
+	let onMove: ([UUID], IndexSet, Int) -> Void
 
     var body: some View {
         List {
-            ForEach(sequences) { sequence in
-                SequenceRow(
-                    sequence: sequence,
-						isDualSense: isDualSense,
-						isNintendo: isNintendo,
-						isSteamController: isSteamController,
-						isAppleTVRemote: isAppleTVRemote,
-						isWiimote: isWiimote,
-						onEdit: { onEdit(sequence) },
-                    onDelete: { onDelete(sequence) },
-                    onClearAction: { onClearAction(sequence) }
-                )
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
-                .background(GlassCardBackground())
+			ForEach(ControllerMappingGroups.sections(of: sequences, descriptor: groupingDescriptor, buttons: { Set($0.steps) })) { group in
+				Section {
+					if group.items.isEmpty { Text("No compatible sequences yet").foregroundStyle(.secondary).italic() }
+					ForEach(group.items) { sequence in
+						SequenceRow(sequence: sequence, isDualSense: descriptor.isPlayStation,
+							isNintendo: descriptor.isNintendo, isSteamController: descriptor.isSteamController,
+							isAppleTVRemote: descriptor.isAppleTVRemote, isWiimote: descriptor.isWiimote,
+							isEightBitDo: descriptor.eightBitDoModel != nil,
+							onEdit: { onEdit(sequence) }, onDelete: { onDelete(sequence) }, onClearAction: { onClearAction(sequence) })
+							.listRowBackground(Color.clear).listRowSeparator(.hidden)
+							.listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
+							.background(GlassCardBackground())
+					}
+					.onMove { onMove(group.items.map(\.id), $0, $1) }
+				} header: {
+					HStack { Text(group.title); Spacer(); Text("\(group.items.count)").foregroundStyle(.secondary) }
+				}
             }
-            .onMove(perform: onMove)
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
@@ -203,11 +196,18 @@ struct SequenceRow: View {
 	    let isSteamController: Bool
 	    let isAppleTVRemote: Bool
 	    let isWiimote: Bool
+	var isEightBitDo: Bool = false
 	    var onEdit: () -> Void
     var onDelete: () -> Void
     var onClearAction: () -> Void
 
     @EnvironmentObject var profileManager: ProfileManager
+
+	private var triggerLabel: String {
+		(sequence.steps).map { $0.displayName(forDualSense: isDualSense, forNintendo: isNintendo,
+			forAppleTVRemote: isAppleTVRemote, forEightBitDo: isEightBitDo, forWiimote: isWiimote) }
+			.joined(separator: " → ")
+	}
 
     var body: some View {
         HStack {
@@ -228,7 +228,7 @@ struct SequenceRow: View {
                                 .foregroundColor(.white.opacity(0.3))
                                 .accessibilityHidden(true)
                         }
-							ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote, isWiimote: isWiimote)
+							ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote, isEightBitDo: isEightBitDo, isWiimote: isWiimote)
                     }
                 }
 
@@ -267,16 +267,16 @@ struct SequenceRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
-                .help("Edit \(sequence.stepsDisplayString)")
-                .accessibilityLabel("Edit \(sequence.stepsDisplayString)")
+				.help("Edit \(triggerLabel)")
+				.accessibilityLabel("Edit \(triggerLabel)")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
-                .help("Delete \(sequence.stepsDisplayString)")
-                .accessibilityLabel("Delete \(sequence.stepsDisplayString)")
+				.help("Delete \(triggerLabel)")
+				.accessibilityLabel("Delete \(triggerLabel)")
             }
         }
         .padding(.horizontal, 12)

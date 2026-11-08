@@ -73,4 +73,39 @@ final class ControllerPreviewBindingTests: MappingEngineTestCase {
 				ControllerVisualDescriptor.active(using: controllerService))
 		}
 	}
+	func testBoundSelectionSurvivesAutomaticAndManualProfileSwitches() {
+		profileManager.bindControllerPreview(to: controllerService)
+		controllerService.setFootPedalConnected(true)
+		var second = Profile(name: "Other app")
+		second.controllerPreviewLayout = .xbox
+		profileManager.setActiveProfile(second, isAutomatic: true)
+		XCTAssertEqual(profileManager.activeProfile?.controllerPreviewLayout, .footPedal)
+		profileManager.setControllerPreviewLayout(.wiimote)
+		profileManager.setActiveProfile(Profile(name: "Manual switch"))
+		XCTAssertEqual(profileManager.activeProfile?.controllerPreviewLayout, .wiimote)
+	}
+
+	func testStaleProfileEditCannotRestoreAnOldControllerSelection() {
+		profileManager.bindControllerPreview(to: controllerService)
+		var draft = profileManager.activeProfile!
+		controllerService.setFootPedalConnected(true)
+		draft.name = "Renamed"
+		profileManager.updateProfile(draft)
+		XCTAssertEqual(profileManager.activeProfile?.name, "Renamed")
+		XCTAssertEqual(profileManager.activeProfile?.controllerPreviewLayout, .footPedal)
+	}
+
+	func testRestoringMappingsFromHistoryKeepsCurrentController() throws {
+		profileManager.bindControllerPreview(to: controllerService)
+		profileManager.setControllerPreviewLayout(.xbox)
+		profileManager.setMapping(KeyMapping(keyCode: 12), for: .a)
+		profileManager.snapshotCurrentState(reason: "Before editing")
+		let snapshot = try XCTUnwrap(profileManager.availableSnapshots().first)
+		controllerService.setFootPedalConnected(true)
+		profileManager.setMapping(KeyMapping(keyCode: 13), for: .a)
+		XCTAssertTrue(profileManager.restoreSnapshot(snapshot))
+		XCTAssertEqual(profileManager.activeProfile?.buttonMappings[.a]?.keyCode, 12)
+		XCTAssertEqual(profileManager.activeProfile?.controllerPreviewLayout, .footPedal)
+	}
+
 }

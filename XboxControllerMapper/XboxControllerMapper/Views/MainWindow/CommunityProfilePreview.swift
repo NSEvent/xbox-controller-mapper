@@ -166,16 +166,14 @@ struct CommunityProfilePreview: View {
 
 // MARK: - Preview Mapping Row
 
-struct PreviewMappingRow: View {
+struct PreviewMappingRow: View, MappingControllerTypeProviding {
+	@EnvironmentObject var profileManager: ProfileManager
 	@EnvironmentObject var controllerService: ControllerService
 
 	let button: ControllerButton
 	let mapping: KeyMapping
 	let profile: Profile
 
-	private var controllerPresentationState: ControllerPresentationState {
-		controllerService.threadSafeControllerPresentationState
-	}
 
 	var body: some View {
 		let presentationState = controllerPresentationState
@@ -296,15 +294,13 @@ struct PreviewMappingLabel: View {
 
 // MARK: - Preview Chord Row
 
-struct PreviewChordRow: View {
+struct PreviewChordRow: View, MappingControllerTypeProviding {
+	@EnvironmentObject var profileManager: ProfileManager
 	@EnvironmentObject var controllerService: ControllerService
 
 	let chord: ChordMapping
 	let profile: Profile
 
-	private var controllerPresentationState: ControllerPresentationState {
-		controllerService.threadSafeControllerPresentationState
-	}
 
 	var body: some View {
 		let presentationState = controllerPresentationState

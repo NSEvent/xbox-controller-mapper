@@ -237,7 +237,8 @@ final class ServiceContainer {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 StreamOverlayManager.shared.show(
                     controllerService: controllerService,
-                    inputLogService: inputLogService
+					inputLogService: inputLogService,
+					profileManager: profileManager
                 )
             }
         }

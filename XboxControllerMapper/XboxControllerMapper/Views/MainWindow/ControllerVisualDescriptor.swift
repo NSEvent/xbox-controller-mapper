@@ -452,10 +452,11 @@ extension ControllerVisualDescriptor {
 	}
 }
 
-// Input workflows follow actual hardware when connected, and the editor preview otherwise.
+// Mapping and input workflows share the Buttons selection. Hardware capabilities
+// for HID, LEDs, and motion remain in ControllerPresentationState.
 extension ControllerVisualDescriptor {
 	static func inputWorkflow(profile: Profile?, using service: ControllerService) -> ControllerVisualDescriptor {
-		resolved(previewLayout: service.isConnected ? .active : profile?.controllerPreviewLayout ?? .active, using: service)
+		resolved(previewLayout: profile?.controllerPreviewLayout ?? .active, using: service)
 	}
 	func buttonLabel(_ button: ControllerButton) -> String {
 		button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forEightBitDo: eightBitDoModel != nil, forWiimote: isWiimote)

@@ -227,6 +227,7 @@ extension ControllerService {
 	}
 
 	func appleTVRemoteHIDDeviceAppeared(_ device: IOHIDDevice) {
+		let wasConnected = storage.lock.withLock { storage.hasAppleTVRemoteHIDActivationDevice }
 		if Self.isAppleTVRemoteHIDDevice(device) {
 			appleTVRemoteHIDDevice = device
 			storage.lock.withLock {
@@ -246,6 +247,9 @@ extension ControllerService {
 				setupAppleTVRemoteTouchReportCallback(device)
 			}
 			activateAppleTVRemoteHIDSessionIfNeeded(device)
+		}
+		if !wasConnected, storage.lock.withLock({ storage.hasAppleTVRemoteHIDActivationDevice }) {
+			recordControllerConnectionPreview(.appleTVRemote)
 		}
 	}
 
@@ -541,7 +545,7 @@ extension ControllerService {
 
 		if shouldDispatch {
 			controllerQueue.async { [weak self] in
-				self?.handleButton(button, pressed: isPressed)
+				self?.handleButton(button, pressed: isPressed, source: .appleTVRemote)
 			}
 		}
 	}
@@ -728,7 +732,7 @@ extension ControllerService {
 		storage.lock.unlock()
 
 		for button in ControllerButton.appleTVRemoteButtons {
-			handleButton(button, pressed: false)
+			handleButton(button, pressed: false, source: .appleTVRemote)
 		}
 	}
 
@@ -809,7 +813,7 @@ extension ControllerService {
 
 		if hadTrackedSources || isActiveButton {
 			controllerQueue.async { [weak self] in
-				self?.handleButton(button, pressed: false)
+				self?.handleButton(button, pressed: false, source: .appleTVRemote)
 			}
 		}
 	}
@@ -912,7 +916,6 @@ extension ControllerService {
 		isGenericController = false
 		isConnected = true
 		reportControllerConnectionForTelemetry(fallback: .appleTVRemote)
-		recordCurrentControllerConnectionPreview()
 		batteryMonitor.allowsSerialNamedPeripherals = true
 		batteryMonitor.refreshBatteryLevel()
 		updateBatteryInfo()

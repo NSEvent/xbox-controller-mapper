@@ -3,9 +3,9 @@ import Combine
 
 /// Compact controller overlay for OBS/streaming capture.
 /// Renders the same product-accurate minimap as the Buttons tab (body
-/// silhouette + live button/stick/touchpad state) for whichever controller
-/// is actually connected, plus a last-action text line.
-struct StreamOverlayView: View {
+/// silhouette + live button/stick/touchpad state) for the controller selected in Buttons, plus a last-action text line.
+struct StreamOverlayView: View, MappingControllerTypeProviding {
+	@ObservedObject var profileManager: ProfileManager
     @ObservedObject var controllerService: ControllerService
     @ObservedObject var inputLogService: InputLogService
 
@@ -33,11 +33,9 @@ struct StreamOverlayView: View {
 		visualDescriptor.isS29Ring
 	}
 
-    /// Resolved from the connected controller so the overlay always matches
-    /// the active hardware (previously this was hardcoded to Xbox vs
-    /// PlayStation only).
+	/// Shares the canonical Buttons selection, including auxiliary devices.
     private var visualDescriptor: ControllerVisualDescriptor {
-        ControllerVisualDescriptor.active(using: controllerService)
+		controllerPresentationState
     }
 
     private var minimapStyle: ControllerMinimapStyle {
@@ -47,7 +45,9 @@ struct StreamOverlayView: View {
     var body: some View {
         VStack(spacing: 4) {
             Group {
-				if visualDescriptor.isXiaomiRemote {
+				if visualDescriptor.isBeamdeskHands {
+					beamdeskHandsGraphic
+				} else if visualDescriptor.isXiaomiRemote {
 					xiaomiRemoteGraphic
 				} else if isOuraRing {
 					ouraRingGraphic
@@ -181,6 +181,15 @@ struct StreamOverlayView: View {
 		let scale = graphicWidth / size.width
 
 		return OuraRingMinimapView(isTapPressed: controllerService.activeButtons.contains { $0.isOuraRingOnly })
+			.frame(width: size.width, height: size.height)
+			.scaleEffect(scale)
+			.frame(width: graphicWidth, height: (size.height * scale).rounded())
+	}
+
+	private var beamdeskHandsGraphic: some View {
+		let size = BeamdeskHandsMinimapView.previewSize
+		let scale = graphicWidth / size.width
+		return BeamdeskHandsMinimapView(pressedButtons: controllerService.activeButtons)
 			.frame(width: size.width, height: size.height)
 			.scaleEffect(scale)
 			.frame(width: graphicWidth, height: (size.height * scale).rounded())

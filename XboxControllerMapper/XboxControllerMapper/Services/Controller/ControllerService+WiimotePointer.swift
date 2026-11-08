@@ -456,9 +456,7 @@ extension ControllerService {
         for entry in Self.wiimoteButtonMap where changed.contains(entry.wiimote) {
             let button = entry.button
             let pressed = buttons.contains(entry.wiimote)
-            controllerQueue.async { [weak self] in
-                self?.handleButton(button, pressed: pressed)
-            }
+			handleWiimoteInput(button: button, pressed: pressed)
         }
     }
 }

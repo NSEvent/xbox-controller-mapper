@@ -1,7 +1,8 @@
 import SwiftUI
 
-struct InputLogView: View, ControllerTypeProviding {
+struct InputLogView: View, MappingControllerTypeProviding {
 	@EnvironmentObject var inputLogService: InputLogService
+	@EnvironmentObject var profileManager: ProfileManager
 	@EnvironmentObject var controllerService: ControllerService
 
 	var body: some View {
@@ -58,7 +59,7 @@ struct InputLogView: View, ControllerTypeProviding {
 private struct LogEntryView: View, Equatable {
 	let entry: InputLogEntry
 	let isLast: Bool
-	let presentationState: ControllerPresentationState
+	let presentationState: ControllerVisualDescriptor
 
 	static func == (lhs: LogEntryView, rhs: LogEntryView) -> Bool {
 		lhs.isLast == rhs.isLast
@@ -78,6 +79,7 @@ private struct LogEntryView: View, Equatable {
 							isNintendo: presentationState.isNintendo,
 							isSteamController: presentationState.isSteamController,
 							isAppleTVRemote: presentationState.isAppleTVRemote,
+							isEightBitDo: presentationState.eightBitDoModel != nil,
 							isWiimote: presentationState.isWiimote
 						)
 					}

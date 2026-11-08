@@ -41,6 +41,13 @@ final class MappingControllerPresentationTests: XCTestCase {
 		requireMappingPresentation(LayerTabBar.self)
 		requireMappingPresentation(ActiveChordsView.self)
 		requireMappingPresentation(ActiveSequencesView.self)
+		requireMappingPresentation(RecommendationsSheet.self)
+		requireMappingPresentation(PreviewMappingRow.self)
+		requireMappingPresentation(PreviewChordRow.self)
+		requireMappingPresentation(InputLogView.self)
+		requireMappingPresentation(StreamOverlayView.self)
+		requireMappingPresentation(StatsView.self)
+		requireMappingPresentation(WrappedCardSheet.self)
 	}
 
 	func testEveryExplicitPreviewWinsOverXboxHardwareConnectedOrDisconnected() {
@@ -121,6 +128,15 @@ final class MappingControllerPresentationTests: XCTestCase {
 			manager.activeProfile?.controllerPreviewLayout == .dualSense && controller.activeButtons.isEmpty
 		}
 		XCTAssertTrue(followedAgain)
+	}
+
+	func testInputWorkflowsFollowSelectedControllerEvenWithDifferentHardwareConnected() {
+		context.controllerService.setXiaomiRemoteConnected(true)
+		for layout in ControllerPreviewLayout.concreteLayouts {
+			context.profileManager.setControllerPreviewLayout(layout)
+			XCTAssertEqual(ControllerVisualDescriptor.inputWorkflow(profile: context.profileManager.activeProfile, using: context.controllerService),
+				context.controllerPresentationState)
+		}
 	}
 
 }

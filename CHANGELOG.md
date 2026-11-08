@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **VEC Infinity USB foot pedal support**: map the left, middle, and right pedals, with a dedicated Buttons preview and pedal controls in chord, sequence, and layer editors.
+
+### Changed
+
+- **One controller selection across mapping tools**: Buttons follows the most recently connected controller or fresh button press, including auxiliary devices used alongside a gamepad. Chord, sequence, layer, capture, preset-review, recommendation, and stream-overlay displays follow that selection. Manual selection lasts until the next connection or press; releases, held-button repeats, and stick noise leave it alone. Profile switches keep the selected controller.
+- **Compatible chords and sequences first**: each tab groups mappings for the controller selected in Buttons above Other mappings. Relative order is preserved in both sections. Dragging within a section reorders its saved entries without disturbing the other section.
+- **Less disruptive configuration backups**: bursts of saves, such as dragging a slider, create at most one backup per minute so older recovery points remain available.
+
+### Fixed
+
+- **Simultaneous controllers**: pedal, remote, Wii Remote, and forwarded gamepad input keeps its device identity instead of borrowing the primary controller's labels. Changing the displayed controller no longer releases held modifiers or resets sequence progress. Xiaomi TV-key events display as TV in the timeline.
+- **Mapping editors and layers**: held and toggled layers show their mappings in Buttons again. Physical capture can complete a button swap and resumes mapped output afterward. Editors close safely when their profile changes, rather than saving a draft into another profile. Hover Copy/Paste controls no longer cover mapping labels.
+- **Configuration recovery**: an unreadable configuration is preserved instead of being replaced by a bootstrap profile, including during automatic controller selection. Fresh installations save their default profile, and backup-name collisions no longer discard an earlier backup.
+- **Held input and handoff**: keys, modifiers, and chords finish on the Mac where their press started. Lost peer input is cleared, controller takeovers release old held buttons, and a waking Steam controller retains its first press. Auxiliary devices no longer clear a live Wii Remote's hardware state.
+- **Touch and gesture cleanup**: touchpad clicks release the button originally pressed after mode changes; two-finger taps fire once per lift; a new touch stops momentum; an old pinch reset cannot end a newer pinch. Overlapping Oura gestures release independently, and MIDI double taps no longer produce an extra single-tap action.
+- **Overlays and text input**: reopening an overlay during fade-out keeps it visible, locking clears the command wheel and held D-pad input, and hidden on-screen keyboards ignore queued presses. Overlapping quick-text pastes restore the original clipboard, including formatted text, images, multiple items, and an empty clipboard.
+- **Script lifecycle**: script state survives settings edits, asynchronous callbacks retain their original script state and trigger, and callbacks from a previous profile cannot emit input or restore cleared state. Runaway JavaScript is stopped when the execution limit is available; timeout messages distinguish an actual stop from a slow native operation.
+- **Late callbacks**: stopping microphone monitoring cancels pending startup and ignores old meter samples. Telemetry responses arriving after opt-out cannot alter a newer send, and license activation reports success only after the confirmed license is saved to Keychain.
+
 ## [2.12.0] - 2026-11-06
 
 ### Added

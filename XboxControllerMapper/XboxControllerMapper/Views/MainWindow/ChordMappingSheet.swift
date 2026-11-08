@@ -8,6 +8,7 @@ struct ChordMappingSheet: View, MappingControllerTypeProviding {
 	@EnvironmentObject var mappingEngine: MappingEngine
 	@StateObject private var physicalCapture = PhysicalInputCaptureSession()
     @Environment(\.dismiss) private var dismiss
+	@State private var editorScope = MappingEditorScope()
 
     var editingChord: ChordMapping?
 
@@ -105,6 +106,7 @@ struct ChordMappingSheet: View, MappingControllerTypeProviding {
     }
 
     private func saveChord() {
+		guard editorScope.canSave(to: profileManager.activeProfileId) else { return }
         guard canSave else { return }
 
         let hintValue = hint.isEmpty ? nil : hint
@@ -526,6 +528,7 @@ struct ChordMappingSheet: View, MappingControllerTypeProviding {
 	}
 	.onDisappear { physicalCapture.cancel() }
     .frame(width: 850)
+		.mappingEditorScope($editorScope, profileId: profileManager.activeProfileId)
         .onAppear {
             if let chord = editingChord {
                 selectedButtons = chord.buttons

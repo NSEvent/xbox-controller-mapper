@@ -65,4 +65,22 @@ final class ScriptAsyncCallbackTests: XCTestCase {
 		let pressed = await waitForCondition(timeout: 2) { self.pressedKeys() == [14] }
 		XCTAssertTrue(pressed)
 	}
+	func testCallbackKeepsOriginalTriggerAfterAnotherScriptRuns() async {
+		let caller = Script(name: "Original", source: "shellAsync('sleep 0.1', function() { if (trigger.button === 'a') press(15); });")
+		_ = engine.execute(script: caller, trigger: ScriptTrigger(button: .a))
+		_ = engine.execute(script: Script(name: "Later", source: "state.set('seen', true);"), trigger: ScriptTrigger(button: .b))
+		let pressed = await waitForCondition(timeout: 2) { self.pressedKeys() == [15] }
+		XCTAssertTrue(pressed)
+	}
+
+	func testCallbackCannotRepopulateStateOrEmitAfterProfileStateIsCleared() async throws {
+		var script = Script(name: "Old profile", source: "shellAsync('sleep 0.1', function() { state.set('late', true); press(16); });")
+		_ = run(script)
+		engine.clearState()
+		try await Task.sleep(nanoseconds: 500_000_000)
+		script.source = "if (state.get('late')) press(17);"
+		_ = run(script)
+		XCTAssertEqual(pressedKeys(), [])
+	}
+
 }

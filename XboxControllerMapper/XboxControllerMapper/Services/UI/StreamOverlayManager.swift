@@ -60,12 +60,13 @@ class StreamOverlayManager {
 
     private init() {}
 
-    func show(controllerService: ControllerService, inputLogService: InputLogService) {
+	func show(controllerService: ControllerService, inputLogService: InputLogService, profileManager: ProfileManager) {
         if panel != nil { return } // Already showing
 
         Self.isEnabled = true
 
         let overlayView = StreamOverlayView(
+			profileManager: profileManager,
             controllerService: controllerService,
             inputLogService: inputLogService
         )
@@ -137,11 +138,11 @@ class StreamOverlayManager {
         hostingView = nil
     }
 
-    func toggle(controllerService: ControllerService, inputLogService: InputLogService) {
+	func toggle(controllerService: ControllerService, inputLogService: InputLogService, profileManager: ProfileManager) {
         if panel != nil {
             hide()
         } else {
-            show(controllerService: controllerService, inputLogService: inputLogService)
+			show(controllerService: controllerService, inputLogService: inputLogService, profileManager: profileManager)
         }
     }
 

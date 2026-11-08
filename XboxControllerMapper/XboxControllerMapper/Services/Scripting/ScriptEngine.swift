@@ -80,6 +80,7 @@ class ScriptEngine {
 
     /// Whether this is a test execution (key presses are logged instead of executed)
     private var isTestMode = false
+	private var stateGeneration = 0
     private var testLogs: [String] = []
 
     /// Hooks into the mapping engine's gyro activation state. Set by MappingEngine
@@ -152,6 +153,7 @@ class ScriptEngine {
     /// Routed through scriptQueue to avoid racing with concurrent script execution.
     func clearState() {
         scriptQueue.async {
+			self.stateGeneration &+= 1
             self.scriptState.removeAll()
         }
     }
@@ -213,9 +215,9 @@ class ScriptEngine {
         installAPI()
 
         // Execute in IIFE to prevent global namespace pollution between scripts
-        if let function = context.evaluateScript("(function(state) {\n\(script.source)\n})"),
+		if let function = context.evaluateScript("(function(state, trigger) {\n\(script.source)\n})"),
            !function.isUndefined {
-            function.call(withArguments: [stateObject as Any])
+			function.call(withArguments: [stateObject as Any, triggerObj])
         }
 
         let didTimeout = timedOut.value
@@ -511,6 +513,7 @@ class ScriptEngine {
 
         // shellAsync("command", callback?) - runs in background, doesn't block controller input
         let generation = outputGate.currentGeneration
+		let stateGeneration = self.stateGeneration
         let shellAsync: @convention(block) (String, JSValue?) -> Void = { [weak self] command, callback in
             guard let self else { return }
             if self.isTestMode {
@@ -542,9 +545,9 @@ class ScriptEngine {
                     let output = String(data: data.prefix(10240), encoding: .utf8) ?? ""
                     let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
 
-                    self?.runShellAsyncCallback(callback, output: trimmed, generation: generation)
+					self?.runShellAsyncCallback(callback, output: trimmed, generation: generation, stateGeneration: stateGeneration)
                 } catch {
-                    self?.runShellAsyncCallback(callback, output: "", generation: generation)
+					self?.runShellAsyncCallback(callback, output: "", generation: generation, stateGeneration: stateGeneration)
                 }
             }
         }
@@ -776,10 +779,10 @@ class ScriptEngine {
     /// Runs a `shellAsync` callback on the script queue, like every other
     /// JSContext access, and only while output is still on the gate generation
     /// its script ran under; `press()` alone resolves to the newest generation.
-    private func runShellAsyncCallback(_ callback: JSValue?, output: String, generation: Int) {
-        guard let callback, !callback.isUndefined, !callback.isNull else { return }
+	private func runShellAsyncCallback(_ callback: JSValue?, output: String, generation: Int, stateGeneration: Int) {
         scriptQueue.async { [weak self] in
-            guard let self, self.outputGate.permits(generation) else { return }
+			guard let self, self.outputGate.permits(generation), self.stateGeneration == stateGeneration,
+				let callback, !callback.isUndefined, !callback.isNull else { return }
             callback.call(withArguments: [output])
         }
     }

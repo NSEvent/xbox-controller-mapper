@@ -6,6 +6,7 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var controllerService: ControllerService
     @Environment(\.dismiss) private var dismiss
+	@State private var editorScope = MappingEditorScope()
 
     var editingSequence: SequenceMapping?
 
@@ -96,6 +97,7 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
     }
 
     private func saveSequence() {
+		guard editorScope.canSave(to: profileManager.activeProfileId) else { return }
 		guard canSave, !physicalCapture.isListening else { return }
 
         let hintValue = hint.isEmpty ? nil : hint
@@ -403,6 +405,7 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
 			if interrupted { dismiss() }
 		}
 		.onDisappear { physicalCapture.cancel() }
+		.mappingEditorScope($editorScope, profileId: profileManager.activeProfileId)
         .onAppear {
             if let sequence = editingSequence {
                 steps = sequence.steps

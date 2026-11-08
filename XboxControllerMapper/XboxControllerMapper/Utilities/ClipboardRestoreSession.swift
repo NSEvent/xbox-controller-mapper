@@ -11,7 +11,7 @@ import AppKit
 final class ClipboardRestoreSession {
 	private let pasteboard: NSPasteboard
 	private var outstandingPastes = 0
-	private var snapshot: String?
+	private var snapshot: [NSPasteboardItem]?
 	private var lastWrittenChangeCount: Int?
 
 	init(pasteboard: NSPasteboard = .general) {
@@ -23,7 +23,13 @@ final class ClipboardRestoreSession {
 		// First paste of a burst, or someone copied something mid-burst: that
 		// content is what the user expects back.
 		if outstandingPastes == 0 || pasteboard.changeCount != lastWrittenChangeCount {
-			snapshot = pasteboard.string(forType: .string)
+			snapshot = (pasteboard.pasteboardItems ?? []).map { original in
+				let copy = NSPasteboardItem()
+				for type in original.types {
+					if let data = original.data(forType: type) { copy.setData(data, forType: type) }
+				}
+				return copy
+			}
 		}
 		outstandingPastes += 1
 		pasteboard.clearContents()
@@ -42,6 +48,6 @@ final class ClipboardRestoreSession {
 		}
 		guard pasteboard.changeCount == lastWrittenChangeCount, let snapshot else { return }
 		pasteboard.clearContents()
-		pasteboard.setString(snapshot, forType: .string)
+		if !snapshot.isEmpty { pasteboard.writeObjects(snapshot) }
 	}
 }

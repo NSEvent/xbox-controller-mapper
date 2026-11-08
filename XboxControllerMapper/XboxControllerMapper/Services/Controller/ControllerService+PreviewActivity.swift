@@ -23,11 +23,16 @@ extension ControllerService {
 		if accepted { storage.previewActivity.send(layout) }
 	}
 
+	func recordControllerConnectionPreview(_ layout: ControllerPreviewLayout) {
+		storage.lock.withLock { storage.previewSourceButtons[layout] = nil }
+		recordPreviewActivity(layout)
+	}
+
 	func recordCurrentControllerConnectionPreview() {
 		let descriptor = ControllerVisualDescriptor.active(using: self)
 		if let layout = ControllerPreviewLayout.concreteLayouts.first(where: {
 			ControllerVisualDescriptor.concrete(for: $0)?.family == descriptor.family
-		}) { recordPreviewActivity(layout) }
+		}) { recordControllerConnectionPreview(layout) }
 	}
 
 	// Shared by the live HID services and source-routing integration tests.
@@ -42,4 +47,10 @@ extension ControllerService {
 			self?.handleButton(event.button, pressed: event.pressed, source: .xiaomiRemote)
 		}
 	}
+	nonisolated func handleWiimoteInput(button: ControllerButton, pressed: Bool) {
+		controllerQueue.async { [weak self] in
+			self?.handleButton(button, pressed: pressed, source: .wiimote)
+		}
+	}
+
 }

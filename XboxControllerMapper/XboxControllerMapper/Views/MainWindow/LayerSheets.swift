@@ -6,6 +6,7 @@ struct AddLayerSheet: View, MappingControllerTypeProviding {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var controllerService: ControllerService
     @Environment(\.dismiss) private var dismiss
+	@State private var editorScope = MappingEditorScope()
 
     @State private var layerName: String = ""
     @State private var selectedActivator: ControllerButton? = nil
@@ -86,7 +87,7 @@ struct AddLayerSheet: View, MappingControllerTypeProviding {
                 Spacer()
 
                 Button("Add Layer") {
-                    guard !layerName.isEmpty else { return }
+					guard editorScope.canSave(to: profileManager.activeProfileId), !layerName.isEmpty else { return }
 					if let layer = profileManager.createLayer(
 						name: layerName,
 						activatorButton: selectedActivator,
@@ -109,6 +110,7 @@ struct AddLayerSheet: View, MappingControllerTypeProviding {
         }
         .padding()
         .frame(width: 350)
+		.mappingEditorScope($editorScope, profileId: profileManager.activeProfileId)
         .onAppear {
             // Select first available activator
 			selectedActivator = availableButtons.first
@@ -128,6 +130,7 @@ struct EditLayerSheet: View, MappingControllerTypeProviding {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var controllerService: ControllerService
     @Environment(\.dismiss) private var dismiss
+	@State private var editorScope = MappingEditorScope()
 
     @State private var layerName: String = ""
     @State private var selectedActivator: ControllerButton? = nil
@@ -214,7 +217,7 @@ struct EditLayerSheet: View, MappingControllerTypeProviding {
                 Spacer()
 
                 Button("Save") {
-                    guard !layerName.isEmpty else { return }
+					guard editorScope.canSave(to: profileManager.activeProfileId), !layerName.isEmpty else { return }
                     var updatedLayer = layer
                     updatedLayer.name = layerName
                     updatedLayer.activatorButton = selectedActivator
@@ -235,6 +238,7 @@ struct EditLayerSheet: View, MappingControllerTypeProviding {
         }
         .padding()
         .frame(width: 350)
+		.mappingEditorScope($editorScope, profileId: profileManager.activeProfileId)
         .onAppear {
             layerName = layer.name
             selectedActivator = layer.activatorButton

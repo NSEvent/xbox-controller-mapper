@@ -2,9 +2,10 @@ import SwiftUI
 
 struct GuidedPresetReviewView: View {
 	let profile: Profile
+	@EnvironmentObject private var profiles: ProfileManager
 	@EnvironmentObject private var controller: ControllerService
 	@StateObject private var input = PhysicalButtonReviewSession()
-	private var descriptor: ControllerVisualDescriptor { ControllerVisualDescriptor.inputWorkflow(profile: profile, using: controller) }
+	private var descriptor: ControllerVisualDescriptor { ControllerVisualDescriptor.inputWorkflow(profile: profiles.activeProfile, using: controller) }
 	private var buttons: [ControllerButton] { profile.buttonMappings.keys.sorted { $0.rawValue < $1.rawValue } }
 	private var prompt: String {
 		if !controller.isConnected { return "Connect a controller to explore these controls. You can also review the list below." }

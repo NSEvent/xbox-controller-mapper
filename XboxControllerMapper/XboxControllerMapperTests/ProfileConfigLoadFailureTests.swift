@@ -55,4 +55,21 @@ final class ProfileConfigLoadFailureTests: XCTestCase {
 		XCTAssertNotNil(manager.activeProfile)
 		XCTAssertTrue(FileManager.default.fileExists(atPath: configURL.path), "a fresh install should write its default config")
 	}
+	func testControllerAutoFollowAndAutomaticProfileSelectionCannotOverwriteUnreadableConfig() async throws {
+		let manager = ProfileManager(configDirectoryOverride: configDirectory)
+		let controller = ControllerService(enableHardwareMonitoring: false)
+		defer { controller.cleanup() }
+		manager.bindControllerPreview(to: controller)
+		controller.setXiaomiRemoteConnected(true)
+		controller.setFootPedalConnected(true)
+		controller.handleFootPedalInput(.init(button: .footPedalLeft, pressed: true))
+		controller.handleFootPedalInput(.init(button: .footPedalLeft, pressed: false))
+		let followed = await waitForCondition { manager.activeProfile?.controllerPreviewLayout == .footPedal }
+		XCTAssertTrue(followed)
+		manager.setActiveProfile(manager.activeProfile!, isAutomatic: true)
+		manager.flushPendingSaves()
+		XCTAssertNotNil(manager.configLoadError)
+		XCTAssertEqual(try Data(contentsOf: configURL), corruptBytes)
+	}
+
 }

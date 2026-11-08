@@ -446,10 +446,12 @@ extension ControllerButton {
 		forDualSense isDualSense: Bool,
 		forNintendo isNintendo: Bool,
 		forAppleTVRemote isAppleTVRemote: Bool = false,
+		forEightBitDo isEightBitDo: Bool = false,
 		forWiimote isWiimote: Bool = false
     ) -> String {
 		if isWiimote { return shortLabel(forWiimote: true) }
 		if isAppleTVRemote { return shortLabel(forAppleTVRemote: true) }
+		if isEightBitDo { return shortLabel(forEightBitDo: true) }
         if isNintendo { return shortLabel(forNintendo: true) }
         return shortLabel(forDualSense: isDualSense)
     }

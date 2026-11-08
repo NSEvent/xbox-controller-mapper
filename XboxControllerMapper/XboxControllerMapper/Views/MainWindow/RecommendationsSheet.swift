@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct RecommendationsSheet: View, ControllerTypeProviding {
+struct RecommendationsSheet: View, MappingControllerTypeProviding {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var controllerService: ControllerService
     @Environment(\.dismiss) private var dismiss
@@ -87,7 +87,7 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
 
 	private func recommendationRow(
 		_ rec: BindingRecommendation,
-		presentationState: ControllerPresentationState
+		presentationState: ControllerVisualDescriptor
 	) -> some View {
         let isSelected = selectedIds.contains(rec.id)
 
@@ -133,7 +133,7 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
 	@ViewBuilder
 	private func titleView(
 		for rec: BindingRecommendation,
-		presentationState: ControllerPresentationState
+		presentationState: ControllerVisualDescriptor
 	) -> some View {
         switch rec.type {
         case .swap(let b1, let b2):
@@ -161,7 +161,7 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
 	@ViewBuilder
 	private func beforeAfterView(
 		for rec: BindingRecommendation,
-		presentationState: ControllerPresentationState
+		presentationState: ControllerVisualDescriptor
 	) -> some View {
         switch rec.type {
         case .swap(let b1, let b2):
@@ -246,24 +246,22 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
 
 	private func buttonName(
 		_ button: ControllerButton,
-		presentationState: ControllerPresentationState
+		presentationState: ControllerVisualDescriptor
 	) -> String {
-		button.displayName(
-			forDualSense: presentationState.isPlayStation,
-			forNintendo: presentationState.isNintendo,
-			forWiimote: presentationState.isWiimote
-		)
+		presentationState.buttonLabel(button)
 	}
 
 	private func chordButtonNames(
 		_ buttons: Set<ControllerButton>,
-		presentationState: ControllerPresentationState
+		presentationState: ControllerVisualDescriptor
 	) -> String {
         buttons.sorted { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }
 			.map {
 				$0.shortLabel(
 					forDualSense: presentationState.isPlayStation,
 					forNintendo: presentationState.isNintendo,
+					forAppleTVRemote: presentationState.isAppleTVRemote,
+					forEightBitDo: presentationState.eightBitDoModel != nil,
 					forWiimote: presentationState.isWiimote
 				)
 			}
@@ -272,13 +270,16 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
 
 	private func buttonIcon(
 		_ button: ControllerButton,
-		presentationState: ControllerPresentationState
+		presentationState: ControllerVisualDescriptor
 	) -> some View {
 		ButtonIconView(
 			button: button,
 			isDualSense: presentationState.isPlayStation,
 			isNintendo: presentationState.isNintendo,
-			isSteamController: presentationState.isSteamController
+			isSteamController: presentationState.isSteamController,
+			isAppleTVRemote: presentationState.isAppleTVRemote,
+			isEightBitDo: presentationState.eightBitDoModel != nil,
+			isWiimote: presentationState.isWiimote
 		)
             .scaleEffect(0.7)
             .frame(width: 22, height: 22)
@@ -287,7 +288,7 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
 	@ViewBuilder
 	private func chordButtonIcons(
 		_ buttons: Set<ControllerButton>,
-		presentationState: ControllerPresentationState
+		presentationState: ControllerVisualDescriptor
 	) -> some View {
         let sorted = buttons.sorted { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }
         HStack(spacing: 2) {

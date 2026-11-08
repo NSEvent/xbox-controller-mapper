@@ -1,15 +1,13 @@
 import SwiftUI
 
 /// Sheet with card preview and "Copy to Clipboard" button
-struct WrappedCardSheet: View {
+struct WrappedCardSheet: View, MappingControllerTypeProviding {
+	@EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var usageStatsService: UsageStatsService
     @EnvironmentObject var controllerService: ControllerService
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
 
-    private var controllerPresentationState: ControllerPresentationState {
-		controllerService.threadSafeControllerPresentationState
-    }
 
     var body: some View {
 		let presentationState = controllerPresentationState
@@ -25,6 +23,8 @@ struct WrappedCardSheet: View {
 				isDualSense: presentationState.isPlayStation,
 				isNintendo: presentationState.isNintendo,
 				isSteamController: presentationState.isSteamController,
+				isAppleTVRemote: presentationState.isAppleTVRemote,
+				isEightBitDo: presentationState.eightBitDoModel != nil,
 				isWiimote: presentationState.isWiimote
             )
             .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
@@ -62,7 +62,9 @@ struct WrappedCardSheet: View {
 			isDualSense: presentationState.isPlayStation,
 			isNintendo: presentationState.isNintendo,
 			isSteamController: presentationState.isSteamController,
-			isWiimote: presentationState.isWiimote
+			isAppleTVRemote: presentationState.isAppleTVRemote,
+				isEightBitDo: presentationState.eightBitDoModel != nil,
+				isWiimote: presentationState.isWiimote
         )
 
         let renderer = ImageRenderer(content: card)

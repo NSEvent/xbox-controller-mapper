@@ -1,8 +1,16 @@
 # Chord sequences: proposed interaction
 
-2026-11-08. Design proposal; the mixed-step recorder and recognizer are not implemented by the controller-label fix.
+2026-11-08. Design proposal; mixed-step recording, persistence, and recognition remain a separate implementation from controller consistency and list grouping.
 
 **TL;DR:** Extend Sequences. A sequence is an ordered list of steps; a step is one button or several buttons held together. Recording and manual editing produce the same editable steps. Keep Chords for a single simultaneous combination.
+
+## Placement and organization
+
+Keep **Map → Sequences**. Single-button sequences and mixed button/chord sequences share the same ordering, timing, recording, action, and compatibility rules; a separate tab would duplicate those controls and make a single-step edit move an item between tabs. Keep **Map → Chords** for a single simultaneous combination.
+
+The existing compatible-first sections also apply to mixed sequences: **For [controller]** contains a sequence only when that controller supports every button in every step. Cross-device sequences remain in **Other mappings**. Grouping is a view of one saved list: preserve relative order within each section; drag changes only the saved slots belonging to that section. Changing controllers never sorts or rewrites the list.
+
+Do not silently convert existing single-button sequences to release-based timing. Preserve legacy recognition semantics for existing sequences, and define a versioned mixed-step representation before implementation. Migration tests must compare the old and new recognition traces, including a button held while the next button is pressed.
 
 ## Editor
 
@@ -39,7 +47,7 @@ Use vertical numbered rows so long sequences and large chords wrap naturally. A 
 5. Do not stop at a short pause or bake recorded delays into the sequence. The maximum gap is a separate setting. At the existing step limit, stop collecting and offer review.
 6. Use Recording replaces the editor's steps explicitly. Cancel restores the previous draft. Disconnect/profile changes cancel safely and restore mapping through the existing capture session lifecycle.
 
-If connected hardware differs from the selected preview, name the actual recording device. Continue storing canonical button identities. Kevin additionally requested auto-follow on physical button input: a fresh press selects the active controller’s concrete layout, and review follows that selection. Manual preview selection lasts until the next press; idle connections, releases, held-state repeats, and motion/stick noise do not override it.
+If connected hardware differs from the selected preview, name the actual recording device. Continue storing canonical button identities. Kevin additionally requested auto-follow on physical button input: a fresh press selects the active controller’s concrete layout, and review follows that selection. Manual selection lasts until the next genuine connection or fresh press. Duplicate connection notifications, releases, held-state repeats, and motion/stick noise do not override it. The selection survives profile changes and is shared by editors, review, capture, and the stream overlay.
 
 ### Manual entry
 

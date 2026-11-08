@@ -40,4 +40,16 @@ final class MicLevelMonitorStopTests: XCTestCase {
 
 		XCTAssertEqual(engineStarts, 1)
 	}
+	func testLateMeterSampleCannotReviveStoppedOrRestartedMonitor() {
+		let oldGeneration = controllerService.micMonitorGeneration
+		controllerService.publishMicLevel(0.7, generation: oldGeneration)
+		XCTAssertEqual(controllerService.micAudioLevel, 0.7)
+		controllerService.stopMicLevelMonitoring()
+		controllerService.publishMicLevel(0.8, generation: oldGeneration)
+		XCTAssertEqual(controllerService.micAudioLevel, 0)
+		controllerService.publishMicLevel(0.2, generation: controllerService.micMonitorGeneration)
+		controllerService.publishMicLevel(0.9, generation: oldGeneration)
+		XCTAssertEqual(controllerService.micAudioLevel, 0.2)
+	}
+
 }

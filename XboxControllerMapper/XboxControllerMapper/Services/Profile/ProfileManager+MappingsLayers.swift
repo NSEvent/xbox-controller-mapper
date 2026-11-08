@@ -186,6 +186,21 @@ extension ProfileManager {
         updateProfile(targetProfile)
     }
 
+	/// Section IDs, not filtered offsets, identify the persisted mappings.
+	func moveChordSection(ids: [UUID], from source: IndexSet, to destination: Int, profileId: UUID) {
+		guard var profile = activeProfile, profile.id == profileId,
+			let reordered = ControllerMappingGroups.moving(profile.chordMappings, visibleIDs: ids, from: source, to: destination) else { return }
+		profile.chordMappings = reordered
+		updateProfile(profile)
+	}
+
+	func moveSequenceSection(ids: [UUID], from source: IndexSet, to destination: Int, profileId: UUID) {
+		guard var profile = activeProfile, profile.id == profileId,
+			let reordered = ControllerMappingGroups.moving(profile.sequenceMappings, visibleIDs: ids, from: source, to: destination) else { return }
+		profile.sequenceMappings = reordered
+		updateProfile(profile)
+	}
+
     // MARK: - Sequence Mapping
 
     func addSequence(_ sequence: SequenceMapping, in profile: Profile? = nil) {

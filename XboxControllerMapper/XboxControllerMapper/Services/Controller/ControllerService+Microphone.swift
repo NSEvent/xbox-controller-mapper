@@ -336,6 +336,7 @@ extension ControllerService {
     }
 
     private func startMicLevelEngine() {
+		let generation = micMonitorGeneration
         let engine = AVAudioEngine()
 
         // Force the engine to use the new default device
@@ -366,7 +367,7 @@ extension ControllerService {
             let level = min(1.0, rms * 8.0)
 
             Task { @MainActor in
-                self.micAudioLevel = level
+				self.publishMicLevel(level, generation: generation)
             }
         }
 
@@ -382,6 +383,12 @@ extension ControllerService {
             #endif
         }
     }
+
+	/// A tap may already have queued its last meter update when it is stopped.
+	func publishMicLevel(_ level: Float, generation: Int) {
+		guard micMonitorGeneration == generation else { return }
+		micAudioLevel = level
+	}
 
     /// Stops monitoring the microphone audio level
     func stopMicLevelMonitoring() {

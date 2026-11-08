@@ -242,7 +242,8 @@ struct MenuBarView: View {
                 if newValue {
                     StreamOverlayManager.shared.show(
                         controllerService: controllerService,
-                        inputLogService: inputLogService
+						inputLogService: inputLogService,
+					profileManager: profileManager
                     )
                 } else {
                     StreamOverlayManager.shared.hide()

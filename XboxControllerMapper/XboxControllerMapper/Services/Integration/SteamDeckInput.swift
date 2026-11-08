@@ -58,8 +58,8 @@ final class SteamDeckInput: NSObject {
 		// Digital trigger thresholds match the ordinary controller path.
 		if frame.axes[4] > 0.25 { next.insert(.leftTrigger) }
 		if frame.axes[5] > 0.25 { next.insert(.rightTrigger) }
-		for button in pressed.subtracting(next) { controller.handleButton(button, pressed: false) }
-		for button in next.subtracting(pressed) { controller.handleButton(button, pressed: true) }
+		for button in pressed.subtracting(next) { controller.handleButton(button, pressed: false, source: .steam) }
+		for button in next.subtracting(pressed) { controller.handleButton(button, pressed: true, source: .steam) }
 		pressed = next
 		controller.updateLeftStick(x: frame.axes[0], y: frame.axes[1])
 		controller.updateRightStick(x: frame.axes[2], y: frame.axes[3])
@@ -106,7 +106,7 @@ final class SteamDeckInput: NSObject {
 	private func releaseInputs() {
 		// A hardware takeover already cleaned the old state; never release its new buttons.
 		if controller.isSteamDeckActiveInputSource {
-			for button in pressed { controller.handleButton(button, pressed: false) }
+			for button in pressed { controller.handleButton(button, pressed: false, source: .steam) }
 			for index in 0..<2 {
 				let side: SteamTouchpadSide = index == 0 ? .left : .right
 				if pads[index].pressed {
