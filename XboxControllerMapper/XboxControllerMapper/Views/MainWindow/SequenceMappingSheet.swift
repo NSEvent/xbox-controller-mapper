@@ -168,6 +168,8 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
 										isNintendo: presentationState.isNintendo,
 										isSteamController: presentationState.isSteamController,
 										isAppleTVRemote: presentationState.isAppleTVRemote,
+										isEightBitDo: presentationState.eightBitDoModel != nil,
+										isXiaomiRemote: presentationState.isXiaomiRemote,
 										isWiimote: presentationState.isWiimote
 									)
 										.accessibilityLabel("Step \(index + 1): \(button.displayName(forDualSense: presentationState.isPlayStation, forNintendo: presentationState.isNintendo, forAppleTVRemote: presentationState.isAppleTVRemote, forWiimote: presentationState.isWiimote))")
@@ -443,6 +445,11 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
 
 	@ViewBuilder
 	private func sequenceButtonGrid(presentationState: ControllerVisualDescriptor) -> some View {
+		if presentationState.usesCompactMappingButtonGrid {
+			DeviceMappingButtonGrid(descriptor: presentationState, joystickSettings: joystickSettings) { button in
+				addStepButton(button, presentationState: presentationState)
+			}
+		} else {
 		VStack(spacing: 10) {
 				// Top Row: Triggers & Bumpers
 				if !presentationState.isAppleTVRemote {
@@ -624,6 +631,7 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
         }
         .padding(.vertical, 20)
         .frame(maxWidth: .infinity)
+		}
     }
 
 	@ViewBuilder
@@ -650,6 +658,8 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
 				isNintendo: presentationState.isNintendo,
 				isSteamController: presentationState.isSteamController,
 				isAppleTVRemote: presentationState.isAppleTVRemote,
+				isEightBitDo: presentationState.eightBitDoModel != nil,
+				isXiaomiRemote: presentationState.isXiaomiRemote,
 				isWiimote: presentationState.isWiimote
 			)
 				.scaleEffect(scale)

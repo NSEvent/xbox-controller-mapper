@@ -162,6 +162,11 @@ struct ChordMappingSheet: View, MappingControllerTypeProviding {
 						.font(.caption).foregroundStyle(.orange)
 				}
 
+				if presentationState.usesCompactMappingButtonGrid {
+					DeviceMappingButtonGrid(descriptor: presentationState, joystickSettings: joystickSettings) { button in
+						toggleButton(button, presentationState: presentationState)
+					}
+				} else {
                 // Visual Controller Layout
                 VStack(spacing: 10) {
 						// Top Row: Triggers & Bumpers
@@ -361,6 +366,7 @@ struct ChordMappingSheet: View, MappingControllerTypeProviding {
                 }
                 .padding(.vertical, 20)
                 .frame(maxWidth: .infinity)
+				}
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -841,6 +847,8 @@ struct ChordMappingSheet: View, MappingControllerTypeProviding {
 					isNintendo: presentationState.isNintendo,
 					isSteamController: presentationState.isSteamController,
 					isAppleTVRemote: presentationState.isAppleTVRemote,
+					isEightBitDo: presentationState.eightBitDoModel != nil,
+					isXiaomiRemote: presentationState.isXiaomiRemote,
 					isWiimote: presentationState.isWiimote
 				)
 					.scaleEffect(scale)

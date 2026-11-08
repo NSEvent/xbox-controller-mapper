@@ -458,6 +458,6 @@ extension ControllerVisualDescriptor {
 		resolved(previewLayout: service.isConnected ? .active : profile?.controllerPreviewLayout ?? .active, using: service)
 	}
 	func buttonLabel(_ button: ControllerButton) -> String {
-		button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forEightBitDo: eightBitDoModel != nil)
+		button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forEightBitDo: eightBitDoModel != nil, forWiimote: isWiimote)
 	}
 }
