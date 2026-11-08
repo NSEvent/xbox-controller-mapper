@@ -391,7 +391,9 @@ extension ControllerService {
 		// buttons and stop its monitors, as the GameController and Apple TV
 		// remote activation paths do. Its handlers are cleared below, so no
 		// release would ever arrive for a button held across the switch.
-		if steamHIDActiveDevice != controller.device {
+		// With nothing displayed there is nothing to take over, and any held
+		// button is this controller's own first press, already on its way here.
+		if steamHIDActiveDevice != controller.device, isConnected {
 			prepareForActiveControllerSwitch()
 		}
 
