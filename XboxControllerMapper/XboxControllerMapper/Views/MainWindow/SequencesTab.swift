@@ -1,15 +1,11 @@
 import SwiftUI
 
 /// Tab content for managing sequence mappings.
-struct SequencesTab: View {
+struct SequencesTab: View, MappingControllerTypeProviding {
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
     @Binding var showingSequenceSheet: Bool
     @Binding var editingSequence: SequenceMapping?
-
-    private var controllerPresentationState: ControllerPresentationState {
-		controllerService.threadSafeControllerPresentationState
-    }
 
     var body: some View {
 		let presentationState = controllerPresentationState

@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Sequence Mapping Sheet
 
-struct SequenceMappingSheet: View, ControllerTypeProviding {
+struct SequenceMappingSheet: View, MappingControllerTypeProviding {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var controllerService: ControllerService
     @Environment(\.dismiss) private var dismiss
@@ -442,7 +442,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
     // MARK: - Button Grid for Adding Steps
 
 	@ViewBuilder
-	private func sequenceButtonGrid(presentationState: ControllerPresentationState) -> some View {
+	private func sequenceButtonGrid(presentationState: ControllerVisualDescriptor) -> some View {
 		VStack(spacing: 10) {
 				// Top Row: Triggers & Bumpers
 				if !presentationState.isAppleTVRemote {
@@ -629,7 +629,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
 	@ViewBuilder
 	private func addStepButton(
 		_ button: ControllerButton,
-		presentationState: ControllerPresentationState
+		presentationState: ControllerVisualDescriptor
 	) -> some View {
 		let scale: CGFloat = 1.3
 		let buttonName = button.displayName(

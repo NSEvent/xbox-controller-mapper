@@ -17,3 +17,19 @@ extension ControllerTypeProviding {
 		controllerService.threadSafeControllerPresentationState
 	}
 }
+
+/// Mapping editorsfollow the layout selected in Buttons, even when different
+/// hardware is connected. Runtime overlays continue to use ControllerTypeProviding.
+protocol MappingControllerTypeProviding {
+	var controllerService: ControllerService { get }
+	var profileManager: ProfileManager { get }
+}
+
+extension MappingControllerTypeProviding {
+	var controllerPresentationState: ControllerVisualDescriptor {
+		ControllerVisualDescriptor.resolved(
+			previewLayout: profileManager.activeProfile?.controllerPreviewLayout ?? .active,
+			using: controllerService
+		)
+	}
+}

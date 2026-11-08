@@ -1,15 +1,11 @@
 import SwiftUI
 
 /// Tab content for managing chord mappings.
-struct ChordsTab: View {
+struct ChordsTab: View, MappingControllerTypeProviding {
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
     @Binding var showingChordSheet: Bool
     @Binding var editingChord: ChordMapping?
-
-    private var controllerPresentationState: ControllerPresentationState {
-		controllerService.threadSafeControllerPresentationState
-    }
 
     var body: some View {
 		let presentationState = controllerPresentationState

@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Chord Mapping Sheet
 
-struct ChordMappingSheet: View, ControllerTypeProviding {
+struct ChordMappingSheet: View, MappingControllerTypeProviding {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var controllerService: ControllerService
 	@EnvironmentObject var mappingEngine: MappingEngine
@@ -813,7 +813,7 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
 	@ViewBuilder
 	private func toggleButton(
 		_ button: ControllerButton,
-		presentationState: ControllerPresentationState
+		presentationState: ControllerVisualDescriptor
 	) -> some View {
 		let scale: CGFloat = 1.3
 		let conflictingChord = buttonConflicts[button]
