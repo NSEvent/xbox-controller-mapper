@@ -490,11 +490,7 @@ public final class AutomationExecutor {
 		guard !command.isEmpty else {
 			return .failure("Empty terminal command")
 		}
-		let escaped = command
-			.replacingOccurrences(of: "\\", with: "\\\\")
-			.replacingOccurrences(of: "\"", with: "\\\"")
-			.replacingOccurrences(of: "\n", with: "\\n")
-			.replacingOccurrences(of: "\r", with: "\\r")
+		let escaped = AppleScriptEscaping.escapeForString(command)
 		let script = """
 		tell application "Terminal"
 			activate
