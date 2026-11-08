@@ -1,21 +1,22 @@
 import Foundation
 
-/// A manual preview stays selected until a fresh physical button press. Releases,
-/// repeated held-state publications, connection changes and analog noise do not
-/// change it. Select a concrete layout so later background hardware changes cannot
-/// move the preview before the next deliberate press.
-struct ControllerPreviewAutoFollow {
-	private var previousButtons: Set<ControllerButton> = []
-
-	mutating func receive(
-		buttons: Set<ControllerButton>,
-		isConnected: Bool,
+/// The connection display is not an event source: an auxiliary pedal can send
+/// input while Xiaomi or a gamepad remains the primary connected device.
+enum ControllerPreviewAutoFollow {
+	static func layout(
+		button: ControllerButton,
+		source: ControllerPreviewLayout?,
 		activeDescriptor: ControllerVisualDescriptor
 	) -> ControllerPreviewLayout? {
-		let physicalButtons = ControllerInputCapture.eligible(buttons)
-		let fresh = physicalButtons.subtracting(previousButtons)
-		previousButtons = physicalButtons
-		guard isConnected, !fresh.isEmpty else { return nil }
+		guard !button.isGestureButton, !button.isJoystickDirection else { return nil }
+		if let source, source != .active { return source }
+		// Dedicated button identities also preserve provenance for services that
+		// predate explicit source tagging. Shared controls (e.g. D-pad) must tag.
+		if button.isFootPedalOnly { return .footPedal }
+		if button.isXiaomiRemoteOnly { return .xiaomiRemote }
+		if button.isS29RingOnly { return .s29Ring }
+		if button.isOuraRingOnly { return .ouraRing }
+		if button.isBeamdeskHandOnly { return .beamdeskHands }
 		return ControllerPreviewLayout.concreteLayouts.first {
 			ControllerVisualDescriptor.concrete(for: $0)?.family == activeDescriptor.family
 		}

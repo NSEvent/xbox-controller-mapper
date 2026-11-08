@@ -44,9 +44,7 @@ final class FootPedalInputService {
 		let session = FootPedalHIDSession(
 			matching: FootPedalHIDDriverDescriptor().matchingCFArray,
 			onEvent: { event in
-				controllerService.controllerQueue.async {
-					controllerService.handleButton(event.button, pressed: event.pressed)
-				}
+				controllerService.handleFootPedalInput(event)
 			},
 			onConnectionChanged: { connected in
 				DispatchQueue.main.async {

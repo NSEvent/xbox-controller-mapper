@@ -58,7 +58,6 @@ struct ContentView: View {
     @State private var onboardingStartStep: OnboardingStep = .welcome
     @ObservedObject private var permissions = PermissionsManager.shared
     @State private var selectedTab = 0
-	@State private var controllerPreviewAutoFollow = ControllerPreviewAutoFollow()
 	@State private var temporarilyRevealedSection: MainWindowSection?
 	@State private var joystickNavigationSide: JoystickSide?
     @State private var isMagnifying = false // Track active magnification to prevent tap conflicts
@@ -602,16 +601,8 @@ struct ContentView: View {
 		.onChange(of: showingReviewRequest) { _, isShowing in
 			if !isShowing { scheduleConfigurationOverviewIntroduction() }
 		}
-		.onReceive(controllerService.$activeButtons) { buttons in
-			// Receive every publication, including fast press/release pairs that
-			// SwiftUI's onChange could coalesce into an unchanged empty set.
-			if let layout = controllerPreviewAutoFollow.receive(
-				buttons: buttons,
-				isConnected: controllerService.isConnected,
-				activeDescriptor: ControllerVisualDescriptor.active(using: controllerService)
-			) {
-				profileManager.setControllerPreviewLayout(layout)
-			}
+		.onReceive(controllerService.previewActivity) { layout in
+			profileManager.setControllerPreviewLayout(layout)
 		}
 		.onChange(of: controllerPresentationState) { _, _ in
 			selectFirstVisibleTabIfNeeded()

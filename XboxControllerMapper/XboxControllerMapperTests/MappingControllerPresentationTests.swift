@@ -95,12 +95,8 @@ final class MappingControllerPresentationTests: XCTestCase {
 		controller.isConnected = true
 		controller.storage.lock.withLock { controller.storage.applyControllerTypeLocked(.dualSense) }
 		manager.setControllerPreviewLayout(.xbox)
-		var follow = ControllerPreviewAutoFollow()
-		let subscription = controller.$activeButtons.sink { buttons in
-			if let layout = follow.receive(buttons: buttons, isConnected: controller.isConnected,
-				activeDescriptor: ControllerVisualDescriptor.active(using: controller)) {
-				manager.setControllerPreviewLayout(layout)
-			}
+		let subscription = controller.previewActivity.sink { layout in
+			manager.setControllerPreviewLayout(layout)
 		}
 		defer { subscription.cancel() }
 		// Exercise the real async physical-input publication without an output handler.

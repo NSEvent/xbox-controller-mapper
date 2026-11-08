@@ -348,6 +348,17 @@ class MappingEngine: ObservableObject {
         profileManager.$activeProfile
             .sink { [weak self] profile in
                 guard let self = self else { return }
+				// Auto-follow changes presentation metadata on physical input.
+				// It must not release held actions or erase sequence/chord progress.
+				let previewOnlyChange = self.state.lock.withLock {
+					guard var previous = self.state.activeProfile, let profile,
+						previous.controllerPreviewLayout != profile.controllerPreviewLayout else { return false }
+					previous.controllerPreviewLayout = profile.controllerPreviewLayout
+					guard previous == profile else { return false }
+					self.state.activeProfile = profile
+					return true
+				}
+				if previewOnlyChange { return }
 				let (cleanup, isProfileSwitch) = self.state.lock.withLock {
 					let cleanup = RoutingBoundaryCleanup(state: self.state)
 					let isProfileSwitch = self.state.activeProfile?.id != profile?.id

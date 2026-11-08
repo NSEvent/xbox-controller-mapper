@@ -48,7 +48,7 @@ final class S29RingInputService {
 				let button = event.control.button
 				let pressed = event.pressed
 				controllerService.controllerQueue.async {
-					controllerService.handleButton(button, pressed: pressed)
+					controllerService.handleButton(button, pressed: pressed, source: .s29Ring)
 				}
 			},
 			onConnectionChanged: { connected in

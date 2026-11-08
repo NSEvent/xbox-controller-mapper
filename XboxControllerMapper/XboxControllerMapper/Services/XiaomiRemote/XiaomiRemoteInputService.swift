@@ -146,9 +146,7 @@ final class XiaomiRemoteInputService {
 
 	private func deliver(_ events: [XiaomiRemoteButtonEvent]) {
 		for event in events {
-			controller.controllerQueue.async { [controller] in
-				controller.handleButton(event.button, pressed: event.pressed)
-			}
+			controller.handleXiaomiRemoteInput(event)
 		}
 	}
 

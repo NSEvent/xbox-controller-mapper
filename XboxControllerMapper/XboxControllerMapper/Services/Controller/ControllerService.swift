@@ -117,6 +117,7 @@ final class ControllerStorage: @unchecked Sendable {
 
     // Button State
     var activeButtons: Set<ControllerButton> = []
+	let previewActivity = PassthroughSubject<ControllerPreviewLayout, Never>()
     var buttonPressTimestamps: [ControllerButton: Date] = [:]
     var lastMicButtonState: Bool = false
     var lastPSButtonState: Bool = false
@@ -2845,16 +2846,16 @@ class ControllerService: ObservableObject {
         }
     }
 
-    nonisolated func handleButton(_ button: ControllerButton, pressed: Bool) {
+    nonisolated func handleButton(_ button: ControllerButton, pressed: Bool, source: ControllerPreviewLayout? = nil) {
         LatencyDiagnostics.mark("controller.handleButton \(button.rawValue) pressed=\(pressed)")
         if pressed {
-            buttonPressed(button)
+			buttonPressed(button, source: source)
         } else {
             buttonReleased(button)
         }
     }
 
-    nonisolated internal func buttonPressed(_ button: ControllerButton) {
+    nonisolated internal func buttonPressed(_ button: ControllerButton, source: ControllerPreviewLayout? = nil) {
 		let pressedAt = CFAbsoluteTimeGetCurrent()
 		var announcedBeforeFlush = false
         storage.lock.lock()
@@ -2874,6 +2875,17 @@ class ControllerService: ObservableObject {
             storage.lock.unlock()
             return
         }
+
+		// Snapshot the event's source before dispatching to the UI. Auxiliary
+		// devices share this input pipeline but do not replace hardware identity.
+		if let layout = ControllerPreviewAutoFollow.layout(
+			button: button, source: source,
+			activeDescriptor: ControllerVisualDescriptor.active(from: storage.controllerPresentationStateLocked)
+		) {
+			// Queue under the lock to preserve accepted press order; subscribers
+			// run later on main, outside the input lock and without coalescing.
+			DispatchQueue.main.async { [weak self] in self?.storage.previewActivity.send(layout) }
+		}
 
         storage.activeButtons.insert(button)
 		storage.publishPhysicalButtonsLocked()
