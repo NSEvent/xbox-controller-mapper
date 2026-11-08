@@ -37,7 +37,7 @@ final class DeviceMappingButtonGridTests: MappingEngineTestCase {
 	func testEditChordAndSequenceActuallyRenderPedalLabels() async throws {
 		profileManager.setControllerPreviewLayout(.footPedal)
 		let chord = ChordMapping(buttons: [.footPedalLeft, .footPedalRight], keyCode: 0)
-		let sequence = SequenceMapping(steps: [.footPedalLeft, .footPedalMiddle], keyCode: 0)
+		let sequence = SequenceMapping(steps: [.footPedalLeft, .footPedalMiddle, .footPedalRight], keyCode: 0)
 		try await assertPedalLabels(ChordMappingSheet(editingChord: chord), scheme: .light, name: "edit-chord")
 		try await assertPedalLabels(SequenceMappingSheet(editingSequence: sequence), scheme: .light, name: "edit-sequence")
 	}

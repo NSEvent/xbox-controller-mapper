@@ -14,16 +14,8 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
         profileManager.activeProfile?.joystickSettings ?? .default
     }
 
-    private var leftJoystickDirectionButtons: [ControllerButton] {
-        joystickSettings.chordSequenceJoystickDirectionButtons(side: .left)
-    }
-
-    private var rightJoystickDirectionButtons: [ControllerButton] {
-        joystickSettings.chordSequenceJoystickDirectionButtons(side: .right)
-    }
-
-    @State private var steps: [ControllerButton] = []
-	@StateObject private var physicalCapture = PhysicalInputCaptureSession()
+	@State private var sequenceDraft = SequenceEditorDraft()
+	@StateObject private var physicalCapture = SequenceInputSession()
     @State private var stepTimeout: TimeInterval = Config.defaultSequenceStepTimeout
     @State private var keyCode: CGKeyCode?
     @State private var modifiers = ModifierFlags()
@@ -80,15 +72,23 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
 
     /// Whether the current step sequence already exists (excluding the one being edited)
     private var sequenceAlreadyExists: Bool {
-        guard steps.count >= 2,
+		guard sequenceDraft.steps.count >= 2,
               let profile = profileManager.activeProfile else { return false }
         return profile.sequenceMappings.contains { seq in
-            seq.steps == steps && seq.id != editingSequence?.id
+			seq.inputSteps == sequenceDraft.steps && seq.id != editingSequence?.id
         }
     }
 
+	private var sharesPrefix: Bool {
+		guard sequenceDraft.steps.count >= 2 else { return false }
+		return profileManager.activeProfile?.sequenceMappings.contains { sequence in
+			guard sequence.id != editingSequence?.id, sequence.inputSteps != sequenceDraft.steps else { return false }
+			return sequence.inputSteps.starts(with: sequenceDraft.steps) || sequenceDraft.steps.starts(with: sequence.inputSteps)
+		} == true
+	}
+
     private var canSave: Bool {
-        steps.count >= 2 &&
+		sequenceDraft.canSave &&
         !sequenceAlreadyExists &&
         (mappingType != .singleKey || keyCode != nil || modifiers.hasAny) &&
         (mappingType != .macro || selectedMacroId != nil) &&
@@ -98,7 +98,7 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
 
     private func saveSequence() {
 		guard editorScope.canSave(to: profileManager.activeProfileId) else { return }
-		guard canSave, !physicalCapture.isListening else { return }
+		guard canSave, !physicalCapture.isBusy else { return }
 
         let hintValue = hint.isEmpty ? nil : hint
         let finalKeyCode = mappingType == .singleKey ? keyCode : nil
@@ -110,7 +110,8 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
 
         if let existingSequence = editingSequence {
             var updated = existingSequence
-            updated.steps = steps
+			updated.inputSteps = sequenceDraft.steps
+			updated.usesReleaseSteps = sequenceDraft.usesReleaseSteps
             updated.stepTimeout = stepTimeout
             updated.keyCode = finalKeyCode
             updated.modifiers = finalModifiers
@@ -123,7 +124,7 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
             profileManager.updateSequence(updated)
         } else {
             let sequence = SequenceMapping(
-                steps: steps,
+				chordSteps: sequenceDraft.steps,
                 stepTimeout: stepTimeout,
                 keyCode: finalKeyCode,
                 modifiers: finalModifiers,
@@ -147,92 +148,21 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
                 Text(isEditing ? "Edit Sequence" : "Add Sequence")
                     .font(.headline)
 
-                // Steps section
-                VStack(alignment: .leading, spacing: 8) {
-					PhysicalInputCaptureBar(session: physicalCapture, mode: .sequence)
-                    Text("Button sequence (press order):")
-                        .font(.subheadline)
+				SequenceStepsEditor(draft: $sequenceDraft, session: physicalCapture,
+					descriptor: presentationState, joystickSettings: joystickSettings, timeout: stepTimeout)
+				if sequenceAlreadyExists {
+					Text("This sequence already exists").font(.caption).foregroundStyle(.red)
+				}
 
-                    // Current steps display
-                    if !steps.isEmpty {
-                        HStack(spacing: 4) {
-                            ForEach(Array(steps.enumerated()), id: \.offset) { index, button in
-                                if index > 0 {
-                                    Image(systemName: "arrow.right")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.white.opacity(0.4))
-                                        .accessibilityHidden(true)
-                                }
-								HStack(spacing: 2) {
-									ButtonIconView(
-										button: button,
-										isDualSense: presentationState.isPlayStation,
-										isNintendo: presentationState.isNintendo,
-										isSteamController: presentationState.isSteamController,
-										isAppleTVRemote: presentationState.isAppleTVRemote,
-										isEightBitDo: presentationState.eightBitDoModel != nil,
-										isXiaomiRemote: presentationState.isXiaomiRemote,
-										isWiimote: presentationState.isWiimote
-									)
-										.accessibilityLabel("Step \(index + 1): \(button.displayName(forDualSense: presentationState.isPlayStation, forNintendo: presentationState.isNintendo, forAppleTVRemote: presentationState.isAppleTVRemote, forWiimote: presentationState.isWiimote))")
-										Button(action: {
-											steps.remove(at: index)
-										}) {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .font(.system(size: 10))
-                                            .foregroundColor(.red.opacity(0.7))
-                                    }
-									.buttonStyle(.borderless)
-									.help("Remove step")
-										.accessibilityLabel("Remove \(button.displayName(forDualSense: presentationState.isPlayStation, forNintendo: presentationState.isNintendo, forAppleTVRemote: presentationState.isAppleTVRemote)) from step \(index + 1)")
-									}
-								}
-
-                            Spacer()
-
-                            if steps.count > 1 {
-                                Button(action: { steps.removeAll() }) {
-                                    Text("Clear")
-                                        .font(.caption)
-                                        .foregroundColor(.red.opacity(0.8))
-                                }
-                                .buttonStyle(.borderless)
-                                .accessibilityLabel("Clear all steps")
-                            }
-                        }
-                        .padding(8)
-							.frame(height: 40)
-							.background(Color.black.opacity(0.2))
-							.cornerRadius(8)
-							.disabled(physicalCapture.isListening)
-								.accessibilityLabel("Current sequence: \(steps.map { $0.displayName(forDualSense: presentationState.isPlayStation, forNintendo: presentationState.isNintendo, forAppleTVRemote: presentationState.isAppleTVRemote) }.joined(separator: ", then "))")
-						}
-
-                    if sequenceAlreadyExists {
-                        Text("This sequence already exists")
-                            .font(.caption)
-                            .foregroundColor(.red)
-                    }
-
-                    // Add step buttons
-                    if steps.count < Config.maxSequenceSteps {
-                        Text("Tap a button to add it as the next step:")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-							sequenceButtonGrid(presentationState: presentationState)
-								.disabled(physicalCapture.isListening)
-                    } else {
-                        Text("Maximum \(Config.maxSequenceSteps) steps reached")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
+				if sharesPrefix {
+					Text("Another sequence shares these starting steps. Each sequence runs its action when it completes.")
+						.font(.caption).foregroundStyle(.secondary)
+				}
 
                 // Step timeout slider
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text("Max time between presses:")
+						Text("Maximum gap between steps:")
                             .font(.subheadline)
                         Spacer()
                         Text(String(format: "%.1fs", stepTimeout))
@@ -240,12 +170,15 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
                             .foregroundColor(.secondary)
                     }
                     Slider(value: $stepTimeout, in: 0.1...1.5, step: 0.05)
-                        .accessibilityLabel("Maximum time between presses")
+						.accessibilityLabel("Maximum gap between steps")
                         .accessibilityValue(String(format: "%.1f seconds", stepTimeout))
-                    Text("Each button press must follow the previous one within this time.")
+					Text(sequenceDraft.usesReleaseSteps ? "Measured from release to the next step’s first press. Holding a step does not time out." : "Each button press must follow the previous one within this time.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+
+				Text("Ordinary button and chord actions still run. The sequence adds its action; recording and testing pause all actions.")
+					.font(.caption).foregroundStyle(.secondary)
 
                 // Action section
                 VStack(alignment: .leading, spacing: 8) {
@@ -389,7 +322,7 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
                     Button(isEditing ? "Save" : "Add") {
                         saveSequence()
                     }
-					.disabled(!canSave || physicalCapture.isListening)
+					.disabled(!canSave || physicalCapture.isBusy)
                     .keyboardShortcut(.return, modifiers: .command)
                     .buttonStyle(.borderedProminent)
                 }
@@ -398,17 +331,11 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
         }
         .onSubmit { saveSequence() }
         .frame(width: 850)
-		.onChange(of: physicalCapture.sequence?.steps) { _, captured in
-			if let captured { steps = captured }
-		}
-		.onChange(of: physicalCapture.interrupted) { _, interrupted in
-			if interrupted { dismiss() }
-		}
 		.onDisappear { physicalCapture.cancel() }
 		.mappingEditorScope($editorScope, profileId: profileManager.activeProfileId)
         .onAppear {
             if let sequence = editingSequence {
-                steps = sequence.steps
+				sequenceDraft.load(sequence)
                 stepTimeout = sequence.stepTimeout
                 keyCode = sequence.keyCode
                 modifiers = sequence.modifiers
@@ -442,234 +369,6 @@ struct SequenceMappingSheet: View, MappingControllerTypeProviding {
                 selectedScriptId = newScript.id
             })
         }
-    }
-
-    // MARK: - Button Grid for Adding Steps
-
-	@ViewBuilder
-	private func sequenceButtonGrid(presentationState: ControllerVisualDescriptor) -> some View {
-		if presentationState.usesCompactMappingButtonGrid {
-			DeviceMappingButtonGrid(descriptor: presentationState, joystickSettings: joystickSettings) { button in
-				addStepButton(button, presentationState: presentationState)
-			}
-		} else {
-		VStack(spacing: 10) {
-				// Top Row: Triggers & Bumpers
-				if !presentationState.isAppleTVRemote {
-					HStack(spacing: 120) {
-						VStack(spacing: 8) {
-							addStepButton(.leftTrigger, presentationState: presentationState)
-							addStepButton(.leftBumper, presentationState: presentationState)
-						}
-
-						VStack(spacing: 8) {
-							addStepButton(.rightTrigger, presentationState: presentationState)
-							addStepButton(.rightBumper, presentationState: presentationState)
-						}
-					}
-				}
-
-            // Middle Row: D-Pad, System, Face Buttons, Sticks
-            HStack(alignment: .top, spacing: 40) {
-                // Left Column: D-Pad & L3
-					VStack(spacing: 25) {
-						VStack(spacing: 2) {
-							addStepButton(.dpadUp, presentationState: presentationState)
-							HStack(spacing: 25) {
-								addStepButton(.dpadLeft, presentationState: presentationState)
-								addStepButton(.dpadRight, presentationState: presentationState)
-							}
-							addStepButton(.dpadDown, presentationState: presentationState)
-						}
-
-							if !presentationState.isAppleTVRemote {
-								addStepButton(.leftThumbstick, presentationState: presentationState)
-							}
-
-							if !presentationState.isAppleTVRemote && !leftJoystickDirectionButtons.isEmpty {
-								JoystickDirectionSelectionGrid(
-									side: .left,
-									mode: joystickSettings.leftStick.mode,
-									layout: joystickSettings.leftStick.customDirectionLayout
-								) { button in
-									addStepButton(button, presentationState: presentationState)
-								}
-						}
-					}
-
-						// Center Column: System Buttons
-						VStack(spacing: 15) {
-							addStepButton(.xbox, presentationState: presentationState)
-							if presentationState.isAppleTVRemote {
-								HStack(spacing: 25) {
-									addStepButton(.view, presentationState: presentationState)
-									addStepButton(.menu, presentationState: presentationState)
-									addStepButton(.siri, presentationState: presentationState)
-								}
-							} else {
-								HStack(spacing: 25) {
-									addStepButton(.view, presentationState: presentationState)
-									addStepButton(.menu, presentationState: presentationState)
-								}
-								if presentationState.isDualSense {
-									addStepButton(.micMute, presentationState: presentationState)
-								} else if !presentationState.isDualShock {
-									addStepButton(.share, presentationState: presentationState)
-								}
-								if presentationState.isPlayStation {
-									addStepButton(.touchpadButton, presentationState: presentationState)
-								}
-							}
-						}
-					.padding(.top, 15)
-
-					// Right Column: Face Buttons & Stick
-					VStack(spacing: 25) {
-						if presentationState.isAppleTVRemote {
-							VStack(spacing: 12) {
-								addStepButton(.touchpadButton, presentationState: presentationState)
-								addStepButton(.touchpadTap, presentationState: presentationState)
-							}
-						} else {
-								VStack(spacing: 2) {
-									addStepButton(.y, presentationState: presentationState)
-									HStack(spacing: 25) {
-										addStepButton(.x, presentationState: presentationState)
-										addStepButton(.b, presentationState: presentationState)
-									}
-									addStepButton(.a, presentationState: presentationState)
-								}
-							}
-
-							if !presentationState.isAppleTVRemote {
-								addStepButton(.rightThumbstick, presentationState: presentationState)
-							}
-
-							if !presentationState.isAppleTVRemote && !rightJoystickDirectionButtons.isEmpty {
-								JoystickDirectionSelectionGrid(
-									side: .right,
-									mode: joystickSettings.rightStick.mode,
-									layout: joystickSettings.rightStick.customDirectionLayout
-								) { button in
-									addStepButton(button, presentationState: presentationState)
-								}
-						}
-					}
-				}
-
-				// Edge Controls
-				if presentationState.isDualSenseEdge {
-					VStack(spacing: 8) {
-                    Text("EDGE CONTROLS")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.secondary)
-
-						HStack(spacing: 40) {
-							addStepButton(.leftFunction, presentationState: presentationState)
-							Text("Fn")
-								.font(.system(size: 10, weight: .medium))
-								.foregroundColor(.secondary)
-							addStepButton(.rightFunction, presentationState: presentationState)
-						}
-
-						HStack(spacing: 40) {
-							addStepButton(.leftPaddle, presentationState: presentationState)
-							Text("Paddles")
-								.font(.system(size: 10, weight: .medium))
-								.foregroundColor(.secondary)
-							addStepButton(.rightPaddle, presentationState: presentationState)
-						}
-					}
-                .padding(.top, 20)
-            }
-
-				// Xbox Elite Controls
-				if presentationState.isXboxElite {
-					VStack(spacing: 12) {
-						Text(presentationState.isSteamController ? "STEAM GRIP BUTTONS" : "ELITE PADDLES")
-							.font(.system(size: 10, weight: .bold))
-							.foregroundColor(.secondary)
-
-						HStack(spacing: 40) {
-							addStepButton(.xboxPaddle1, presentationState: presentationState)
-							Text("Upper")
-								.font(.system(size: 10, weight: .medium))
-								.foregroundColor(.secondary)
-							addStepButton(.xboxPaddle2, presentationState: presentationState)
-						}
-
-						HStack(spacing: 40) {
-							addStepButton(.xboxPaddle3, presentationState: presentationState)
-							Text("Lower")
-								.font(.system(size: 10, weight: .medium))
-								.foregroundColor(.secondary)
-							addStepButton(.xboxPaddle4, presentationState: presentationState)
-						}
-					}
-                .padding(.top, 20)
-            }
-
-				if presentationState.isSteamController {
-					VStack(spacing: 12) {
-                    Text("STEAM TOUCHPADS")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.secondary)
-
-						HStack(spacing: 40) {
-							VStack(spacing: 8) {
-								addStepButton(.leftTouchpadButton, presentationState: presentationState)
-								addStepButton(.leftTouchpadTap, presentationState: presentationState)
-							}
-							Text("Pads")
-								.font(.system(size: 10, weight: .medium))
-								.foregroundColor(.secondary)
-							VStack(spacing: 8) {
-								addStepButton(.rightTouchpadButton, presentationState: presentationState)
-								addStepButton(.rightTouchpadTap, presentationState: presentationState)
-							}
-						}
-                }
-                .padding(.top, 20)
-            }
-        }
-        .padding(.vertical, 20)
-        .frame(maxWidth: .infinity)
-		}
-    }
-
-	@ViewBuilder
-	private func addStepButton(
-		_ button: ControllerButton,
-		presentationState: ControllerVisualDescriptor
-	) -> some View {
-		let scale: CGFloat = 1.3
-		let buttonName = button.displayName(
-			forDualSense: presentationState.isPlayStation,
-			forNintendo: presentationState.isNintendo,
-			forAppleTVRemote: presentationState.isAppleTVRemote
-		)
-
-		Button(action: {
-			if steps.count < Config.maxSequenceSteps {
-                steps.append(button)
-            }
-        }) {
-			ButtonIconView(
-				button: button,
-				isPressed: false,
-				isDualSense: presentationState.isPlayStation,
-				isNintendo: presentationState.isNintendo,
-				isSteamController: presentationState.isSteamController,
-				isAppleTVRemote: presentationState.isAppleTVRemote,
-				isEightBitDo: presentationState.eightBitDoModel != nil,
-				isXiaomiRemote: presentationState.isXiaomiRemote,
-				isWiimote: presentationState.isWiimote
-			)
-				.scaleEffect(scale)
-		}
-        .buttonStyle(.borderless)
-        .accessibilityLabel("Add \(buttonName) step")
-        .accessibilityHint("Adds \(buttonName) as the next step in the sequence")
     }
 
     // MARK: - System Command Helpers

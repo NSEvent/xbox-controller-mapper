@@ -18,4 +18,5 @@ struct InputLogEntry: Identifiable, Equatable {
     let buttons: [ControllerButton]
     let type: InputEventType
     let actionDescription: String
+	var sequenceSteps: [SequenceStep]? = nil
 }

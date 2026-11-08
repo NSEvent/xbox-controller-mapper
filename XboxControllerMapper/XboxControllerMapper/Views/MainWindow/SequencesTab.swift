@@ -48,7 +48,7 @@ struct SequencesTab: View, MappingControllerTypeProviding {
                 Text("Sequence Mappings")
                     .foregroundColor(.secondary)
             } footer: {
-				Text("Sequences fire an extra action when buttons are pressed in order within a time window. Individual button actions still fire normally (zero added latency). Compatible mappings appear first. Drag within a section to reorder; switching controllers preserves your saved order.")
+				Text("Sequences run steps in order; each step can be one button or a chord. Release all controls between steps in new sequences. Ordinary button and chord actions still run. Compatible mappings appear first. Drag within a section to reorder; switching controllers preserves your saved order.")
                     .foregroundColor(.secondary.opacity(0.7))
             }
         }

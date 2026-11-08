@@ -25,10 +25,11 @@ class InputLogService: ObservableObject {
 		lock.unlock()
 	}
     
-    func log(buttons: [ControllerButton], type: InputEventType, action: String, isHeld: Bool = false) {
+	func log(buttons: [ControllerButton], type: InputEventType, action: String, isHeld: Bool = false, sequenceSteps: [SequenceStep]? = nil) {
         lock.lock()
 		let entry = InputLogEntry(
-			buttons: buttons.map { physicalSources[$0] ?? $0 }, type: type, actionDescription: action
+			buttons: buttons.map { physicalSources[$0] ?? $0 }, type: type, actionDescription: action,
+			sequenceSteps: sequenceSteps?.map { step in SequenceStep(Set(step.buttons.map { physicalSources[$0] ?? $0 })) }
 		)
         pendingEntries.append(entry)
         let shouldSchedule = !isUpdateScheduled

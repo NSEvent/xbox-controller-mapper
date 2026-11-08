@@ -72,7 +72,11 @@ private struct LogEntryView: View, Equatable {
             VStack(spacing: 6) {
 				// Top: Button(s) + Type
 				HStack(spacing: 4) {
-					ForEach(entry.buttons, id: \.self) { button in
+					if let steps = entry.sequenceSteps {
+						Text(steps.map { $0.label(presentationState.buttonLabel) }.joined(separator: " → "))
+							.font(.caption.weight(.medium))
+					} else {
+					ForEach(Array(entry.buttons.enumerated()), id: \.offset) { _, button in
 						ButtonIconView(
 							button: button,
 							isDualSense: presentationState.isPlayStation,
@@ -84,6 +88,7 @@ private struct LogEntryView: View, Equatable {
 						)
 					}
 
+					}
 					if entry.type != .singlePress {
                         Text(entry.type.rawValue)
                             .font(.system(size: 10, weight: .bold))
@@ -127,16 +132,9 @@ private struct LogEntryView: View, Equatable {
 	}
 
 	private var accessibilityDescription: String {
-		let buttonNames = entry.buttons
-			.map {
-				$0.displayName(
-					forDualSense: presentationState.isPlayStation,
-					forNintendo: presentationState.isNintendo,
-					forAppleTVRemote: presentationState.isAppleTVRemote,
-					forWiimote: presentationState.isWiimote
-				)
-			}
-			.joined(separator: " plus ")
+		let buttonNames = entry.sequenceSteps.map { steps in
+			steps.map { $0.buttons.map(presentationState.buttonLabel).joined(separator: " plus ") }.joined(separator: ", then ")
+		} ?? entry.buttons.map(presentationState.buttonLabel).joined(separator: " plus ")
 		let typeDescription = entry.type == .singlePress ? "" : ", \(entry.type.rawValue)"
 		return "\(buttonNames)\(typeDescription): \(entry.actionDescription)"
 	}

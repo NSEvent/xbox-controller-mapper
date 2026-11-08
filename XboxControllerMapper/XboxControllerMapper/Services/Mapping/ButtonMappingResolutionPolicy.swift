@@ -116,7 +116,7 @@ enum ButtonMappingResolutionPolicy {
 		if profile.chordMappings.contains(where: { $0.buttons.contains(button) }) {
 			return true
 		}
-		if profile.sequenceMappings.contains(where: { $0.steps.contains(button) }) {
+		if profile.sequenceMappings.contains(where: { $0.allButtons.contains(button) }) {
 			return true
 		}
 		if profile.layers.contains(where: { $0.activatorButton == button || $0.buttonMappings[button] != nil }) {

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Chords inside sequences**: in **Map → Sequences**, each step can be one button or a chord. Record the whole sequence, or select buttons together and add each step manually; edit, duplicate, and reorder steps afterward. Recording uses a separate draft with Undo, Retry Step, and Cancel. **Try Sequence** checks your input without running actions. New sequences require a full release between steps; existing sequences keep their press-based timing until you add a chord or accept a recording.
 - **VEC Infinity USB foot pedal support**: map the left, middle, and right pedals, with a dedicated Buttons preview and pedal controls in chord, sequence, and layer editors.
 
 ### Changed

@@ -293,7 +293,7 @@ enum ConfigurationOverviewBuilder {
 
 		let sequences = profile.sequenceMappings.compactMap { sequence -> ConfigurationOverviewRow? in
 			guard sequence.hasAction else { return nil }
-			let isSupported = sequence.steps.allSatisfy {
+			let isSupported = sequence.allButtons.allSatisfy {
 				controlIsCurrent(
 					button: $0,
 					profile: profile,
@@ -301,8 +301,8 @@ enum ConfigurationOverviewBuilder {
 					presentation: presentation
 				)
 			}
-			let trigger = sequence.steps
-				.map(presentation.name(for:))
+			let trigger = sequence.inputSteps
+				.map { $0.label(presentation.name(for:)) }
 				.joined(separator: " → ")
 			return ConfigurationOverviewRow(
 				id: "sequence-\(sequence.id.uuidString)",
@@ -310,7 +310,7 @@ enum ConfigurationOverviewBuilder {
 				trigger: trigger,
 				action: actionName(sequence, profile: profile),
 				detail: availabilityDetail(
-					actionDetail(sequence, prefix: String(localized: "Sequence · press in order"), profile: profile),
+					actionDetail(sequence, prefix: sequence.usesReleaseSteps ? String(localized: "Sequence · release between steps") : String(localized: "Sequence · press in order"), profile: profile),
 					isSupported: isSupported,
 					presentation: presentation
 				),

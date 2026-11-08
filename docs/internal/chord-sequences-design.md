@@ -1,6 +1,6 @@
-# Chord sequences: proposed interaction
+# Chord sequences
 
-2026-11-08. Design proposal; mixed-step recording, persistence, and recognition remain a separate implementation from controller consistency and list grouping.
+2026-11-08. Implemented in the existing Sequences editor for local physical controller input. The interaction and recognition contract below is the design reference.
 
 **TL;DR:** Extend Sequences. A sequence is an ordered list of steps; a step is one button or several buttons held together. Recording and manual editing produce the same editable steps. Keep Chords for a single simultaneous combination.
 
@@ -73,11 +73,13 @@ An isolated test mode suspends normal actions and never executes the configured 
 
 ## Implementation map
 
-`SequenceMapping.steps` currently stores `[ControllerButton]`; `ControllerSequenceCapture` records fresh individual presses and rejects multiple simultaneous fresh presses. `SequenceDetector` consumes individual presses. This needs changes across persistence, capture, recognition, summaries, and editing—not just a new picker.
+`SequenceMapping.inputSteps` stores canonical `SequenceStep` values. `SequenceStepAssembler` shares physical overlap rules between `SequenceRecording` and `ReleasedSequenceDetector`. The legacy `SequenceDetector.process` path continues to consume individual resolved presses. Timed physical snapshots are captured before chord resolution and queued in transition order; UI scheduling delays cannot change chord membership.
 
-Introduce a nonempty `SequenceStep` with a canonical set of buttons. Decode existing flat sequences as singleton steps, preserving IDs, actions, timeout, and order. Specify the new encoding and downgrade behavior before shipping; older versions must not silently flatten chords into different triggers. Update import/export, profile validation, copy/paste, overview, minimap/overlays, and accessibility summaries.
+Legacy sequences retain flat `steps` JSON and press timing. Release-based sequences encode `stepFormat: 2` with `steps: [{"buttons": [...]}, ...]`. Decoding rejects malformed steps and unknown formats. The reused `steps` key deliberately causes old decoders to reject a mixed profile instead of flattening it into a different trigger. Do not downgrade a profile containing format 2 sequences. IDs, actions, timing, ordering, and step boundaries survive profile save/export/import. Summaries, compatibility grouping, overview, participant indexing, trigger conflicts, and the input timeline use the full step representation.
 
-Keep action editing shared with existing sequences. Extract the step editor and recorder presentation into small views rather than growing the existing large sheet.
+`SequenceStepsEditor` owns the step UI, `SequenceEditorDraft` implements explicit manual edits, and `SequenceInputSession` holds the scoped input-preview lease. Cancel never mutates the editor draft; only Use Recording replaces it. Controller disconnect ends the capture and keeps the draft; profile changes close the editor through its existing scope guard. The existing action editor is reused.
+
+Current boundaries: mixed-step recognition uses local physical controller transitions. Universal Control’s existing peer protocol only sends resolved buttons/chords and cannot preserve physical overlap timestamps; mixed input routed to a peer must not execute a local sequence. A future protocol extension is needed for mixed-step recognition on the receiving Mac. Dragging individual steps and capturing a single step are optional future affordances; keyboard-accessible move buttons and whole-sequence recording are implemented.
 
 ## Acceptance tests for the feature
 

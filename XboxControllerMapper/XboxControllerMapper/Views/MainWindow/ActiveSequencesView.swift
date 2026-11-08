@@ -21,24 +21,8 @@ struct ActiveSequencesView: View, MappingControllerTypeProviding {
 
                 FlowLayout(data: profile.sequenceMappings.filter { $0.isValid }, spacing: 10) { sequence in
                     HStack(spacing: 10) {
-                        HStack(spacing: 2) {
-                            ForEach(Array(sequence.steps.enumerated()), id: \.offset) { index, button in
-                                if index > 0 {
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 7))
-                                        .foregroundColor(.white.opacity(0.2))
-                                        .accessibilityHidden(true)
-                                }
-								ButtonIconView(
-									button: button,
-									isDualSense: presentationState.isPlayStation,
-									isNintendo: presentationState.isNintendo,
-									isSteamController: presentationState.isSteamController,
-									isAppleTVRemote: presentationState.isAppleTVRemote,
-									isWiimote: presentationState.isWiimote
-								)
-                            }
-                        }
+						Text(sequence.inputSteps.map { $0.label(presentationState.buttonLabel) }.joined(separator: " → "))
+							.font(.caption.weight(.medium)).fixedSize(horizontal: false, vertical: true)
 
                         Image(systemName: "arrow.right")
                             .font(.caption2)

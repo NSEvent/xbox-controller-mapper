@@ -23,7 +23,7 @@ struct TriggerMIDIConflict: Identifiable {
 		for chord in profile.chordMappings where chord.buttons.contains(trigger) {
 			conflicts.append(.init(id: "chord.\(chord.id)", description: "This trigger is part of a chord: \(chord.hint ?? chord.displayString).", destination: .chord(chord)))
 		}
-		for sequence in profile.sequenceMappings where sequence.steps.contains(trigger) {
+		for sequence in profile.sequenceMappings where sequence.allButtons.contains(trigger) {
 			conflicts.append(.init(id: "sequence.\(sequence.id)", description: "This trigger is part of a sequence: \(sequence.hint ?? sequence.displayString).", destination: .sequence(sequence)))
 		}
 		let precision = profile.joystickSettings.analogPrecisionTriggerMode

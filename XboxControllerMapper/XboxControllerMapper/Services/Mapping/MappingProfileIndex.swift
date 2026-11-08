@@ -13,7 +13,7 @@ struct MappingProfileIndex {
 	init(profile: Profile?) {
 		let chords = profile?.chordMappings ?? []
 		chordParticipantButtons = Self.expandedParticipantButtons(for: chords.flatMap { $0.buttons })
-		sequenceParticipantButtons = Self.expandedParticipantButtons(for: (profile?.sequenceMappings ?? []).flatMap { $0.steps })
+		sequenceParticipantButtons = Self.expandedParticipantButtons(for: (profile?.sequenceMappings ?? []).flatMap { $0.allButtons })
 		chordLookup = Dictionary(chords.map { ($0.buttons, $0) }, uniquingKeysWith: { _, last in last })
 		layersById = Self.layersById(for: profile)
 		layerActivatorMap = Self.layerActivatorMap(for: profile)

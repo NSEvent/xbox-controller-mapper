@@ -41,6 +41,7 @@ class MappingEngine: ObservableObject {
 	@Published private(set) var waitingForNeutralInput = false
 	private var inputPreviewTokens: Set<UUID> = []
 	private var pendingPreviewReleases: Set<UUID> = []
+	private var sequencePhysicalObserver: UUID?
 	private var previewReleaseTask: Task<Void, Never>?
     @Published var isLocked = false
 	/// Highest-priority manually activated layer, for UI presentation.
@@ -253,6 +254,15 @@ class MappingEngine: ObservableObject {
             self.state.sequenceDetector.configure(sequences: initialProfile?.sequenceMappings ?? [])
             self.state.applyProfileIndex(MappingProfileIndex(profile: initialProfile))
         }
+		let registration = controllerService.observeTimedPhysicalButtons { [weak self] buttons, time in
+			guard let self else { return }
+			let chordWindow = self.controllerService.threadSafeChordWindow
+			self.inputQueue.async { [weak self] in
+				self?.advanceReleasedSequences(buttons, at: time, chordWindow: chordWindow)
+			}
+		}
+		sequencePhysicalObserver = registration.id
+		state.lock.withLock { state.sequenceDetector.released.reset(initiallyHeld: registration.held) }
         syncLatencySettings(for: profileManager.activeProfile)
         syncGestureSettings(from: profileManager.activeProfile?.joystickSettings)
         syncPointerLockMouseMode(from: profileManager.activeProfile?.joystickSettings)
@@ -263,6 +273,8 @@ class MappingEngine: ObservableObject {
     /// Tears down all subscriptions and timers. Must be called before dropping
     /// the last reference to avoid leaking Combine subscriptions.
     func tearDown() {
+		if let sequencePhysicalObserver { controllerService.removePhysicalButtonObserver(sequencePhysicalObserver) }
+		sequencePhysicalObserver = nil
 		previewReleaseTask?.cancel()
 		controllerService.onInputEvent = nil
         cancellables.removeAll()
@@ -359,6 +371,7 @@ class MappingEngine: ObservableObject {
 					return true
 				}
 				if previewOnlyChange { return }
+				let sequenceHeld = self.controllerService.storage.lock.withLock { self.controllerService.storage.activeButtons }
 				let (cleanup, isProfileSwitch) = self.state.lock.withLock {
 					let cleanup = RoutingBoundaryCleanup(state: self.state)
 					let isProfileSwitch = self.state.activeProfile?.id != profile?.id
@@ -393,6 +406,7 @@ class MappingEngine: ObservableObject {
 						profile: profile
 					)
                     self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
+					self.state.sequenceDetector.released.reset(initiallyHeld: sequenceHeld)
                     self.state.applyProfileIndex(MappingProfileIndex(profile: profile))
 					return (cleanup, isProfileSwitch)
                 }
@@ -483,6 +497,7 @@ class MappingEngine: ObservableObject {
                     if enabled {
                         let profile = self.state.activeProfile
                         self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
+						self.state.sequenceDetector.released.reset(initiallyHeld: pendingButtons)
                         self.state.applyProfileIndex(MappingProfileIndex(profile: profile))
                         self.syncLatencySettings(for: profile)
                         return nil
@@ -719,6 +734,28 @@ class MappingEngine: ObservableObject {
     }
 
     // MARK: - Sequence Detection (Zero-Latency)
+
+	nonisolated private func advanceReleasedSequences(_ buttons: Set<ControllerButton>, at time: TimeInterval, chordWindow: TimeInterval) {
+		let routesToPeer = UniversalControlMouseRelay.shared.shouldRouteControllerInputToRemote
+		let (completed, profile): ([SequenceMapping], Profile?) = state.lock.withLock {
+			guard state.isEnabled, time >= state.sequenceDetector.resetTime else { return ([], nil) }
+			// Resolved peer events lack physical overlap timestamps. Never execute
+			// a local sequence for buttons whose actions belong to the peer.
+			guard !routesToPeer, state.remoteRoutedButtons.isEmpty else {
+				state.sequenceDetector.released.reset(initiallyHeld: buttons)
+				return ([], nil)
+			}
+			state.sequenceDetector.released.chordWindow = chordWindow
+			return (state.sequenceDetector.released.receive(buttons, at: time), state.activeProfile)
+		}
+		for sequence in completed {
+			let buttons = sequence.inputSteps.flatMap(\.buttons)
+			if handleSpecialActionIntercept(keyCode: sequence.keyCode, buttons: buttons, logType: .sequence) { continue }
+			if sequence.keyCode == nil, state.lock.withLock({ state.isLocked }) { continue }
+			mappingExecutor.executeAction(sequence, for: buttons, profile: profile, logType: .sequence)
+			playActionHaptic(style: sequence.hapticStyle)
+		}
+	}
 
     nonisolated private func advanceSequenceTracking(_ button: ControllerButton) {
         let now = CFAbsoluteTimeGetCurrent()
@@ -2271,6 +2308,7 @@ class MappingEngine: ObservableObject {
 				releaseAllModifiers: true
 			)
 			state.resetTransientInputState(consumingPendingButtonReleases: true)
+			state.sequenceDetector.released.reset(initiallyHeld: [])
 			let hadRemotePresses = !state.remoteRoutedButtons.isEmpty
 			state.remoteRoutedButtons.removeAll()
 			return (cleanup, hadRemotePresses)

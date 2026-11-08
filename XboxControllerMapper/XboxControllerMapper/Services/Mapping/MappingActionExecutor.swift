@@ -84,7 +84,8 @@ struct MappingExecutor {
             pressType: pressType
         )
         let outcome = command.executeWithOutcome()
-        inputLogService?.log(buttons: buttons, type: logType, action: outcome.feedback)
+		inputLogService?.log(buttons: buttons, type: logType, action: outcome.feedback,
+			sequenceSteps: (action as? SequenceMapping)?.inputSteps)
 
         // Record button/action type stats
         if buttons.count > 1 {

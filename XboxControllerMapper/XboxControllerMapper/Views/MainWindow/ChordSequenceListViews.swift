@@ -163,7 +163,7 @@ struct SequenceListView: View {
 
     var body: some View {
         List {
-			ForEach(ControllerMappingGroups.sections(of: sequences, descriptor: groupingDescriptor, buttons: { Set($0.steps) })) { group in
+			ForEach(ControllerMappingGroups.sections(of: sequences, descriptor: groupingDescriptor, buttons: { $0.allButtons })) { group in
 				Section {
 					if group.items.isEmpty { Text("No compatible sequences yet").foregroundStyle(.secondary).italic() }
 					ForEach(group.items) { sequence in
@@ -204,8 +204,8 @@ struct SequenceRow: View {
     @EnvironmentObject var profileManager: ProfileManager
 
 	private var triggerLabel: String {
-		(sequence.steps).map { $0.displayName(forDualSense: isDualSense, forNintendo: isNintendo,
-			forAppleTVRemote: isAppleTVRemote, forEightBitDo: isEightBitDo, forWiimote: isWiimote) }
+		sequence.inputSteps.map { $0.label { $0.displayName(forDualSense: isDualSense, forNintendo: isNintendo,
+			forAppleTVRemote: isAppleTVRemote, forEightBitDo: isEightBitDo, forWiimote: isWiimote) } }
 			.joined(separator: " → ")
 	}
 
@@ -220,17 +220,7 @@ struct SequenceRow: View {
 
             // Tappable content area
             HStack {
-                HStack(spacing: 4) {
-                    ForEach(Array(sequence.steps.enumerated()), id: \.offset) { index, button in
-                        if index > 0 {
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 9))
-                                .foregroundColor(.white.opacity(0.3))
-                                .accessibilityHidden(true)
-                        }
-							ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote, isEightBitDo: isEightBitDo, isWiimote: isWiimote)
-                    }
-                }
+				Text(triggerLabel).font(.system(size: 12, weight: .medium)).fixedSize(horizontal: false, vertical: true)
 
                 Image(systemName: "arrow.right")
                     .font(.caption2)

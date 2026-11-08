@@ -171,6 +171,7 @@ final class ControllerStorage: @unchecked Sendable {
 
     // Typed event boundary consumed by MappingEngine.
     var onInputEvent: TimedControllerInputHandler?
+	var timedPhysicalButtonObservers: [UUID: @MainActor (Set<ControllerButton>, TimeInterval) -> Void] = [:]
 	var physicalButtonObservers: [UUID: @MainActor (Set<ControllerButton>) -> Void] = [:]
     /// When true, region-click events only fire while a finger is currently touching
     /// the pad. Default true. Mirrors `JoystickSettings.requireActiveTouchForRegionClick`

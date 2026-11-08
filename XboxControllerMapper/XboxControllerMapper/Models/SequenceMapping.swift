@@ -5,8 +5,16 @@ import CoreGraphics
 struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
     var id: UUID
 
-    /// The ordered list of buttons that must be pressed in sequence
-    var steps: [ControllerButton]
+	/// Authoritative ordered steps. Members of each step are simultaneous.
+	var inputSteps: [SequenceStep]
+	var usesReleaseSteps: Bool
+
+	/// Legacy press-order API. Assigning it deliberately restores press timing.
+	var steps: [ControllerButton] {
+		get { inputSteps.flatMap(\.buttons) }
+		set { inputSteps = newValue.map { SequenceStep([$0]) }; usesReleaseSteps = false }
+	}
+	var allButtons: Set<ControllerButton> { Set(inputSteps.flatMap(\.buttons)) }
 
     /// Maximum time allowed between consecutive button presses (seconds)
     var stepTimeout: TimeInterval
@@ -43,6 +51,7 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
     init(
         id: UUID = UUID(),
         steps: [ControllerButton] = [],
+		chordSteps: [SequenceStep]? = nil,
         stepTimeout: TimeInterval = Config.defaultSequenceStepTimeout,
         keyCode: CGKeyCode? = nil,
         modifiers: ModifierFlags = ModifierFlags(),
@@ -54,7 +63,8 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
         hapticStyle: HapticStyle? = nil
     ) {
         self.id = id
-        self.steps = steps
+		self.inputSteps = chordSteps ?? steps.map { SequenceStep([$0]) }
+		self.usesReleaseSteps = chordSteps != nil
         self.stepTimeout = Self.sanitizedStepTimeout(stepTimeout)
         self.keyCode = keyCode
         self.modifiers = modifiers
@@ -67,13 +77,27 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
     }
 
     private enum CodingKeys: String, CodingKey {
-		case id, steps, stepTimeout, keyCode, modifiers, macroId, scriptId, systemCommand, midiControlChange, hint, hapticStyle
+		case id, steps, stepFormat, stepTimeout, keyCode, modifiers, macroId, scriptId, systemCommand, midiControlChange, hint, hapticStyle
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(.id, default: UUID())
-        steps = try container.decode(.steps, default: [])
+		let format = try container.decodeIfPresent(Int.self, forKey: .stepFormat) ?? 1
+		switch format {
+		case 1:
+			let legacy = try container.decodeIfPresent([ControllerButton].self, forKey: .steps) ?? []
+			inputSteps = legacy.map { SequenceStep([$0]) }
+			usesReleaseSteps = false
+		case 2:
+			inputSteps = try container.decode([SequenceStep].self, forKey: .steps)
+			guard (2...Config.maxSequenceSteps).contains(inputSteps.count) else {
+				throw DecodingError.dataCorruptedError(forKey: .steps, in: container, debugDescription: "Invalid sequence length")
+			}
+			usesReleaseSteps = true
+		default:
+			throw DecodingError.dataCorruptedError(forKey: .stepFormat, in: container, debugDescription: "Unsupported sequence format")
+		}
         stepTimeout = Self.sanitizedStepTimeout(try container.decode(.stepTimeout, default: Config.defaultSequenceStepTimeout))
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
         modifiers = try container.decode(.modifiers, default: ModifierFlags())
@@ -88,7 +112,20 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
-        try container.encode(steps, forKey: .steps)
+		guard inputSteps.allSatisfy({ $0.validationMessage == nil }),
+			usesReleaseSteps || inputSteps.allSatisfy({ $0.buttons.count == 1 }),
+			!usesReleaseSteps || (2...Config.maxSequenceSteps).contains(inputSteps.count) else {
+			throw EncodingError.invalidValue(inputSteps, .init(codingPath: encoder.codingPath,
+				debugDescription: "Invalid sequence steps or timing format"))
+		}
+		if usesReleaseSteps {
+			// Reuse the old key with a different shape: older apps reject this
+			// mapping instead of silently flattening a chord into presses.
+			try container.encode(2, forKey: .stepFormat)
+			try container.encode(inputSteps, forKey: .steps)
+		} else {
+			try container.encode(steps, forKey: .steps)
+		}
         try container.encode(stepTimeout, forKey: .stepTimeout)
         try container.encodeIfPresent(keyCode, forKey: .keyCode)
         try container.encode(modifiers, forKey: .modifiers)
@@ -102,7 +139,7 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
 
     /// Human-readable description of the sequence steps
     var stepsDisplayString: String {
-        steps.map { $0.shortLabel }.joined(separator: " \u{2192} ")
+		inputSteps.map { $0.label { $0.shortLabel } }.joined(separator: " → ")
     }
 
     /// Human-readable description of the mapping action
@@ -158,7 +195,10 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
     }
 
     /// Whether this sequence has enough steps to be valid
-    var isValid: Bool { steps.count >= 2 }
+	var isValid: Bool {
+		inputSteps.count >= 2 && inputSteps.allSatisfy { $0.validationMessage == nil }
+			&& (usesReleaseSteps ? inputSteps.count <= Config.maxSequenceSteps : inputSteps.allSatisfy { $0.buttons.count == 1 })
+	}
 
     // MARK: - Action Conflict Resolution
 

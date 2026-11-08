@@ -52,6 +52,18 @@ final class ControllerMappingGroupingRenderingTests: MappingEngineTestCase {
 			expected: ["BEAMDESK"])
 	}
 
+	func testMixedSequenceEditorAndListRenderPedalChordBoundariesInBothThemes() async throws {
+		profileManager.setControllerPreviewLayout(.footPedal)
+		let sequence = SequenceMapping(chordSteps: [SequenceStep([.footPedalLeft, .footPedalRight]), SequenceStep([.footPedalMiddle])], keyCode: 12)
+		profileManager.addSequence(sequence)
+		for scheme in [ColorScheme.light, .dark] {
+			try await render(SequenceMappingSheet(editingSequence: sequence), scheme: scheme,
+				name: "mixed-sequence-editor", expected: ["Left Pedal + Right Pedal", "Middle Pedal", "Try Sequence"])
+			try await render(SequencesTab(showingSequenceSheet: .constant(false), editingSequence: .constant(nil)), scheme: scheme,
+				name: "mixed-sequence-list", expected: ["Left Pedal + Right Pedal"])
+		}
+	}
+
 	private func render<Content: View>(_ content: Content, scheme: ColorScheme, name: String, expected: [String], afterMount: (() -> Void)? = nil) async throws {
 		let size = CGSize(width: 900, height: 760)
 		let host = NSHostingView(rootView: content

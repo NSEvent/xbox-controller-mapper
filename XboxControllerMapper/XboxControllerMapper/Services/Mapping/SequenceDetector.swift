@@ -31,13 +31,17 @@ final class SequenceDetector: GestureDetecting {
 
     /// The configured sequence mappings to detect.
     private var sequences: [SequenceMapping] = []
+	let released = ReleasedSequenceDetector()
+	private(set) var resetTime = CFAbsoluteTimeGetCurrent()
 
     /// Additional time tolerance added to each step timeout (accounts for chord detection window).
     var chordWindowTolerance: TimeInterval = 0
 
     /// Configure the detector with the available sequence mappings.
     func configure(sequences: [SequenceMapping]) {
-        self.sequences = sequences
+		self.sequences = sequences.filter { !$0.usesReleaseSteps }
+		released.configure(sequences)
+		resetTime = CFAbsoluteTimeGetCurrent()
         activeSequences.removeAll()
     }
 
@@ -88,6 +92,8 @@ final class SequenceDetector: GestureDetecting {
 
     /// Reset all tracking state.
     func reset() {
+		released.reset()
+		resetTime = CFAbsoluteTimeGetCurrent()
         activeSequences.removeAll()
     }
 
