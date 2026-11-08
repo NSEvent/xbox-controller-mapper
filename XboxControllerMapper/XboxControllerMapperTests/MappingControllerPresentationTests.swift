@@ -28,7 +28,7 @@ final class MappingControllerPresentationTests: XCTestCase {
 		try await super.tearDown()
 	}
 
-	func testAllChordAndSequenceSurfacesUseMappingPresentation() {
+	func testAllMappingSurfacesUseMappingPresentation() {
 		// Compile-time guard: a surface reverting to the hardware-only protocol
 		// must also deliberately change this regression test.
 		func requireMappingPresentation<T: MappingControllerTypeProviding>(_: T.Type) {}
@@ -36,6 +36,11 @@ final class MappingControllerPresentationTests: XCTestCase {
 		requireMappingPresentation(SequenceMappingSheet.self)
 		requireMappingPresentation(ChordsTab.self)
 		requireMappingPresentation(SequencesTab.self)
+		requireMappingPresentation(AddLayerSheet.self)
+		requireMappingPresentation(EditLayerSheet.self)
+		requireMappingPresentation(LayerTabBar.self)
+		requireMappingPresentation(ActiveChordsView.self)
+		requireMappingPresentation(ActiveSequencesView.self)
 	}
 
 	func testEveryExplicitPreviewWinsOverXboxHardwareConnectedOrDisconnected() {

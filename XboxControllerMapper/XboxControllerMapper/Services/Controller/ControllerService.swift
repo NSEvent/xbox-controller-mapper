@@ -118,6 +118,7 @@ final class ControllerStorage: @unchecked Sendable {
     // Button State
     var activeButtons: Set<ControllerButton> = []
 	let previewActivity = PassthroughSubject<ControllerPreviewLayout, Never>()
+	var latestPreviewActivity: (layout: ControllerPreviewLayout, time: TimeInterval)?
     var buttonPressTimestamps: [ControllerButton: Date] = [:]
     var lastMicButtonState: Bool = false
     var lastPSButtonState: Bool = false
@@ -1250,6 +1251,7 @@ class ControllerService: ObservableObject {
         // storage flags like isDualSense/isXboxElite. MappingEngine reacts to this publisher.
         isConnected = true
         reportControllerConnectionForTelemetry()
+		if reason == "connect" || reason == "startup" { recordCurrentControllerConnectionPreview() }
 
         // Force SwiftUI to re-read computed properties (threadSafeIsXboxElite, etc.)
         // that depend on storage flags set during setupInputHandlers.
@@ -1459,7 +1461,8 @@ class ControllerService: ObservableObject {
 				releaseOuraRingButtons()
 			}
 		}
-    }
+		if connected { recordPreviewActivity(.ouraRing) }
+	}
 
 	/// Beamdesk announces its link over the same distributed-notification
 	/// channel as gestures; this mirrors the Oura ring's virtual-controller
@@ -1482,6 +1485,7 @@ class ControllerService: ObservableObject {
 				stopDisplayUpdateTimer()
 			}
 		}
+		if connected { recordPreviewActivity(.beamdeskHands) }
 	}
 
 	/// The S29 ring is a real HID device, but like the Oura ring it is an
@@ -1504,6 +1508,7 @@ class ControllerService: ObservableObject {
 			stopDisplayUpdateTimer()
 			publishVirtualInputSourceIfNeeded()
 		}
+		if connected { recordPreviewActivity(.s29Ring) }
 	}
 
 	/// Same auxiliary-input contract as the S29 ring: pedal presses always
@@ -1527,6 +1532,7 @@ class ControllerService: ObservableObject {
 			stopDisplayUpdateTimer()
 			publishVirtualInputSourceIfNeeded()
 		}
+		if connected { recordPreviewActivity(.footPedal) }
 	}
 
 	func setXiaomiRemoteConnected(_ connected: Bool, identity: ControllerIdentity? = nil) {
@@ -1543,6 +1549,7 @@ class ControllerService: ObservableObject {
 			stopDisplayUpdateTimer()
 			publishVirtualInputSourceIfNeeded()
 		}
+		if connected { recordPreviewActivity(.xiaomiRemote) }
 	}
 
 	/// A physical controller holds the display slot, so auxiliary inputs must
@@ -1587,6 +1594,7 @@ class ControllerService: ObservableObject {
 			stopDisplayUpdateTimer()
 			publishVirtualInputSourceIfNeeded()
 		} else { preSteamDeckType = nil }
+		if connected { recordPreviewActivity(.steam) }
 	}
 	private func publishSteamDeckConnection() {
 		guard canAcceptSteamDeckInput else { return }
@@ -1632,6 +1640,7 @@ class ControllerService: ObservableObject {
 			stopDisplayUpdateTimer()
 			publishVirtualInputSourceIfNeeded()
 		}
+		if connected { recordPreviewActivity(.xbox) }
 	}
 
 	private func publishBeamdeskGamepadConnection() {
@@ -2884,7 +2893,7 @@ class ControllerService: ObservableObject {
 		) {
 			// Queue under the lock to preserve accepted press order; subscribers
 			// run later on main, outside the input lock and without coalescing.
-			DispatchQueue.main.async { [weak self] in self?.storage.previewActivity.send(layout) }
+			DispatchQueue.main.async { [weak self] in self?.recordPreviewActivity(layout, at: pressedAt) }
 		}
 
         storage.activeButtons.insert(button)

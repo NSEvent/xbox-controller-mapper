@@ -2,42 +2,23 @@ import SwiftUI
 
 // MARK: - Add Layer Sheet
 
-struct AddLayerSheet: View {
+struct AddLayerSheet: View, MappingControllerTypeProviding {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var controllerService: ControllerService
     @Environment(\.dismiss) private var dismiss
 
     @State private var layerName: String = ""
-    @State private var selectedActivator: ControllerButton? = .leftBumper
+    @State private var selectedActivator: ControllerButton? = nil
     @State private var activationStyle: LayerActivationStyle = .hold
     @State private var ledColor: Color = .blue
-
-    private var controllerPresentationState: ControllerPresentationState {
-		controllerService.threadSafeControllerPresentationState
-    }
 
     /// Buttons that are already used as layer activators
     private var usedActivators: Set<ControllerButton> {
         Set(profileManager.activeProfile?.layers.compactMap { $0.activatorButton } ?? [])
     }
 
-    /// Available activator buttons (exclude already-used ones)
     private var availableButtons: [ControllerButton] {
-		// Good candidates for layer activators: bumpers, triggers, share, view, menu
-		var candidates: [ControllerButton] = [
-			.leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
-			.share, .view, .menu, .xbox,
-			.leftThumbstick, .rightThumbstick
-		]
-		let presentationState = controllerPresentationState
-		if presentationState.isAppleTVRemote {
-			candidates = [.view, .menu, .xbox, .siri]
-		}
-		// Add Edge-specific buttons when Edge controller is connected
-		if presentationState.isDualSenseEdge {
-			candidates.append(contentsOf: [.leftFunction, .rightFunction, .leftPaddle, .rightPaddle])
-        }
-        return candidates.filter { !usedActivators.contains($0) }
+		LayerActivatorOptions.buttons(for: controllerPresentationState, excluding: usedActivators)
     }
 
     var body: some View {
@@ -61,19 +42,8 @@ struct AddLayerSheet: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
-                    Picker("Activator", selection: $selectedActivator) {
-						Text("None (assign later)").tag(nil as ControllerButton?)
-						ForEach(availableButtons, id: \.self) { button in
-							Text(button.displayName(
-								forDualSense: presentationState.isPlayStation,
-								forNintendo: presentationState.isNintendo,
-								forAppleTVRemote: presentationState.isAppleTVRemote,
-								forEightBitDo: presentationState.eightBitDoModel != nil
-							))
-							.tag(button as ControllerButton?)
-						}
-                    }
-                    .pickerStyle(.menu)
+					LayerActivatorPicker(selection: $selectedActivator, descriptor: presentationState,
+						used: usedActivators)
                 }
 
 				VStack(alignment: .leading, spacing: 4) {
@@ -141,9 +111,7 @@ struct AddLayerSheet: View {
         .frame(width: 350)
         .onAppear {
             // Select first available activator
-            if let first = availableButtons.first {
-                selectedActivator = first
-            }
+			selectedActivator = availableButtons.first
             // Pre-fill color picker with the next distinct palette color
             // (matches what createLayer would auto-assign)
             let existingLayers = profileManager.activeProfile?.layers ?? []
@@ -154,7 +122,7 @@ struct AddLayerSheet: View {
 
 // MARK: - Edit Layer Sheet
 
-struct EditLayerSheet: View {
+struct EditLayerSheet: View, MappingControllerTypeProviding {
     let layer: Layer
 
     @EnvironmentObject var profileManager: ProfileManager
@@ -162,38 +130,16 @@ struct EditLayerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var layerName: String = ""
-    @State private var selectedActivator: ControllerButton? = .leftBumper
+    @State private var selectedActivator: ControllerButton? = nil
     @State private var activationStyle: LayerActivationStyle = .hold
 	@State private var enableLayerLEDOverride: Bool = false
 	@State private var ledColor: Color = .blue
-
-    private var controllerPresentationState: ControllerPresentationState {
-		controllerService.threadSafeControllerPresentationState
-    }
 
     /// Buttons that are already used as layer activators (excluding current layer)
     private var usedActivators: Set<ControllerButton> {
         Set(profileManager.activeProfile?.layers
             .filter { $0.id != layer.id }
             .compactMap { $0.activatorButton } ?? [])
-    }
-
-    /// Available activator buttons (exclude already-used ones, but include current)
-    private var availableButtons: [ControllerButton] {
-		var candidates: [ControllerButton] = [
-			.leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
-			.share, .view, .menu, .xbox,
-			.leftThumbstick, .rightThumbstick
-		]
-		let presentationState = controllerPresentationState
-		if presentationState.isAppleTVRemote {
-			candidates = [.view, .menu, .xbox, .siri]
-		}
-		// Add Edge-specific buttons when Edge controller is connected
-		if presentationState.isDualSenseEdge {
-			candidates.append(contentsOf: [.leftFunction, .rightFunction, .leftPaddle, .rightPaddle])
-        }
-        return candidates.filter { !usedActivators.contains($0) }
     }
 
     var body: some View {
@@ -217,19 +163,8 @@ struct EditLayerSheet: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
-                    Picker("Activator", selection: $selectedActivator) {
-						Text("None (assign later)").tag(nil as ControllerButton?)
-						ForEach(availableButtons, id: \.self) { button in
-							Text(button.displayName(
-								forDualSense: presentationState.isPlayStation,
-								forNintendo: presentationState.isNintendo,
-								forAppleTVRemote: presentationState.isAppleTVRemote,
-								forEightBitDo: presentationState.eightBitDoModel != nil
-							))
-							.tag(button as ControllerButton?)
-						}
-                    }
-                    .pickerStyle(.menu)
+					LayerActivatorPicker(selection: $selectedActivator, descriptor: presentationState,
+						used: usedActivators, existing: layer.activatorButton)
                 }
 
 				VStack(alignment: .leading, spacing: 4) {

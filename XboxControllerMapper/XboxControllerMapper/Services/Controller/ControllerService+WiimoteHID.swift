@@ -334,6 +334,7 @@ extension ControllerService {
 
         isConnected = true
         reportControllerConnectionForTelemetry(fallback: .nintendo)
+		recordCurrentControllerConnectionPreview()
 
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)

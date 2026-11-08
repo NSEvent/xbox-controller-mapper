@@ -1,14 +1,10 @@
 import SwiftUI
 
 /// Displays the active chord mappings in a flow layout at the bottom of the controller tab.
-struct ActiveChordsView: View {
+struct ActiveChordsView: View, MappingControllerTypeProviding {
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
     @Binding var editingChord: ChordMapping?
-
-    private var controllerPresentationState: ControllerPresentationState {
-		controllerService.threadSafeControllerPresentationState
-    }
 
     var body: some View {
 		let presentationState = controllerPresentationState

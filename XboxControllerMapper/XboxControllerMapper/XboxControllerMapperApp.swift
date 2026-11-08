@@ -112,6 +112,7 @@ final class ServiceContainer {
         )
         let appMonitor = AppMonitor()
         let profileManager = ProfileManager(appMonitor: appMonitor)
+		profileManager.bindControllerPreview(to: controllerService)
         let inputMonitor = InputMonitor()
         let inputLogService = InputLogService()
         let usageStatsService = UsageStatsService()

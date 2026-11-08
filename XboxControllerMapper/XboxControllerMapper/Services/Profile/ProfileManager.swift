@@ -96,6 +96,7 @@ class ProfileManager: ObservableObject {
 	private(set) var lastActiveProfileId: UUID?
     
     private var cancellables = Set<AnyCancellable>()
+	var controllerPreviewSubscription: AnyCancellable?
 
     init(
         appMonitor: AppMonitor? = nil,

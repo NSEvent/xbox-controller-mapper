@@ -191,6 +191,7 @@ extension ControllerService {
         }
 		controllerMappingSource = mapping.platform == "Mac OS X" ? nil : "SDL \(mapping.platform) fallback"
         reportControllerConnectionForTelemetry(fallback: .generic)
+		recordCurrentControllerConnectionPreview()
         startDisplayUpdateTimer()
 
         #if DEBUG

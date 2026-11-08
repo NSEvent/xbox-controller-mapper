@@ -912,6 +912,7 @@ extension ControllerService {
 		isGenericController = false
 		isConnected = true
 		reportControllerConnectionForTelemetry(fallback: .appleTVRemote)
+		recordCurrentControllerConnectionPreview()
 		batteryMonitor.allowsSerialNamedPeripherals = true
 		batteryMonitor.refreshBatteryLevel()
 		updateBatteryInfo()

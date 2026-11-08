@@ -601,9 +601,6 @@ struct ContentView: View {
 		.onChange(of: showingReviewRequest) { _, isShowing in
 			if !isShowing { scheduleConfigurationOverviewIntroduction() }
 		}
-		.onReceive(controllerService.previewActivity) { layout in
-			profileManager.setControllerPreviewLayout(layout)
-		}
 		.onChange(of: controllerPresentationState) { _, _ in
 			selectFirstVisibleTabIfNeeded()
 		}

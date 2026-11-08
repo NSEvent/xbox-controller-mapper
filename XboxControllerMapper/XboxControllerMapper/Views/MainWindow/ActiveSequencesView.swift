@@ -1,14 +1,10 @@
 import SwiftUI
 
 /// Displays the active sequence mappings in a flow layout at the bottom of the controller tab.
-struct ActiveSequencesView: View {
+struct ActiveSequencesView: View, MappingControllerTypeProviding {
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
     @Binding var editingSequence: SequenceMapping?
-
-    private var controllerPresentationState: ControllerPresentationState {
-		controllerService.threadSafeControllerPresentationState
-    }
 
     var body: some View {
 		let presentationState = controllerPresentationState

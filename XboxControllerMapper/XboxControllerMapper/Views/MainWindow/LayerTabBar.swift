@@ -16,7 +16,7 @@ private struct LayerAppSheetSelection: Identifiable {
 
 /// Tab bar for switching between base layer and custom layers, with swap mode
 /// and overlay toggles.
-struct LayerTabBar: View {
+struct LayerTabBar: View, MappingControllerTypeProviding {
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
 
@@ -52,10 +52,6 @@ struct LayerTabBar: View {
 
     /// True once measured and the bar is too narrow for full text labels.
     private var compact: Bool { barWidth > 1 && barWidth < compactThreshold }
-
-    private var controllerPresentationState: ControllerPresentationState {
-		controllerService.threadSafeControllerPresentationState
-    }
 
     /// Returns the layer's configured LED color, or a fallback purple if none is set.
     private func layerBadgeColor(_ layer: Layer) -> Color {
