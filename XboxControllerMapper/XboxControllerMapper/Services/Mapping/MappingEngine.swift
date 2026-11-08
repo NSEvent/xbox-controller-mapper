@@ -905,6 +905,8 @@ class MappingEngine: ObservableObject {
 			}
             return
         }
+		// A peer press whose release never arrived must not claim this local press's release.
+		state.lock.withLock { _ = state.remoteRoutedButtons.remove(button) }
 		let button = beginPhysicalButtonResolution(for: button)
 
         // If a region mapping (or other special action) consumed this press,
@@ -1904,9 +1906,12 @@ class MappingEngine: ObservableObject {
     nonisolated private func handleChord(_ buttons: Set<ControllerButton>) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
 		if UniversalControlMouseRelay.shared.shouldRouteControllerInputToRemote {
-            _ = UniversalControlMouseRelay.shared.sendControllerChord(buttons)
+            if UniversalControlMouseRelay.shared.sendControllerChord(buttons) {
+				state.lock.withLock { state.remoteRoutedButtons.formUnion(buttons) }
+			}
             return
         }
+		state.lock.withLock { state.remoteRoutedButtons.subtract(buttons) }
 		let buttons = beginPhysicalButtonResolutions(for: buttons)
 
 		guard let startState = state.lock.withLock({ () -> ChordStartState? in
@@ -2247,16 +2252,20 @@ class MappingEngine: ObservableObject {
 	}
 
 	nonisolated private func resetControllerInputState() {
-		let cleanup = state.lock.withLock {
+		let (cleanup, hadRemotePresses) = state.lock.withLock {
 			state.inputMuteGate.resetForDisconnect()
 			let cleanup = RoutingBoundaryCleanup(
 				state: state,
 				releaseAllModifiers: true
 			)
 			state.resetTransientInputState(consumingPendingButtonReleases: true)
-			return cleanup
+			let hadRemotePresses = !state.remoteRoutedButtons.isEmpty
+			state.remoteRoutedButtons.removeAll()
+			return (cleanup, hadRemotePresses)
         }
 
+		// Their releases won't arrive, so let the peer drop them.
+		if hadRemotePresses { _ = UniversalControlMouseRelay.shared.sendControllerInputReset() }
 		performRoutingBoundaryCleanup(cleanup)
 		DispatchQueue.main.async { [weak self] in
 			self?.syncActiveManualLayerId()
