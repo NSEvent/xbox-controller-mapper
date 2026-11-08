@@ -687,9 +687,12 @@ struct ButtonMappingsTab: View {
 	}
 
 	private func remoteBindingButton(for button: ControllerButton) -> ControllerButton {
-		let descriptor = ControllerVisualDescriptor.resolved(previewLayout: controllerPreviewLayout, using: controllerService)
-		guard descriptor.isXiaomiRemote || descriptor.isAppleTVRemote else { return button }
-		return RemoteButtonEquivalence.bindingButton(for: button, profile: profileManager.activeProfile, layerId: selectedLayerId)
+		ButtonSwapSelection.bindingButton(
+			for: button,
+			descriptor: ControllerVisualDescriptor.resolved(previewLayout: controllerPreviewLayout, using: controllerService),
+			profile: profileManager.activeProfile,
+			layerId: selectedLayerId
+		)
 	}
 
 	private func layerToOpen(for button: ControllerButton) -> Layer? {

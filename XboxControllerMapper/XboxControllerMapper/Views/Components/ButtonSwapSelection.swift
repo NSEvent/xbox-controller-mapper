@@ -19,6 +19,19 @@ enum ButtonSwapSelection {
 		return (firstButton, button)
 	}
 
+	/// On remotes, several physical buttons share one binding; swaps act on
+	/// the binding button.
+	@MainActor
+	static func bindingButton(
+		for button: ControllerButton,
+		descriptor: ControllerVisualDescriptor,
+		profile: Profile?,
+		layerId: UUID?
+	) -> ControllerButton {
+		guard descriptor.isXiaomiRemote || descriptor.isAppleTVRemote else { return button }
+		return RemoteButtonEquivalence.bindingButton(for: button, profile: profile, layerId: layerId)
+	}
+
 	@MainActor
 	static func apply(_ pair: (ControllerButton, ControllerButton), layerId: UUID?, profileManager: ProfileManager) {
 		if let layerId {

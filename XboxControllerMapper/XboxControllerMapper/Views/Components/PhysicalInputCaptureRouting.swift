@@ -8,6 +8,7 @@ struct PhysicalInputCaptureRouting: ViewModifier {
 	@Binding var isSwapMode: Bool
 	@Binding var swapFirstButton: ControllerButton?
 	let profileManager: ProfileManager
+	let swapDescriptor: ControllerVisualDescriptor
 	var selectedLayerId: UUID?
 	var selectedTab: Int
 
@@ -17,9 +18,14 @@ struct PhysicalInputCaptureRouting: ViewModifier {
 				guard let button = buttons?.first else { return }
 				// An armed swap takes the press as its next pick, like a click would.
 				if isSwapMode {
-					if let pair = ButtonSwapSelection.pick(button, first: &swapFirstButton, isSwapMode: &isSwapMode) {
+					let binding = ButtonSwapSelection.bindingButton(
+						for: button, descriptor: swapDescriptor,
+						profile: profileManager.activeProfile, layerId: selectedLayerId)
+					if let pair = ButtonSwapSelection.pick(binding, first: &swapFirstButton, isSwapMode: &isSwapMode) {
 						ButtonSwapSelection.apply(pair, layerId: selectedLayerId, profileManager: profileManager)
 					}
+					// No editor opens to end the capture, and an open capture keeps mapped output paused.
+					session.cancel()
 					return
 				}
 				selectedButton = button
