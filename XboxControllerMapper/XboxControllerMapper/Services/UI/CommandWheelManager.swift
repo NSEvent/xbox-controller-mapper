@@ -547,11 +547,7 @@ class CommandWheelManager: ObservableObject {
         case let id where id.contains("com.apple.Safari"):
             // Safari: use AppleScript to open a private window
             // Escape quotes and newlines to prevent AppleScript injection
-            let escapedURL = urlStr
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "\"", with: "\\\"")
-                .replacingOccurrences(of: "\n", with: "\\n")
-                .replacingOccurrences(of: "\r", with: "\\r")
+            let escapedURL = AppleScriptEscaping.escapeForString(urlStr)
             let script = """
             tell application "Safari"
                 activate
