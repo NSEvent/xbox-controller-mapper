@@ -298,6 +298,7 @@ struct ContentView: View {
 				  configuringButton: $configuringButton, isSwapMode: $isSwapMode, swapFirstButton: $swapFirstButton,
 				  profileManager: profileManager, swapDescriptor: controllerVisualDescriptor,
 				  selectedLayerId: selectedLayerId, selectedTab: selectedTab))
+		.modifier(RuntimeLayerSelectionModifier(mappingEngine: mappingEngine, selectedLayerId: $selectedLayerId))
         .isolatedSheet(isPresented: $showingChordSheet) {
             ChordMappingSheet()
         }
