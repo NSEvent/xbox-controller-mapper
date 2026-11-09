@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.1] - 2026-11-08
+
 ### Added
 
-- **Chords inside sequences**: in **Map → Sequences**, each step can be one button or a chord. Record the whole sequence, or select buttons together and add each step manually; edit, duplicate, and reorder steps afterward. Recording uses a separate draft with Undo, Retry Step, and Cancel. **Try Sequence** checks your input without running actions. New sequences require a full release between steps; existing sequences keep their press-based timing until you add a chord or accept a recording.
+- **Chords inside sequences**: in **Map → Sequences**, each step can be one button or a chord. Record the whole sequence, or select buttons together and add each step manually; edit, duplicate, and reorder steps afterward. Recording uses a separate draft with Undo, Retry Step, and Cancel. **Try Sequence** checks your input without running actions. New sequences require a full release between steps; existing sequences keep their press-based timing until you add a chord or accept a recording. Mixed sequences currently use local controller input; Universal Control peer support requires a future update. Profiles containing the new sequence format require this version or later.
 - **VEC Infinity USB foot pedal support**: map the left, middle, and right pedals, with a dedicated Buttons preview and pedal controls in chord, sequence, and layer editors.
 
 ### Changed
@@ -20,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **AppleScript string handling**: terminal commands and Command Wheel links opened in Safari private windows now share consistent escaping, including tabs.
 - **Simultaneous controllers**: pedal, remote, Wii Remote, and forwarded gamepad input keeps its device identity instead of borrowing the primary controller's labels. Changing the displayed controller no longer releases held modifiers or resets sequence progress. Xiaomi TV-key events display as TV in the timeline.
 - **Mapping editors and layers**: held and toggled layers show their mappings in Buttons again. Physical capture can complete a button swap and resumes mapped output afterward. Editors close safely when their profile changes, rather than saving a draft into another profile. Hover Copy/Paste controls no longer cover mapping labels.
 - **Configuration recovery**: an unreadable configuration is preserved instead of being replaced by a bootstrap profile, including during automatic controller selection. Fresh installations save their default profile, and backup-name collisions no longer discard an earlier backup.
