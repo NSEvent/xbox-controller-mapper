@@ -66,3 +66,6 @@
 ## 2026-06-06 - Ensure Symmetry in Accessibility and Tooltips for SwiftUI Icon Buttons
 **Learning:** In macOS SwiftUI applications, icon-only buttons often have either `.help()` (for hover tooltips) or `.accessibilityLabel()` (for VoiceOver), but frequently lack both. Both are necessary because they serve different user interaction models—`.help` for visual hover feedback and `.accessibilityLabel` for screen readers.
 **Action:** When adding or reviewing icon-only buttons in SwiftUI, always ensure symmetry by defining both `.help("Description")` and `.accessibilityLabel("Description")` to cover all accessibility and usability vectors.
+## 2024-05-18 - Avoid Generic "Edit/Delete App" VoiceOver Strings
+**Learning:** In list or loop views (like the on-screen keyboard settings), icon-only action buttons shouldn't use generic accessibility labels or tooltips (e.g. "Edit app"). Interpolating the current item's display name makes VoiceOver significantly clearer to the user and avoids repetition.
+**Action:** Always interpolate `item.displayName` or `item.text` into the `.help()` and `.accessibilityLabel()` modifiers for icon buttons that operate on elements of a list view.
