@@ -140,7 +140,7 @@ echo "GitHub release created: $TAG (DMG attached for Sparkle auto-update, plus s
 echo ""
 echo "=== Publishing appcast ==="
 git add appcast.xml
-git commit -m "chore: update Sparkle appcast for ${MARKETING_VERSION}"
+git commit -m "📦 Update Sparkle appcast for ${MARKETING_VERSION}"
 git push origin "$BRANCH"
 echo "Pushed appcast.xml to $BRANCH"
 
@@ -157,7 +157,7 @@ if [[ -f "$TAP_CASK" ]]; then
         -e "s/^  sha256 \".*\"/  sha256 \"${DMG_SHA}\"/" \
         "$TAP_CASK"
     git -C "$HOME/projects/homebrew-tap" add Casks/controllerkeys.rb
-    git -C "$HOME/projects/homebrew-tap" commit -m "controllerkeys ${MARKETING_VERSION}"
+    git -C "$HOME/projects/homebrew-tap" commit -m "🍺 Update ControllerKeys to ${MARKETING_VERSION}"
     git -C "$HOME/projects/homebrew-tap" push origin main
     echo "Tap cask updated to ${MARKETING_VERSION} (sha256 ${DMG_SHA})"
 fi
