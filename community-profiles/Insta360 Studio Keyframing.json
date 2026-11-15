@@ -1,0 +1,320 @@
+{
+  "appLayerBindings": {},
+  "buttonMappings": {
+    "a": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": false,
+      "keyCode": 49,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "b": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": false,
+      "keyCode": 41,
+      "modifiers": {
+        "command": true,
+        "commandSide": "left",
+        "control": false,
+        "option": false,
+        "shift": true,
+        "shiftSide": "left"
+      }
+    },
+    "leftBumper": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": true,
+      "keyCode": 61440,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "leftTrigger": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": false,
+      "keyCode": 61444,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "scrollActionSettings": {
+        "acceleration": 0.5,
+        "speed": 0.5
+      }
+    },
+    "rightBumper": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": false,
+      "keyCode": 6,
+      "modifiers": {
+        "command": true,
+        "commandSide": "left",
+        "control": false,
+        "option": false,
+        "shift": true,
+        "shiftSide": "left"
+      }
+    },
+    "rightThumbstick": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": true,
+      "keyCode": 61440,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "rightTouchpadButton": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": true,
+      "keyCode": 61440,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "rightTouchpadTap": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": true,
+      "keyCode": 61440,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "rightTrigger": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": false,
+      "keyCode": 49,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "touchpadButton": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": true,
+      "keyCode": 61440,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "touchpadTap": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": true,
+      "keyCode": 61440,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "x": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": false,
+      "keyCode": 40,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "y": {
+      "holdRepeatEnabled": false,
+      "holdRepeatInterval": 0.033,
+      "isHoldModifier": false,
+      "keyCode": 6,
+      "modifiers": {
+        "command": true,
+        "commandSide": "left",
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    }
+  },
+  "chordMappings": [],
+  "commandWheelActions": [],
+  "controllerPreviewLayout": "dualSense",
+  "createdAt": "2026-11-10T01:52:38Z",
+  "dpadPreset": "custom",
+  "dpadPresetWasExplicitlySelected": false,
+  "dualSenseLEDSettings": {
+    "batteryLightBar": false,
+    "lightBarBrightness": "bright",
+    "lightBarColor": {
+      "blue": 1,
+      "green": 0.8197058439254761,
+      "red": 0.7191495895385742
+    },
+    "lightBarEnabled": true,
+    "muteButtonLED": "off",
+    "playerLEDs": {
+      "led1": false,
+      "led2": false,
+      "led3": false,
+      "led4": false,
+      "led5": false
+    }
+  },
+  "gestureMappings": [],
+  "icon": "video.fill",
+  "id": "C7E9A01F-C20A-43AE-A189-7141CA6E76C0",
+  "inputLatencyMode": "realtime",
+  "isDefault": false,
+  "joystickSettings": {
+    "analogPrecisionCurve": 0.35,
+    "analogPrecisionDeadzone": 0.05,
+    "analogPrecisionMinimumSpeed": 0.15,
+    "analogPrecisionTriggerMode": "off",
+    "appleTVRemoteCircularInputMode": "scroll",
+    "appleTVRemoteCircularScrollEnabled": true,
+    "appleTVRemoteCircularScrollSensitivity": 0.5,
+    "disableTouchpadAsMouse": false,
+    "focusModeHapticsEnabled": true,
+    "focusModeModifier": {
+      "command": true,
+      "control": false,
+      "option": false,
+      "shift": false
+    },
+    "focusModeSensitivity": 0.1,
+    "gestureCooldown": 0.5,
+    "gestureSensitivity": 0.5,
+    "gyroActivationMode": "focusModifier",
+    "gyroAimingDeadzone": 0.3,
+    "gyroAimingEnabled": false,
+    "gyroAimingSensitivity": 0.3,
+    "invertMouseY": false,
+    "invertScrollY": false,
+    "leftStick": {
+      "customDeadzone": 0.22,
+      "customDirectionLayout": "fourWay",
+      "customHorizontalSliceSize": 0.75,
+      "customVerticalSliceSize": 0.75,
+      "invertMouseY": false,
+      "invertScrollX": false,
+      "invertScrollY": false,
+      "mode": "mouse",
+      "mouseAcceleration": 0.5,
+      "mouseDeadzone": 0.15,
+      "mouseSensitivity": 0.42236467236467234,
+      "outerRange": 1,
+      "scrollAcceleration": 0.5,
+      "scrollDeadzone": 0.15,
+      "scrollSensitivity": 0.5
+    },
+    "leftStickCustomDeadzone": 0.22,
+    "leftStickCustomHorizontalSliceSize": 0.75,
+    "leftStickCustomVerticalSliceSize": 0.75,
+    "leftStickMode": "mouse",
+    "mouseAcceleration": 0.5,
+    "mouseDeadzone": 0.15,
+    "mouseSensitivity": 0.42236467236467234,
+    "pointerLockMouseMode": "auto",
+    "requireActiveTouchForRegionClick": false,
+    "rightStick": {
+      "customDeadzone": 0.22,
+      "customDirectionLayout": "fourWay",
+      "customHorizontalSliceSize": 0.75,
+      "customVerticalSliceSize": 0.75,
+      "invertMouseY": false,
+      "invertScrollX": false,
+      "invertScrollY": false,
+      "mode": "scroll",
+      "mouseAcceleration": 0.5,
+      "mouseDeadzone": 0.15,
+      "mouseSensitivity": 0.5,
+      "outerRange": 1,
+      "scrollAcceleration": 0.5,
+      "scrollDeadzone": 0.15,
+      "scrollSensitivity": 0.5
+    },
+    "rightStickCustomDeadzone": 0.22,
+    "rightStickCustomHorizontalSliceSize": 0.75,
+    "rightStickCustomVerticalSliceSize": 0.75,
+    "rightStickMode": "scroll",
+    "scrollAcceleration": 0.5,
+    "scrollBoostMultiplier": 2,
+    "scrollDeadzone": 0.15,
+    "scrollSensitivity": 0.5,
+    "touchpadAcceleration": 0.5011192064606742,
+    "touchpadDeadzone": 0.0013147384129213483,
+    "touchpadInvertScrollX": false,
+    "touchpadInvertScrollY": false,
+    "touchpadPanSensitivity": 0.4986064782303371,
+    "touchpadSensitivity": 0.49725684691011235,
+    "touchpadSmoothing": 0.40300649578651687,
+    "touchpadUseNativeZoom": true,
+    "touchpadZoomToPanRatio": 1.9511488325140447
+  },
+  "layers": [],
+  "linkedApps": [],
+  "linkedControllers": [],
+  "macros": [],
+  "modifiedAt": "2026-11-10T01:52:38Z",
+  "name": "Insta360 Studio Keyframing",
+  "onScreenKeyboardSettings": {
+    "activateAllWindows": true,
+    "appBarItems": [],
+    "defaultTerminalApp": "Terminal",
+    "quickTexts": [],
+    "showExtendedFunctionKeys": false,
+    "swipeTypingEnabled": false,
+    "swipeTypingPredictionCount": 5,
+    "swipeTypingSensitivity": 0.5,
+    "toggleShortcutModifiers": {
+      "command": false,
+      "control": false,
+      "option": false,
+      "shift": false
+    },
+    "typingDelay": 0.03,
+    "websiteLinks": [],
+    "wheelAlternateModifiers": {
+      "command": false,
+      "control": false,
+      "option": false,
+      "shift": false
+    },
+    "wheelShowsWebsites": false
+  },
+  "scripts": [],
+  "sequenceMappings": [],
+  "touchpadInputMode": "wholePad",
+  "touchpadRegionMappings": []
+}
